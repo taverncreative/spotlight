@@ -1,0 +1,181 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --shadow-soft:
+    0 1px 2px 0 oklch(0.2 0.02 260 / 0.04),
+    0 2px 6px -1px oklch(0.2 0.02 260 / 0.06);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root,
+.q-light {
+  /* The brand accent, used sparingly. A workspace overrides --brand via the
+     app shell (organisations.brand_color); everything accent-coloured reads it
+     through --primary and --ring, so one value re-themes the lot. Defined here
+     only so it inherits unchanged into dark mode and onto pages with no
+     workspace (login). See lib/brand.ts.
+
+     The .q-light selector re-declares this whole light token set on a subtree,
+     so the public quote page renders as a light document even when the app's
+     dark default (or a dark theme cookie) puts .dark on <html>. It is shared
+     with :root, not duplicated, so the two can never drift. The public page and
+     its portalled dialog carry the .q-light class; see app/q/layout.tsx. */
+  --brand: #5b5bd6;
+  --brand-foreground: oklch(0.99 0 0);
+
+  /* Light theme: a soft, faintly cool neutral canvas (not stark white), white
+     cards that lift off it, low-contrast borders and text that is readable
+     without being harsh. */
+  --background: oklch(0.985 0.002 255);
+  --foreground: oklch(0.21 0.012 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.012 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.012 260);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+  --secondary: oklch(0.968 0.003 255);
+  --secondary-foreground: oklch(0.25 0.012 260);
+  --muted: oklch(0.968 0.003 255);
+  --muted-foreground: oklch(0.52 0.012 258);
+  --accent: oklch(0.962 0.004 255);
+  --accent-foreground: oklch(0.25 0.012 260);
+  --destructive: oklch(0.585 0.2 25);
+  --border: oklch(0.92 0.004 255);
+  --input: oklch(0.91 0.004 255);
+  --ring: var(--brand);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.992 0.002 255);
+  --sidebar-foreground: oklch(0.21 0.012 260);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: oklch(0.962 0.004 255);
+  --sidebar-accent-foreground: oklch(0.25 0.012 260);
+  --sidebar-border: oklch(0.92 0.004 255);
+  --sidebar-ring: var(--brand);
+}
+
+.dark {
+  /* Dark theme (the default): a soft dark slate canvas (not stark black),
+     cards a touch lighter so they lift, hairline borders and near-white text
+     that is easy on the eyes. --brand and --brand-foreground inherit from
+     :root, so the one accent value serves both themes. */
+  --background: oklch(0.185 0.006 260);
+  --foreground: oklch(0.955 0.003 255);
+  --card: oklch(0.214 0.007 260);
+  --card-foreground: oklch(0.955 0.003 255);
+  --popover: oklch(0.214 0.007 260);
+  --popover-foreground: oklch(0.955 0.003 255);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+  --secondary: oklch(0.27 0.008 260);
+  --secondary-foreground: oklch(0.955 0.003 255);
+  --muted: oklch(0.27 0.008 260);
+  --muted-foreground: oklch(0.7 0.012 258);
+  --accent: oklch(0.275 0.009 260);
+  --accent-foreground: oklch(0.955 0.003 255);
+  /* Danger/error in dark mode is lifted to a lighter, clearly legible red so
+     error text, overdue items and danger surfaces read comfortably against the
+     dark canvas. Light mode keeps its darker --destructive (in :root). */
+  --destructive: oklch(0.72 0.19 22);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: var(--brand);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.2 0.007 260);
+  --sidebar-foreground: oklch(0.955 0.003 255);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: oklch(0.275 0.009 260);
+  --sidebar-accent-foreground: oklch(0.955 0.003 255);
+  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-ring: var(--brand);
+}
+
+.q-light {
+  /* Force light-mode form controls, scrollbars and UA chrome on the public
+     quote page regardless of the app theme. Kept out of the shared :root rule
+     so the dark app keeps its dark UA chrome. */
+  color-scheme: light;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* The public quote page is a light document even when the app default (or the
+   theme cookie) puts .dark on <html>. The .q-light wrapper re-themes the
+   document subtree and its portalled dialog; this rule re-themes the page canvas
+   itself, so the scrollbar reads light and the sliver exposed behind the wrapper
+   when a modal locks scroll shows the light canvas, not the dark body. Keyed off
+   the presence of .q-light so it touches only the public quote route, and left
+   unlayered so it wins over the @layer base body background. The colour is the
+   light --background value (kept in step with :root above). */
+html:has(.q-light),
+html:has(.q-light) body {
+  background-color: oklch(0.985 0.002 255);
+  color-scheme: light;
+}
