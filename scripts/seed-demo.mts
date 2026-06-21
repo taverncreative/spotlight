@@ -1,9 +1,10 @@
-// Minimal single-operator seed. Creates the one operator login John signs in
-// with. No organisations, memberships, modules or demo records: Spotlight is
-// single-operator, so a working auth user is all the verification path needs.
+// Single-operator seed plus sample clients for the app shell. Creates the one
+// operator login John signs in with, and two sample clients so the per-client
+// shell is navigable. The sample clients are dev fixtures; Slice 5's real create
+// flow supersedes them.
 //
 // Run with: npm run seed:demo  (reads .env.local via node --env-file)
-// Idempotent: if the operator already exists, its password is reset.
+// Idempotent: re-running resets the operator password and upserts the clients.
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -34,6 +35,7 @@ if (listError) {
 
 const existing = list.users.find((user) => user.email === OPERATOR_EMAIL);
 
+let operatorId: string;
 if (existing) {
   const { error } = await admin.auth.admin.updateUserById(existing.id, {
     password: OPERATOR_PASSWORD,
@@ -43,18 +45,41 @@ if (existing) {
     console.error(`FAIL  could not update operator: ${error.message}`);
     process.exit(1);
   }
-  console.log(`Operator already existed; password reset. id=${existing.id}`);
+  operatorId = existing.id;
+  console.log(`Operator already existed; password reset. id=${operatorId}`);
 } else {
   const { data, error } = await admin.auth.admin.createUser({
     email: OPERATOR_EMAIL,
     password: OPERATOR_PASSWORD,
     email_confirm: true,
   });
-  if (error) {
-    console.error(`FAIL  could not create operator: ${error.message}`);
+  if (error || !data.user) {
+    console.error(`FAIL  could not create operator: ${error?.message}`);
     process.exit(1);
   }
-  console.log(`Operator created. id=${data.user?.id}`);
+  operatorId = data.user.id;
+  console.log(`Operator created. id=${operatorId}`);
 }
+
+// Sample clients (dev fixtures). operator_id is set explicitly because the
+// service-role client bypasses RLS, so the auth.uid() column default does not
+// apply here. Upsert on the unique (operator_id, slug) so re-runs are clean.
+const sampleClients = [
+  { operator_id: operatorId, name: "GEM Services", slug: "gem-services" },
+  {
+    operator_id: operatorId,
+    name: "Therapy Hair and Body Nails",
+    slug: "therapy-hair-body-nails",
+  },
+];
+
+const { error: clientsError } = await admin
+  .from("clients")
+  .upsert(sampleClients, { onConflict: "operator_id,slug" });
+if (clientsError) {
+  console.error(`FAIL  could not seed clients: ${clientsError.message}`);
+  process.exit(1);
+}
+console.log(`Seeded ${sampleClients.length} sample clients.`);
 
 console.log(`PASS  single-operator seed complete (${OPERATOR_EMAIL})`);
