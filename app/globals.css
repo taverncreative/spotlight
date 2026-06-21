@@ -53,19 +53,11 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root,
-.q-light {
-  /* The brand accent, used sparingly. A workspace overrides --brand via the
-     app shell (organisations.brand_color); everything accent-coloured reads it
-     through --primary and --ring, so one value re-themes the lot. Defined here
-     only so it inherits unchanged into dark mode and onto pages with no
-     workspace (login). See lib/brand.ts.
-
-     The .q-light selector re-declares this whole light token set on a subtree,
-     so the public quote page renders as a light document even when the app's
-     dark default (or a dark theme cookie) puts .dark on <html>. It is shared
-     with :root, not duplicated, so the two can never drift. The public page and
-     its portalled dialog carry the .q-light class; see app/q/layout.tsx. */
+:root {
+  /* The Spotlight brand accent, baked in and used sparingly. Everything
+     accent-coloured reads it through --primary and --ring, so one value
+     re-themes the lot. Defined here so it inherits unchanged into dark mode and
+     across every route, including login. */
   --brand: #5b5bd6;
   --brand-foreground: oklch(0.99 0 0);
 
@@ -147,13 +139,6 @@
   --sidebar-ring: var(--brand);
 }
 
-.q-light {
-  /* Force light-mode form controls, scrollbars and UA chrome on the public
-     quote page regardless of the app theme. Kept out of the shared :root rule
-     so the dark app keeps its dark UA chrome. */
-  color-scheme: light;
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -164,18 +149,4 @@
   html {
     @apply font-sans;
   }
-}
-
-/* The public quote page is a light document even when the app default (or the
-   theme cookie) puts .dark on <html>. The .q-light wrapper re-themes the
-   document subtree and its portalled dialog; this rule re-themes the page canvas
-   itself, so the scrollbar reads light and the sliver exposed behind the wrapper
-   when a modal locks scroll shows the light canvas, not the dark body. Keyed off
-   the presence of .q-light so it touches only the public quote route, and left
-   unlayered so it wins over the @layer base body background. The colour is the
-   light --background value (kept in step with :root above). */
-html:has(.q-light),
-html:has(.q-light) body {
-  background-color: oklch(0.985 0.002 255);
-  color-scheme: light;
 }

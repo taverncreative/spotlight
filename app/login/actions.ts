@@ -26,5 +26,5 @@ export async function signIn(
     return { error: "Email or password is incorrect." };
   }
 
-  redirect("/app");
+  redirect("/home");
 }

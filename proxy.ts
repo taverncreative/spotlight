@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // Refreshes the Supabase auth session on each request, per the
 // @supabase/ssr pattern. Authorisation itself happens server-side in the
-// workspace layout and server actions, never here.
+// home layout and server actions, never here.
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
