@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SitesList } from "@/components/sites-list";
 import { buildSiteView } from "@/lib/sites/monitoring";
+import { requireClient } from "@/lib/clients/require-client";
 
 // Sites module. Loads the client's sites (RLS-scoped) with their latest check
 // embedded (most recent per site), builds the display model server-side, and
@@ -13,22 +13,9 @@ export default async function SitesPage({
   params: Promise<{ clientSlug: string }>;
 }) {
   const { clientSlug } = await params;
+  const { client } = await requireClient(clientSlug);
+
   const supabase = await createClient();
-
-  // Send signed-out requests to login first, so the null-client check below only
-  // means "unknown slug" (404), not "not authenticated".
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: client } = await supabase
-    .from("clients")
-    .select("id")
-    .eq("slug", clientSlug)
-    .maybeSingle();
-  if (!client) notFound();
-
   const { data: sites } = await supabase
     .from("sites")
     .select(

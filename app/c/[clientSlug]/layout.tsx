@@ -1,4 +1,3 @@
-import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
@@ -6,6 +5,7 @@ import { ClientSelector } from "@/components/client-selector";
 import { ModuleBar } from "@/components/module-bar";
 import { createClient } from "@/lib/supabase/server";
 import { getTheme } from "@/lib/theme";
+import { requireClient } from "@/lib/clients/require-client";
 import { signOut } from "./actions";
 
 // The per-client app shell: auth gate, resolve the client by slug (RLS scopes to
@@ -20,20 +20,9 @@ export default async function ClientLayout({
   params: Promise<{ clientSlug: string }>;
 }) {
   const { clientSlug } = await params;
+  const { user } = await requireClient(clientSlug);
+
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: client } = await supabase
-    .from("clients")
-    .select("id, name, slug")
-    .eq("slug", clientSlug)
-    .maybeSingle();
-  if (!client) notFound();
-
   const { data: clientList } = await supabase
     .from("clients")
     .select("name, slug")
