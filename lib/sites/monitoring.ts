@@ -103,3 +103,103 @@ export function buildSiteView(
       : null,
   };
 }
+
+// Single-sourced risk assessment for a site's latest check, used by both the
+// Sites tab and the monitoring board so they always agree. Same thresholds as
+// above (down/expired = red; SSL <= 14d or domain <= 30d = amber; else green).
+// A null domain_expiry is unknown and never counts as at-risk.
+export type SiteRiskLevel = "down" | "expired" | "at-risk" | "healthy" | "unknown";
+
+export type SiteRisk = {
+  level: SiteRiskLevel;
+  tone: ChipTone;
+  issue: string | null; // worst-issue label for the board's Needs attention
+  sortRank: number; // 0 down, 1 expired, 2 at-risk, 3 healthy, 4 unknown
+  soonestDays: number | null; // secondary sort key within a rank
+  sslDays: number | null;
+  domainDays: number | null;
+};
+
+function daysLabel(prefix: string, days: number): string {
+  return `${prefix} ${days} day${days === 1 ? "" : "s"}`;
+}
+
+export function assessSite(
+  check: {
+    status: string;
+    ssl_expiry: string | null;
+    domain_expiry: string | null;
+  } | null,
+  now: number
+): SiteRisk {
+  if (!check) {
+    return {
+      level: "unknown",
+      tone: "muted",
+      issue: null,
+      sortRank: 4,
+      soonestDays: null,
+      sslDays: null,
+      domainDays: null,
+    };
+  }
+
+  const sslDays = daysUntil(check.ssl_expiry, now);
+  const domainDays = daysUntil(check.domain_expiry, now);
+
+  if (check.status === "down") {
+    return {
+      level: "down",
+      tone: "danger",
+      issue: "Down",
+      sortRank: 0,
+      soonestDays: null,
+      sslDays,
+      domainDays,
+    };
+  }
+
+  const sslExpired = sslDays !== null && sslDays < 0;
+  const domainExpired = domainDays !== null && domainDays < 0;
+  if (sslExpired || domainExpired) {
+    return {
+      level: "expired",
+      tone: "danger",
+      issue: sslExpired ? "SSL expired" : "Domain expired",
+      sortRank: 1,
+      soonestDays: sslExpired ? sslDays : domainDays,
+      sslDays,
+      domainDays,
+    };
+  }
+
+  const candidates: { label: string; days: number }[] = [];
+  if (sslDays !== null && sslDays <= SSL_WARN_DAYS) {
+    candidates.push({ label: daysLabel("SSL", sslDays), days: sslDays });
+  }
+  if (domainDays !== null && domainDays <= DOMAIN_WARN_DAYS) {
+    candidates.push({ label: daysLabel("Domain", domainDays), days: domainDays });
+  }
+  if (candidates.length) {
+    candidates.sort((a, b) => a.days - b.days);
+    return {
+      level: "at-risk",
+      tone: "warn",
+      issue: candidates[0].label,
+      sortRank: 2,
+      soonestDays: candidates[0].days,
+      sslDays,
+      domainDays,
+    };
+  }
+
+  return {
+    level: "healthy",
+    tone: "ok",
+    issue: null,
+    sortRank: 3,
+    soonestDays: null,
+    sslDays,
+    domainDays,
+  };
+}

@@ -169,3 +169,34 @@ export async function checkAll(
 
   return { ok: true };
 }
+
+// Operator-triggered check of every monitored site across all the operator's
+// clients (the monitoring board's Check all). RLS scopes the read and the
+// inserts to the operator's own sites.
+export async function checkAllMonitored(
+  _previous: SiteFormState,
+  _formData: FormData
+): Promise<SiteFormState> {
+  const supabase = await createClient();
+  const { data: sites } = await supabase
+    .from("sites")
+    .select("id, url")
+    .eq("monitoring_enabled", true);
+  if (!sites || sites.length === 0) return { ok: true };
+
+  await Promise.allSettled(
+    sites.map(async (site) => {
+      const result = await withCap(checkSite(site.url), 15_000);
+      await supabase.from("site_checks").insert({
+        site_id: site.id,
+        status: result.status,
+        http_status: result.http_status,
+        response_ms: result.response_ms,
+        ssl_expiry: result.ssl_expiry,
+        domain_expiry: result.domain_expiry,
+      });
+    })
+  );
+
+  return { ok: true };
+}
