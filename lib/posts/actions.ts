@@ -8,6 +8,7 @@ import {
   fieldErrorsFromZod,
   type PostFormState,
 } from "@/lib/posts/schemas";
+import { reapPostImages, inlineImageUrls } from "@/lib/posts/image-paths";
 
 // All actions operate under RLS: the posts policy allows writes only when
 // owns_client(client_id) is true.
@@ -76,21 +77,24 @@ export async function updatePost(
   const publish = formData.get("intent") === "publish";
   const supabase = await createClient();
 
+  // Current featured image (to reap if replaced/removed) and published_at (for
+  // the first-publish stamp).
+  const { data: current } = await supabase
+    .from("posts")
+    .select("featured_image, published_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  const newFeatured = parsed.data.featured_image || null;
   const update: Record<string, string | null> = {
     title: parsed.data.title,
     slug: parsed.data.slug,
     body: parsed.data.body || null,
     meta_description: parsed.data.meta_description || null,
-    featured_image: parsed.data.featured_image || null,
+    featured_image: newFeatured,
     status: publish ? "published" : "draft",
   };
   if (publish) {
-    // Stamp published_at on first publish only; preserve it afterwards.
-    const { data: current } = await supabase
-      .from("posts")
-      .select("published_at")
-      .eq("id", id)
-      .maybeSingle();
     update.published_at = current?.published_at ?? new Date().toISOString();
   }
 
@@ -98,6 +102,12 @@ export async function updatePost(
   if (error) {
     if (error.code === "23505") return SLUG_TAKEN;
     return { ok: false, error: "Could not save the post." };
+  }
+
+  // Reap the replaced or removed featured image (best-effort).
+  const oldFeatured = (current?.featured_image as string | null) ?? null;
+  if (oldFeatured && oldFeatured !== newFeatured) {
+    await reapPostImages(supabase, [oldFeatured]);
   }
 
   redirect(`/c/${clientSlug}/blog`);
@@ -110,8 +120,25 @@ export async function deletePost(
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false, error: "Missing post id." };
   const supabase = await createClient();
+
+  // Capture the post's images before deleting, to reap them afterwards.
+  const { data: post } = await supabase
+    .from("posts")
+    .select("featured_image, body")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("posts").delete().eq("id", id);
   if (error) return { ok: false, error: "Could not delete the post." };
+
+  // Reap the featured and inline images (best-effort; the post is already gone).
+  if (post) {
+    await reapPostImages(supabase, [
+      post.featured_image as string | null,
+      ...inlineImageUrls(post.body as string | null),
+    ]);
+  }
+
   return { ok: true };
 }
 
