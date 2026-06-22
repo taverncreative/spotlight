@@ -19,6 +19,7 @@ import {
 } from "@/lib/sites/schemas";
 import type { SiteView } from "@/lib/sites/monitoring";
 import type { GscPropertiesResult } from "@/lib/gsc/properties";
+import type { Ga4PropertiesResult } from "@/lib/ga4/properties";
 
 // Add/edit site modal. site === null is the add case (uses clientId); otherwise
 // pre-filled for editing. Mount under a changing key so each open is fresh.
@@ -28,12 +29,14 @@ export function SiteFormDialog({
   clientId,
   site,
   gscProperties,
+  ga4Properties,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientId: string;
   site: SiteView | null;
   gscProperties: GscPropertiesResult;
+  ga4Properties: Ga4PropertiesResult;
 }) {
   const router = useRouter();
   const isEdit = site !== null;
@@ -167,6 +170,57 @@ export function SiteFormDialog({
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Search Console access needs renewing —{" "}
+                  <Link
+                    href="/settings/integrations"
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    reconnect
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
+          ) : null}
+
+          {isEdit ? (
+            <div className="space-y-1.5">
+              <label htmlFor="site-ga4" className="text-sm font-medium">
+                Google Analytics property
+              </label>
+              {ga4Properties.status === "connected" ? (
+                <>
+                  <select
+                    id="site-ga4"
+                    name="ga4_property"
+                    defaultValue={site?.ga4Property ?? ""}
+                    className={fieldInputClass}
+                  >
+                    <option value="">Not mapped</option>
+                    {ga4Properties.properties.map((property) => (
+                      <option key={property.property} value={property.property}>
+                        {property.displayName}
+                      </option>
+                    ))}
+                  </select>
+                  {state?.fieldErrors?.ga4_property ? (
+                    <p className="text-sm text-destructive">
+                      {state.fieldErrors.ga4_property[0]}
+                    </p>
+                  ) : null}
+                </>
+              ) : ga4Properties.status === "not_connected" ? (
+                <p className="text-sm text-muted-foreground">
+                  <Link
+                    href="/settings/integrations"
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Connect Google Analytics
+                  </Link>{" "}
+                  to map a property.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Google Analytics access needs renewing —{" "}
                   <Link
                     href="/settings/integrations"
                     className="font-medium text-primary underline-offset-4 hover:underline"

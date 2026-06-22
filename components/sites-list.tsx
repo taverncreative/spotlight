@@ -9,6 +9,7 @@ import { CheckAllButton } from "@/components/check-all-button";
 import { MonitoringChip } from "@/components/monitoring-chip";
 import type { SiteView } from "@/lib/sites/monitoring";
 import type { GscPropertiesResult } from "@/lib/gsc/properties";
+import type { Ga4PropertiesResult } from "@/lib/ga4/properties";
 
 // The Sites module: list with monitoring chips, plus add/edit/remove. The chip
 // rendering is data-driven so it lights up automatically once Slice 7 writes
@@ -17,10 +18,12 @@ export function SitesList({
   clientId,
   sites,
   gscProperties,
+  ga4Properties,
 }: {
   clientId: string;
   sites: SiteView[];
   gscProperties: GscPropertiesResult;
+  ga4Properties: Ga4PropertiesResult;
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SiteView | null>(null);
@@ -143,6 +146,7 @@ export function SitesList({
         clientId={clientId}
         site={editing}
         gscProperties={gscProperties}
+        ga4Properties={ga4Properties}
       />
       <SiteRemoveDialog
         key={`remove-${removeKey}`}

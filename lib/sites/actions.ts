@@ -8,6 +8,7 @@ import {
   type SiteFormState,
 } from "@/lib/sites/schemas";
 import { listGscProperties, isAllowedProperty } from "@/lib/gsc/properties";
+import { listGa4Properties, isAllowedGa4Property } from "@/lib/ga4/properties";
 
 // All three actions operate under RLS: the sites policy allows writes only when
 // owns_client(client_id) is true, so a site can never be created under, or moved
@@ -59,9 +60,9 @@ export async function updateSite(
     return { ok: false, fieldErrors: fieldErrorsFromZod(parsed.error) };
   }
 
-  // "" (Not mapped) clears the mapping. A non-null value must be one of the
+  // "" (Not mapped) clears a mapping. A non-null value must be one of the
   // operator's verified properties, validated against the live list so an
-  // arbitrary siteUrl can't be stored.
+  // arbitrary value can't be stored.
   const rawProperty = String(formData.get("gsc_property") ?? "");
   const gscProperty = rawProperty === "" ? null : rawProperty;
   if (gscProperty !== null) {
@@ -76,6 +77,20 @@ export async function updateSite(
     }
   }
 
+  const rawGa4 = String(formData.get("ga4_property") ?? "");
+  const ga4Property = rawGa4 === "" ? null : rawGa4;
+  if (ga4Property !== null) {
+    const properties = await listGa4Properties();
+    if (!isAllowedGa4Property(properties, ga4Property)) {
+      return {
+        ok: false,
+        fieldErrors: {
+          ga4_property: ["That Google Analytics property isn't available."],
+        },
+      };
+    }
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("sites")
@@ -85,6 +100,7 @@ export async function updateSite(
       check_interval_minutes: parsed.data.check_interval_minutes,
       monitoring_enabled: parsed.data.monitoring_enabled,
       gsc_property: gscProperty,
+      ga4_property: ga4Property,
     })
     .eq("id", id);
   if (error) return { ok: false, error: "Could not update the site." };

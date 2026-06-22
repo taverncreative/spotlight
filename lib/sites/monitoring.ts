@@ -24,6 +24,7 @@ export type SiteView = {
   monitoringEnabled: boolean;
   checkIntervalMinutes: number;
   gscProperty: string | null;
+  ga4Property: string | null;
   check: SiteCheckView | null;
 };
 
@@ -68,9 +69,10 @@ type SiteRow = {
   label: string | null;
   monitoring_enabled: boolean;
   check_interval_minutes: number;
-  // Optional: only the Sites page (which owns the edit form) selects this; the
-  // Overview reuse of buildSiteView doesn't need it.
+  // Optional: only the Sites page (which owns the edit form) selects these; the
+  // Overview reuse of buildSiteView doesn't need them.
   gsc_property?: string | null;
+  ga4_property?: string | null;
 };
 
 type CheckRow = {
@@ -95,6 +97,7 @@ export function buildSiteView(
     monitoringEnabled: site.monitoring_enabled,
     checkIntervalMinutes: site.check_interval_minutes,
     gscProperty: site.gsc_property ?? null,
+    ga4Property: site.ga4_property ?? null,
     check: check
       ? {
           status: check.status === "down" ? "down" : "up",
