@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { CLIENT_MODULES } from "@/lib/modules";
 
 // The Dashoo-style bottom module bar. Tabs link to each module under the active
-// client; the active module (read from the route) carries the indigo brand
+// client; the active module (read from the route) carries the Azure brand
 // accent.
 export function ModuleBar({ clientSlug }: { clientSlug: string }) {
   const segments = usePathname().split("/");

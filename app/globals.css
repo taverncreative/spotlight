@@ -58,7 +58,7 @@
      accent-coloured reads it through --primary and --ring, so one value
      re-themes the lot. Defined here so it inherits unchanged into dark mode and
      across every route, including login. */
-  --brand: #5b5bd6;
+  --brand: #1d8fef;
   --brand-foreground: oklch(0.99 0 0);
 
   /* Light theme: a soft, faintly cool neutral canvas (not stark white), white
