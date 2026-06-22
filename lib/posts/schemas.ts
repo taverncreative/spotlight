@@ -19,6 +19,7 @@ export const postFormSchema = z.object({
     .trim()
     .max(300, "Keep the meta description under 300 characters.")
     .optional(),
+  featured_image: z.string().optional(),
 });
 
 export type PostFormValues = z.infer<typeof postFormSchema>;

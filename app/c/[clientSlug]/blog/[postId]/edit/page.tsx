@@ -14,7 +14,7 @@ export default async function EditPostPage({
   const supabase = await createClient();
   const { data: post } = await supabase
     .from("posts")
-    .select("id, title, slug, body, meta_description, client_id")
+    .select("id, title, slug, body, meta_description, featured_image, client_id")
     .eq("id", postId)
     .maybeSingle();
   // RLS already limits to the operator's posts; also ensure it belongs to the
@@ -33,6 +33,7 @@ export default async function EditPostPage({
           slug: post.slug,
           body: post.body,
           meta_description: post.meta_description,
+          featured_image: post.featured_image,
         }}
       />
     </div>

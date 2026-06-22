@@ -23,6 +23,7 @@ function parseForm(formData: FormData) {
     slug: String(formData.get("slug") ?? ""),
     body: String(formData.get("body") ?? ""),
     meta_description: String(formData.get("meta_description") ?? ""),
+    featured_image: String(formData.get("featured_image") ?? ""),
   });
 }
 
@@ -47,6 +48,7 @@ export async function createPost(
     slug: parsed.data.slug,
     body: parsed.data.body || null,
     meta_description: parsed.data.meta_description || null,
+    featured_image: parsed.data.featured_image || null,
     status: publish ? "published" : "draft",
     published_at: publish ? new Date().toISOString() : null,
   });
@@ -79,6 +81,7 @@ export async function updatePost(
     slug: parsed.data.slug,
     body: parsed.data.body || null,
     meta_description: parsed.data.meta_description || null,
+    featured_image: parsed.data.featured_image || null,
     status: publish ? "published" : "draft",
   };
   if (publish) {

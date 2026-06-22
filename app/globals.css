@@ -150,3 +150,30 @@
     @apply font-sans;
   }
 }
+
+/* Blog WYSIWYG editor content (Tiptap). Restores the heading, list and quote
+   styling Tailwind preflight removes, so the editor reads as rich text. */
+.post-editor :where(h2) {
+  @apply mt-4 mb-2 text-xl font-semibold;
+}
+.post-editor :where(h3) {
+  @apply mt-3 mb-2 text-lg font-semibold;
+}
+.post-editor :where(p) {
+  @apply my-2;
+}
+.post-editor :where(ul) {
+  @apply my-2 list-disc pl-6;
+}
+.post-editor :where(ol) {
+  @apply my-2 list-decimal pl-6;
+}
+.post-editor :where(blockquote) {
+  @apply my-2 border-l-2 border-border pl-3 text-muted-foreground;
+}
+.post-editor :where(a) {
+  @apply text-brand underline;
+}
+.post-editor :where(img) {
+  @apply my-2 max-w-full rounded-md;
+}

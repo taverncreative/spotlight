@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { fieldInputClass } from "@/components/form-field";
+import { PostEditor } from "@/components/post-editor";
+import { FeaturedImageInput } from "@/components/featured-image-input";
 import { slugify } from "@/lib/clients/schemas";
 import { createPost, updatePost } from "@/lib/posts/actions";
 import type { PostFormState } from "@/lib/posts/schemas";
@@ -13,6 +15,7 @@ export type PostFormData = {
   slug: string;
   body: string | null;
   meta_description: string | null;
+  featured_image: string | null;
 };
 
 // Compose/edit form. post === null is the create case (uses clientId); otherwise
@@ -38,6 +41,7 @@ export function PostForm({
   const [title, setTitle] = useState(post?.title ?? "");
   const [slug, setSlug] = useState(post?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(isEdit);
+  const [body, setBody] = useState(post?.body ?? "");
 
   function handleTitleChange(value: string) {
     setTitle(value);
@@ -92,16 +96,23 @@ export function PostForm({
         ) : null}
       </div>
 
+      <FeaturedImageInput
+        clientId={clientId}
+        initialUrl={post?.featured_image ?? null}
+      />
+
       <div className="space-y-1.5">
-        <label htmlFor="post-body" className="text-sm font-medium">
-          Body <span className="text-muted-foreground">(Markdown)</span>
+        <label className="text-sm font-medium">
+          Body{" "}
+          <span className="text-muted-foreground">
+            (rich text, saved as Markdown)
+          </span>
         </label>
-        <textarea
-          id="post-body"
-          name="body"
-          defaultValue={post?.body ?? ""}
-          rows={14}
-          className={`${fieldInputClass} font-mono`}
+        <input type="hidden" name="body" value={body} />
+        <PostEditor
+          clientId={clientId}
+          initialMarkdown={post?.body ?? ""}
+          onChange={setBody}
         />
       </div>
 
