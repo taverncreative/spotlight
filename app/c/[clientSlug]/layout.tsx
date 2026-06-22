@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
@@ -40,6 +41,13 @@ export default async function ClientLayout({
           <ClientSelector clients={clients} />
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            render={<Link href="/settings/integrations" />}
+          >
+            Integrations
+          </Button>
           <ThemeToggle initialTheme={theme} />
           <span className="truncate text-sm text-muted-foreground">
             {user.email}

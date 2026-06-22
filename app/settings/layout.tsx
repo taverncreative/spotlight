@@ -7,10 +7,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getTheme } from "@/lib/theme";
 import { signOut } from "./actions";
 
-// The single-operator app shell: auth gate, then a branded top bar over the
-// content region. Signed-out visitors go to /login. No client selector and no
-// module navigation yet; those arrive in later slices.
-export default async function HomeLayout({
+// Operator-level settings shell: auth gate, then the standard top bar. The brand
+// links back to the monitoring board.
+export default async function SettingsLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -26,15 +25,10 @@ export default async function HomeLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex h-14 items-center justify-between gap-3 border-b px-6">
-        <Wordmark textClassName="text-sm" />
+        <Link href="/home" className="transition-opacity hover:opacity-80">
+          <Wordmark textClassName="text-sm" />
+        </Link>
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            render={<Link href="/settings/integrations" />}
-          >
-            Integrations
-          </Button>
           <ThemeToggle initialTheme={theme} />
           <span className="truncate text-sm text-muted-foreground">
             {user.email}
