@@ -23,6 +23,7 @@ export type SiteView = {
   hostname: string;
   monitoringEnabled: boolean;
   checkIntervalMinutes: number;
+  gscProperty: string | null;
   check: SiteCheckView | null;
 };
 
@@ -67,6 +68,9 @@ type SiteRow = {
   label: string | null;
   monitoring_enabled: boolean;
   check_interval_minutes: number;
+  // Optional: only the Sites page (which owns the edit form) selects this; the
+  // Overview reuse of buildSiteView doesn't need it.
+  gsc_property?: string | null;
 };
 
 type CheckRow = {
@@ -90,6 +94,7 @@ export function buildSiteView(
     hostname: hostnameFromUrl(site.url),
     monitoringEnabled: site.monitoring_enabled,
     checkIntervalMinutes: site.check_interval_minutes,
+    gscProperty: site.gsc_property ?? null,
     check: check
       ? {
           status: check.status === "down" ? "down" : "up",

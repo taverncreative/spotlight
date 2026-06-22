@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import {
   type SiteFormState,
 } from "@/lib/sites/schemas";
 import type { SiteView } from "@/lib/sites/monitoring";
+import type { GscPropertiesResult } from "@/lib/gsc/properties";
 
 // Add/edit site modal. site === null is the add case (uses clientId); otherwise
 // pre-filled for editing. Mount under a changing key so each open is fresh.
@@ -25,11 +27,13 @@ export function SiteFormDialog({
   onOpenChange,
   clientId,
   site,
+  gscProperties,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientId: string;
   site: SiteView | null;
+  gscProperties: GscPropertiesResult;
 }) {
   const router = useRouter();
   const isEdit = site !== null;
@@ -123,6 +127,57 @@ export function SiteFormDialog({
               ))}
             </select>
           </div>
+
+          {isEdit ? (
+            <div className="space-y-1.5">
+              <label htmlFor="site-gsc" className="text-sm font-medium">
+                Search Console property
+              </label>
+              {gscProperties.status === "connected" ? (
+                <>
+                  <select
+                    id="site-gsc"
+                    name="gsc_property"
+                    defaultValue={site?.gscProperty ?? ""}
+                    className={fieldInputClass}
+                  >
+                    <option value="">Not mapped</option>
+                    {gscProperties.properties.map((property) => (
+                      <option key={property.siteUrl} value={property.siteUrl}>
+                        {property.siteUrl}
+                      </option>
+                    ))}
+                  </select>
+                  {state?.fieldErrors?.gsc_property ? (
+                    <p className="text-sm text-destructive">
+                      {state.fieldErrors.gsc_property[0]}
+                    </p>
+                  ) : null}
+                </>
+              ) : gscProperties.status === "not_connected" ? (
+                <p className="text-sm text-muted-foreground">
+                  <Link
+                    href="/settings/integrations"
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Connect Search Console
+                  </Link>{" "}
+                  to map a property.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Search Console access needs renewing —{" "}
+                  <Link
+                    href="/settings/integrations"
+                    className="font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    reconnect
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
+          ) : null}
 
           <label className="flex items-center gap-2 text-sm">
             <input

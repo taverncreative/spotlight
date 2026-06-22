@@ -7,6 +7,7 @@ import {
   fieldErrorsFromZod,
   type SiteFormState,
 } from "@/lib/sites/schemas";
+import { listGscProperties, isAllowedProperty } from "@/lib/gsc/properties";
 
 // All three actions operate under RLS: the sites policy allows writes only when
 // owns_client(client_id) is true, so a site can never be created under, or moved
@@ -58,6 +59,23 @@ export async function updateSite(
     return { ok: false, fieldErrors: fieldErrorsFromZod(parsed.error) };
   }
 
+  // "" (Not mapped) clears the mapping. A non-null value must be one of the
+  // operator's verified properties, validated against the live list so an
+  // arbitrary siteUrl can't be stored.
+  const rawProperty = String(formData.get("gsc_property") ?? "");
+  const gscProperty = rawProperty === "" ? null : rawProperty;
+  if (gscProperty !== null) {
+    const properties = await listGscProperties();
+    if (!isAllowedProperty(properties, gscProperty)) {
+      return {
+        ok: false,
+        fieldErrors: {
+          gsc_property: ["That Search Console property isn't available."],
+        },
+      };
+    }
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("sites")
@@ -66,6 +84,7 @@ export async function updateSite(
       label: parsed.data.label || null,
       check_interval_minutes: parsed.data.check_interval_minutes,
       monitoring_enabled: parsed.data.monitoring_enabled,
+      gsc_property: gscProperty,
     })
     .eq("id", id);
   if (error) return { ok: false, error: "Could not update the site." };
