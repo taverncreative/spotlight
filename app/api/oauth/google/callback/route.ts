@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import {
-  GSC_PROVIDER,
-  GSC_SCOPES,
   exchangeCodeForTokens,
   emailFromIdToken,
 } from "@/lib/oauth/google";
+import { isGoogleProvider, scopesFor } from "@/lib/oauth/providers";
 import { encryptToken } from "@/lib/oauth/encryption";
 
 export const runtime = "nodejs";
@@ -46,6 +45,11 @@ export async function GET(request: Request) {
     return fail("state_mismatch");
   }
 
+  // The provider is the prefix of the verified state (state === our httpOnly
+  // cookie), so which product is being completed is trustworthy.
+  const provider = state.split(":")[0];
+  if (!isGoogleProvider(provider)) return fail("bad_provider");
+
   try {
     const tokens = await exchangeCodeForTokens(code);
     const accountEmail = emailFromIdToken(tokens.id_token);
@@ -58,7 +62,7 @@ export async function GET(request: Request) {
       const { data: existing } = await supabase
         .from("oauth_connections")
         .select("refresh_token")
-        .eq("provider", GSC_PROVIDER)
+        .eq("provider", provider)
         .maybeSingle();
       refreshCipher = existing?.refresh_token ?? null;
     }
@@ -70,11 +74,11 @@ export async function GET(request: Request) {
     const { error } = await supabase.from("oauth_connections").upsert(
       {
         operator_id: user.id,
-        provider: GSC_PROVIDER,
+        provider,
         access_token: encryptToken(tokens.access_token),
         refresh_token: refreshCipher,
         token_expiry: tokenExpiry,
-        scopes: GSC_SCOPES,
+        scopes: scopesFor(provider),
         account_email: accountEmail,
       },
       { onConflict: "operator_id,provider" }

@@ -8,14 +8,6 @@ import { decryptToken, encryptToken } from "@/lib/oauth/encryption";
 
 export const GSC_PROVIDER = "google_search_console";
 
-// openid + email are requested so we can read the connected account's email from
-// the id_token; webmasters.readonly is the functional GSC scope.
-export const GSC_SCOPES = [
-  "openid",
-  "email",
-  "https://www.googleapis.com/auth/webmasters.readonly",
-];
-
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 
@@ -39,13 +31,13 @@ function getCredentials(): { clientId: string; clientSecret: string } {
   return { clientId, clientSecret };
 }
 
-export function buildConsentUrl(state: string): string {
+export function buildConsentUrl(state: string, scopes: string[]): string {
   const { clientId } = getCredentials();
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: getRedirectUri(),
     response_type: "code",
-    scope: GSC_SCOPES.join(" "),
+    scope: scopes.join(" "),
     access_type: "offline",
     prompt: "consent", // always return a refresh token
     include_granted_scopes: "true",

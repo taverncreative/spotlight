@@ -3,22 +3,37 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { GSC_PROVIDER } from "@/lib/oauth/google";
+import { GOOGLE_PROVIDER_KEYS, isGoogleProvider } from "@/lib/oauth/providers";
 import { decryptToken } from "@/lib/oauth/encryption";
 
-// Disconnect Google Search Console: best-effort revoke at Google, then delete
-// the operator's connection row (RLS-scoped). Revoke failures don't block the
-// delete.
-export async function disconnectGoogleSearchConsole() {
+// Disconnect a Google provider: delete the operator's row for that provider
+// (RLS-scoped), then redirect back to a clean Integrations URL so the card
+// re-renders as disconnected.
+//
+// The grant is revoked at Google only when this is the operator's LAST Google
+// connection. GSC and GA4 share a single Google app grant, so revoking a token
+// while the other product is still connected would tear that grant down too —
+// skipping the revoke keeps the remaining connection intact. Revoke is
+// best-effort and never blocks the delete.
+export async function disconnectGoogleProvider(formData: FormData) {
+  const provider = String(formData.get("provider") ?? "");
+  if (!isGoogleProvider(provider)) return;
+
   const supabase = await createClient();
 
   const { data: connection } = await supabase
     .from("oauth_connections")
     .select("access_token, refresh_token")
-    .eq("provider", GSC_PROVIDER)
+    .eq("provider", provider)
     .maybeSingle();
 
-  if (connection) {
+  const { count: otherGoogle } = await supabase
+    .from("oauth_connections")
+    .select("provider", { count: "exact", head: true })
+    .in("provider", GOOGLE_PROVIDER_KEYS)
+    .neq("provider", provider);
+
+  if (connection && (otherGoogle ?? 0) === 0) {
     const cipher = connection.refresh_token ?? connection.access_token;
     try {
       const token = decryptToken(cipher);
@@ -34,11 +49,8 @@ export async function disconnectGoogleSearchConsole() {
     }
   }
 
-  await supabase.from("oauth_connections").delete().eq("provider", GSC_PROVIDER);
+  await supabase.from("oauth_connections").delete().eq("provider", provider);
 
-  // Redirect to the clean URL (not just revalidate): a form-submitted action
-  // otherwise leaves the client showing the stale Connected UI, and dropping the
-  // ?connected=1 param clears the "Connected." banner so the page reads Connect.
   revalidatePath("/settings/integrations");
   redirect("/settings/integrations");
 }

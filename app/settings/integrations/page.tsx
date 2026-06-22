@@ -4,11 +4,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
-import { GSC_PROVIDER } from "@/lib/oauth/google";
-import { disconnectGoogleSearchConsole } from "./actions";
+import {
+  GOOGLE_PROVIDER_KEYS,
+  type GoogleProvider,
+} from "@/lib/oauth/providers";
+import { disconnectGoogleProvider } from "./actions";
 
 const COMING_SOON = [
-  { name: "Google Analytics 4", detail: "Traffic and engagement." },
   { name: "Google Business Profile", detail: "Reviews and local presence." },
   { name: "Meta", detail: "Facebook and Instagram." },
 ];
@@ -34,6 +36,57 @@ function Banner({
   );
 }
 
+type CardConnection = { account_email: string | null } | null;
+
+// One Google product card. Reflects its own connection state independently:
+// Connect (links to the start route with this provider) or Connected + Disconnect.
+function IntegrationCard({
+  provider,
+  name,
+  description,
+  connection,
+}: {
+  provider: GoogleProvider;
+  name: string;
+  description: string;
+  connection: CardConnection;
+}) {
+  return (
+    <li className="rounded-lg border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{name}</p>
+          {connection ? (
+            <p className="truncate text-xs text-muted-foreground">
+              Connected as {connection.account_email ?? "your Google account"}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">{description}</p>
+          )}
+        </div>
+        {connection ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <Badge variant="secondary">Connected</Badge>
+            <form action={disconnectGoogleProvider}>
+              <input type="hidden" name="provider" value={provider} />
+              <Button type="submit" variant="outline" size="sm">
+                Disconnect
+              </Button>
+            </form>
+          </div>
+        ) : (
+          <Button
+            size="sm"
+            render={<Link href={`/api/oauth/google/start?provider=${provider}`} />}
+          >
+            Connect
+          </Button>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export default async function IntegrationsPage({
   searchParams,
 }: {
@@ -47,11 +100,15 @@ export default async function IntegrationsPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: gsc } = await supabase
+  const { data: rows } = await supabase
     .from("oauth_connections")
-    .select("account_email")
-    .eq("provider", GSC_PROVIDER)
-    .maybeSingle();
+    .select("provider, account_email")
+    .in("provider", GOOGLE_PROVIDER_KEYS);
+  const byProvider = new Map(
+    (rows ?? []).map((row) => [row.provider as string, row])
+  );
+  const conn = (provider: GoogleProvider): CardConnection =>
+    byProvider.get(provider) ?? null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -70,36 +127,18 @@ export default async function IntegrationsPage({
       ) : null}
 
       <ul className="grid gap-2">
-        <li className="rounded-lg border bg-card p-4">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium">Google Search Console</p>
-              {gsc ? (
-                <p className="truncate text-xs text-muted-foreground">
-                  Connected as {gsc.account_email ?? "your Google account"}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Search performance and indexing.
-                </p>
-              )}
-            </div>
-            {gsc ? (
-              <div className="flex shrink-0 items-center gap-2">
-                <Badge variant="secondary">Connected</Badge>
-                <form action={disconnectGoogleSearchConsole}>
-                  <Button type="submit" variant="outline" size="sm">
-                    Disconnect
-                  </Button>
-                </form>
-              </div>
-            ) : (
-              <Button size="sm" render={<Link href="/api/oauth/google/start" />}>
-                Connect
-              </Button>
-            )}
-          </div>
-        </li>
+        <IntegrationCard
+          provider="google_search_console"
+          name="Google Search Console"
+          description="Search performance and indexing."
+          connection={conn("google_search_console")}
+        />
+        <IntegrationCard
+          provider="google_analytics"
+          name="Google Analytics 4"
+          description="Traffic and engagement."
+          connection={conn("google_analytics")}
+        />
 
         {COMING_SOON.map((product) => (
           <li

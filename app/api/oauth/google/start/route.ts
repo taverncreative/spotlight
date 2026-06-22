@@ -2,15 +2,21 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { buildConsentUrl } from "@/lib/oauth/google";
+import {
+  isGoogleProvider,
+  scopesFor,
+  DEFAULT_GOOGLE_PROVIDER,
+} from "@/lib/oauth/providers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const STATE_COOKIE = "google_oauth_state";
 
-// Begins the Google Search Console connect flow: operator session required,
-// then 302 to Google's consent screen with a random CSRF state held in a
-// short-lived httpOnly cookie.
+// Begins a Google connect flow for the requested product: operator session
+// required, then 302 to Google's consent screen with that product's scopes. The
+// provider is carried in the CSRF state (provider:csrf) so the callback knows
+// which product it is completing.
 export async function GET(request: Request) {
   const supabase = await createClient();
   const {
@@ -20,8 +26,17 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  const state = randomBytes(16).toString("hex");
-  const response = NextResponse.redirect(buildConsentUrl(state), 302);
+  // Default to Search Console so the original link keeps working unchanged.
+  const providerParam = new URL(request.url).searchParams.get("provider");
+  const provider = isGoogleProvider(providerParam)
+    ? providerParam
+    : DEFAULT_GOOGLE_PROVIDER;
+
+  const state = `${provider}:${randomBytes(16).toString("hex")}`;
+  const response = NextResponse.redirect(
+    buildConsentUrl(state, scopesFor(provider)),
+    302
+  );
   response.cookies.set(STATE_COOKIE, state, {
     httpOnly: true,
     sameSite: "lax",
