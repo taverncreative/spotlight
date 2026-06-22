@@ -1,49 +1,23 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
-import { buildSiteView, type ChipTone } from "@/lib/sites/monitoring";
+import { buildSiteView } from "@/lib/sites/monitoring";
 import { hostnameFromUrl } from "@/lib/sites/schemas";
 import { CLIENT_STATUS_LABELS } from "@/lib/clients/schemas";
+import { MonitoringChip } from "@/components/monitoring-chip";
 
 // Per-client Overview dashboard: read-only aggregation of the built modules
 // (sites + posts), all owns_client-scoped via requireClient. No new tables. Site
 // chips reuse buildSiteView so they match the Sites tab exactly; null SSL/Domain
 // show "—" as on the board.
 
-const TONE_CLASS: Record<ChipTone, string> = {
-  ok: "bg-emerald-500/15 text-emerald-400",
-  warn: "bg-amber-500/15 text-amber-400",
-  danger: "bg-destructive/15 text-destructive",
-  muted: "bg-muted text-muted-foreground",
-};
-
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
   active: "default",
   paused: "secondary",
   archived: "outline",
 };
-
-function Chip({
-  tone,
-  children,
-}: {
-  tone: ChipTone;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium",
-        TONE_CLASS[tone]
-      )}
-    >
-      {children}
-    </span>
-  );
-}
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
@@ -178,29 +152,29 @@ export default async function OverviewPage({
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                   {site.check ? (
                     <>
-                      <Chip tone={site.check.statusTone}>
+                      <MonitoringChip tone={site.check.statusTone}>
                         {site.check.status === "up" ? "Up" : "Down"}
                         {site.check.httpStatus
                           ? ` · ${site.check.httpStatus}`
                           : ""}
-                      </Chip>
+                      </MonitoringChip>
                       {site.check.ssl ? (
-                        <Chip tone={site.check.ssl.tone}>
+                        <MonitoringChip tone={site.check.ssl.tone}>
                           {site.check.ssl.label}
-                        </Chip>
+                        </MonitoringChip>
                       ) : (
-                        <Chip tone="muted">SSL —</Chip>
+                        <MonitoringChip tone="muted">SSL —</MonitoringChip>
                       )}
                       {site.check.domain ? (
-                        <Chip tone={site.check.domain.tone}>
+                        <MonitoringChip tone={site.check.domain.tone}>
                           {site.check.domain.label}
-                        </Chip>
+                        </MonitoringChip>
                       ) : (
-                        <Chip tone="muted">Domain —</Chip>
+                        <MonitoringChip tone="muted">Domain —</MonitoringChip>
                       )}
                     </>
                   ) : (
-                    <Chip tone="muted">Not yet checked</Chip>
+                    <MonitoringChip tone="muted">Not yet checked</MonitoringChip>
                   )}
                 </div>
               </li>

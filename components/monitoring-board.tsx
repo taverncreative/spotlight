@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { MonitoringChip } from "@/components/monitoring-chip";
 import {
   ClientFormDialog,
   type ClientRow,
@@ -13,38 +14,12 @@ import { checkAllMonitored } from "@/lib/sites/actions";
 import type { ChipTone } from "@/lib/sites/monitoring";
 import type { SiteFormState } from "@/lib/sites/schemas";
 
-const TONE_CLASS: Record<ChipTone, string> = {
-  ok: "bg-emerald-500/15 text-emerald-400",
-  warn: "bg-amber-500/15 text-amber-400",
-  danger: "bg-destructive/15 text-destructive",
-  muted: "bg-muted text-muted-foreground",
-};
-
 const TONE_TEXT: Record<ChipTone, string> = {
   ok: "text-emerald-400",
   warn: "text-amber-400",
   danger: "text-destructive",
   muted: "text-muted-foreground",
 };
-
-function Chip({
-  tone,
-  children,
-}: {
-  tone: ChipTone;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium",
-        TONE_CLASS[tone]
-      )}
-    >
-      {children}
-    </span>
-  );
-}
 
 export type AttentionRow = {
   id: string;
@@ -179,7 +154,7 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <Chip tone={row.tone}>{row.issue}</Chip>
+                  <MonitoringChip tone={row.tone}>{row.issue}</MonitoringChip>
                   <Button
                     variant="outline"
                     size="sm"
@@ -217,12 +192,12 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
                         No sites yet
                       </span>
                     ) : row.kind === "unchecked" ? (
-                      <Chip tone="muted">Not yet checked</Chip>
+                      <MonitoringChip tone="muted">Not yet checked</MonitoringChip>
                     ) : (
                       row.chips.map((chip) => (
-                        <Chip key={chip.label} tone={chip.tone}>
+                        <MonitoringChip key={chip.label} tone={chip.tone}>
                           {chip.label}
-                        </Chip>
+                        </MonitoringChip>
                       ))
                     )}
                   </div>

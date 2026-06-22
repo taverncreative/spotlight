@@ -1,39 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SiteFormDialog } from "@/components/site-form-dialog";
 import { SiteRemoveDialog } from "@/components/site-remove-dialog";
 import { CheckNowButton } from "@/components/check-now-button";
 import { CheckAllButton } from "@/components/check-all-button";
-import type { ChipTone, SiteView } from "@/lib/sites/monitoring";
-
-const TONE_CLASS: Record<ChipTone, string> = {
-  ok: "bg-emerald-500/15 text-emerald-400",
-  warn: "bg-amber-500/15 text-amber-400",
-  danger: "bg-destructive/15 text-destructive",
-  muted: "bg-muted text-muted-foreground",
-};
-
-function Chip({
-  tone,
-  children,
-}: {
-  tone: ChipTone;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium",
-        TONE_CLASS[tone]
-      )}
-    >
-      {children}
-    </span>
-  );
-}
+import { MonitoringChip } from "@/components/monitoring-chip";
+import type { SiteView } from "@/lib/sites/monitoring";
 
 // The Sites module: list with monitoring chips, plus add/edit/remove. The chip
 // rendering is data-driven so it lights up automatically once Slice 7 writes
@@ -98,7 +72,7 @@ export function SitesList({
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-medium">{site.hostname}</p>
                   {!site.monitoringEnabled ? (
-                    <Chip tone="muted">Paused</Chip>
+                    <MonitoringChip tone="muted">Paused</MonitoringChip>
                   ) : null}
                 </div>
                 {site.label ? (
@@ -109,31 +83,31 @@ export function SitesList({
                 <div className="flex flex-wrap items-center gap-1.5">
                   {site.check ? (
                     <>
-                      <Chip tone={site.check.statusTone}>
+                      <MonitoringChip tone={site.check.statusTone}>
                         {site.check.status === "up" ? "Up" : "Down"}
                         {site.check.httpStatus
                           ? ` · ${site.check.httpStatus}`
                           : ""}
-                      </Chip>
+                      </MonitoringChip>
                       {site.check.responseMs != null ? (
-                        <Chip tone="muted">{site.check.responseMs} ms</Chip>
+                        <MonitoringChip tone="muted">{site.check.responseMs} ms</MonitoringChip>
                       ) : null}
                       {site.check.ssl ? (
-                        <Chip tone={site.check.ssl.tone}>
+                        <MonitoringChip tone={site.check.ssl.tone}>
                           {site.check.ssl.label}
-                        </Chip>
+                        </MonitoringChip>
                       ) : null}
                       {site.check.domain ? (
-                        <Chip tone={site.check.domain.tone}>
+                        <MonitoringChip tone={site.check.domain.tone}>
                           {site.check.domain.label}
-                        </Chip>
+                        </MonitoringChip>
                       ) : null}
                       <span className="text-xs text-muted-foreground">
                         Checked {site.check.checkedAtLabel}
                       </span>
                     </>
                   ) : (
-                    <Chip tone="muted">Not yet checked</Chip>
+                    <MonitoringChip tone="muted">Not yet checked</MonitoringChip>
                   )}
                 </div>
               </div>
