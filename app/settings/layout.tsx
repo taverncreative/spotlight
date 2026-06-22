@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 import { createClient } from "@/lib/supabase/server";
 import { getTheme } from "@/lib/theme";
-import { signOut } from "./actions";
+import { signOut } from "@/lib/auth/actions";
 
 // Operator-level settings shell: auth gate, then the standard top bar. The brand
 // links back to the monitoring board.

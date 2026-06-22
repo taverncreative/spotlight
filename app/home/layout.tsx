@@ -5,7 +5,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 import { createClient } from "@/lib/supabase/server";
 import { getTheme } from "@/lib/theme";
-import { signOut } from "./actions";
+import { signOut } from "@/lib/auth/actions";
 
 // The single-operator app shell: auth gate, then a branded top bar over the
 // content region. Signed-out visitors go to /login. No client selector and no

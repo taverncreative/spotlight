@@ -7,7 +7,7 @@ import { ModuleBar } from "@/components/module-bar";
 import { createClient } from "@/lib/supabase/server";
 import { getTheme } from "@/lib/theme";
 import { requireClient } from "@/lib/clients/require-client";
-import { signOut } from "./actions";
+import { signOut } from "@/lib/auth/actions";
 
 // The per-client app shell: auth gate, resolve the client by slug (RLS scopes to
 // operator_id = auth.uid(), so a foreign or unknown slug returns no row and 404s),
