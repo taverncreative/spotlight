@@ -3,6 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/oauth/encryption";
 import { graphUrl } from "@/lib/oauth/meta";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
+import { socialMediaPublicUrl } from "@/lib/social/media-paths";
+import {
+  publishInstagramContainer,
+  type IgDeps,
+} from "@/lib/social/instagram-publish";
 import {
   PublishError,
   classifyMetaError,
@@ -170,8 +175,88 @@ async function publishFacebookTarget(
   return String(json.id);
 }
 
-// Platform dispatch table. Facebook is implemented; Instagram plugs in next slice
-// (20f) — for now it is a clean terminal error so a post never hangs on it.
+// Instagram uses a public-URL container flow (no binary upload) with a bounded
+// processing poll: up to 5 polls ~2s apart before returning transient.
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const IG_DEPS: IgDeps = {
+  graphUrl,
+  fetchImpl: fetch,
+  sleep,
+  maxPolls: 5,
+  pollDelayMs: 2000,
+};
+
+async function flagParentReconnect(
+  supabase: SupabaseClient,
+  parentId: string
+): Promise<void> {
+  await supabase
+    .from("meta_accounts")
+    .update({ needs_reconnect: true })
+    .eq("id", parentId);
+}
+
+// Publish one Instagram target. The IG row publishes through its linked Page, so
+// it borrows the parent Page's token (resolved via parent_account_id); the IG
+// row's own external_id is the IG user id. Auth failures flag the parent Page for
+// reconnect. Returns the published media id.
+async function publishInstagramTarget(
+  supabase: SupabaseClient,
+  account: AccountRow,
+  caption: string,
+  media: MediaRow[]
+): Promise<string> {
+  const parentId = account.parent_account_id;
+  if (!parentId) {
+    throw new PublishError(
+      "Instagram account has no linked Facebook Page; reconnect Meta.",
+      "validation"
+    );
+  }
+
+  const { data: parent } = await supabase
+    .from("meta_accounts")
+    .select("external_id, access_token")
+    .eq("id", parentId)
+    .maybeSingle();
+  if (!parent || !parent.access_token) {
+    throw new PublishError(
+      "Linked Facebook Page not found; reconnect Meta.",
+      "validation"
+    );
+  }
+
+  let pageToken: string;
+  try {
+    pageToken = decryptToken(parent.access_token as string);
+  } catch {
+    await flagParentReconnect(supabase, parentId);
+    throw new PublishError(
+      "Stored Page token could not be read; reconnect needed.",
+      "auth"
+    );
+  }
+
+  // IG fetches each image from its public URL (deploy-gated; 127.0.0.1 locally).
+  const mediaUrls = media.map((m) => socialMediaPublicUrl(m.storage_path));
+  try {
+    return await publishInstagramContainer(
+      IG_DEPS,
+      account.external_id,
+      pageToken,
+      caption,
+      mediaUrls
+    );
+  } catch (e) {
+    if (e instanceof PublishError && e.classification === "auth") {
+      await flagParentReconnect(supabase, parentId);
+    }
+    throw e;
+  }
+}
+
+// Platform dispatch table. Each branch is the platform path only; the engine
+// around it (idempotency, status machine, retries, classification) is shared.
 async function publishTarget(
   supabase: SupabaseClient,
   account: AccountRow,
@@ -181,8 +266,11 @@ async function publishTarget(
   if (account.platform === "facebook") {
     return publishFacebookTarget(supabase, account, caption, media);
   }
+  if (account.platform === "instagram") {
+    return publishInstagramTarget(supabase, account, caption, media);
+  }
   throw new PublishError(
-    "Instagram publishing is not yet available.",
+    `Unsupported platform: ${account.platform}.`,
     "validation"
   );
 }
@@ -244,13 +332,18 @@ export async function publishPost(
     }
 
     // Interruption safety: stamped but unrecorded from a prior run -> the process
-    // died mid-publish. Never auto-repost; flag for manual verification.
+    // died mid-publish. Never auto-repost; flag for manual verification (label
+    // derived from the target's platform — logic unchanged).
     if (target.attempt_started_at) {
       interrupted += 1;
       sawTerminal = true;
+      const platformLabel =
+        target.meta_accounts?.platform === "instagram"
+          ? "Instagram"
+          : "Facebook";
       await supabase
         .from("social_post_targets")
-        .update({ last_error: "interrupted — verify on Facebook" })
+        .update({ last_error: `interrupted — verify on ${platformLabel}` })
         .eq("id", target.id);
       continue;
     }
