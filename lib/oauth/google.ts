@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { decryptToken, encryptToken } from "@/lib/oauth/encryption";
+import { appBaseUrl } from "@/lib/app-url";
 
 // Google Search Console OAuth: consent URL, code exchange, and the token-refresh
 // helper every later GSC call goes through. Reads GOOGLE_CLIENT_ID and
@@ -11,13 +12,11 @@ export const GSC_PROVIDER = "google_search_console";
 const AUTH_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 
-// Single source for the redirect URI so it matches the registered URI exactly;
-// prod overrides via env.
+// Single source for the OAuth callback origin so the redirect URI matches the
+// registered one exactly. Built from the shared app base URL (the ngrok tunnel
+// in dev, the deployed origin in prod).
 export function getRedirectUri(): string {
-  return (
-    process.env.GOOGLE_OAUTH_REDIRECT_URI ??
-    "http://localhost:3100/api/oauth/google/callback"
-  );
+  return `${appBaseUrl()}/api/oauth/google/callback`;
 }
 
 function getCredentials(): { clientId: string; clientSecret: string } {

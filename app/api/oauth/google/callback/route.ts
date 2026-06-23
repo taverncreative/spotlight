@@ -7,6 +7,7 @@ import {
 } from "@/lib/oauth/google";
 import { isGoogleProvider, scopesFor } from "@/lib/oauth/providers";
 import { encryptToken } from "@/lib/oauth/encryption";
+import { appUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,11 +23,14 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(appUrl("/login"));
   }
 
+  // request.url is only read for its query string (code/state/error); the
+  // redirect targets are built from the app's public base URL so they stay on
+  // the tunnel/deployed origin instead of the localhost the server binds to.
   const url = new URL(request.url);
-  const integrations = new URL("/settings/integrations", request.url);
+  const integrations = appUrl("/settings/integrations");
   const stateCookie = (await cookies()).get(STATE_COOKIE)?.value;
 
   const fail = (reason: string) => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { buildConsentUrl } from "@/lib/oauth/google";
+import { appUrl } from "@/lib/app-url";
 import {
   isGoogleProvider,
   scopesFor,
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(appUrl("/login"));
   }
 
   // Default to Search Console so the original link keeps working unchanged.
