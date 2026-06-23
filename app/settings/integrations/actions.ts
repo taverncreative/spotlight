@@ -93,3 +93,57 @@ export async function disconnectMeta() {
   revalidatePath("/settings/integrations");
   redirect("/settings/integrations");
 }
+
+// Assign a connected Meta account (Page or Instagram) to one of the operator's
+// clients — or back to Unassigned (client_id null). This sets meta_accounts.
+// client_id, the column the Social composer's "Post to" selector filters on, so
+// an assignment lights the account up as a target for that client.
+//
+// Operator-scoped two ways: meta_accounts RLS limits the account to the
+// operator's own rows, and the target client is looked up under the operator's
+// clients RLS — a non-owned client id isn't found, so the assignment is rejected
+// (the meta_accounts FK alone would not enforce client ownership).
+//
+// Convenience: assigning a Page to a client cascades to its linked Instagram
+// rows that are still unassigned, so an IG defaults to mirror its Page. The IG
+// stays independently overridable (the cascade only fills nulls) and is left
+// untouched when the Page is later unassigned.
+export async function assignMetaAccountClient(formData: FormData) {
+  const accountId = String(formData.get("account_id") ?? "");
+  const raw = String(formData.get("client_id") ?? "");
+  const clientId = raw === "" ? null : raw;
+  if (!accountId) return;
+
+  const supabase = await createClient();
+
+  const { data: account } = await supabase
+    .from("meta_accounts")
+    .select("id, platform")
+    .eq("id", accountId)
+    .maybeSingle();
+  if (!account) return; // not the operator's account (RLS)
+
+  if (clientId) {
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (!client) return; // not the operator's client — reject the assignment
+  }
+
+  await supabase
+    .from("meta_accounts")
+    .update({ client_id: clientId })
+    .eq("id", accountId);
+
+  if (account.platform === "facebook" && clientId) {
+    await supabase
+      .from("meta_accounts")
+      .update({ client_id: clientId })
+      .eq("parent_account_id", accountId)
+      .is("client_id", null);
+  }
+
+  revalidatePath("/settings/integrations");
+}
