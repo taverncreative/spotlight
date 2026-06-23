@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { reapSocialMedia } from "@/lib/social/media-paths";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
+import { publishPost } from "@/lib/social/publisher";
 import type { SocialPostFormState, SocialMediaItem } from "@/lib/social/schemas";
 
 // All actions are owns_client / owns_social_post scoped via RLS (the policies in
@@ -76,9 +77,10 @@ export async function saveSocialPost(
   const clientId = String(formData.get("client_id") ?? "");
   const clientSlug = String(formData.get("client_slug") ?? "");
   const mode = String(formData.get("mode") ?? "new"); // new | edit
-  const intent = String(formData.get("intent") ?? "draft"); // draft | schedule
+  const intent = String(formData.get("intent") ?? "draft"); // draft | schedule | publish
   const caption = String(formData.get("caption") ?? "");
   const media = parseMedia(String(formData.get("media") ?? "[]"));
+  const selectedTargets = formData.getAll("target").map(String).filter(Boolean);
   if (!id || !clientId || !clientSlug) {
     return { ok: false, error: "Missing post or client." };
   }
@@ -107,6 +109,21 @@ export async function saveSocialPost(
       return {
         ok: false,
         fieldErrors: { schedule: ["The scheduled time must be in the future."] },
+      };
+    }
+  }
+
+  if (intent === "publish") {
+    if (media.length === 0) {
+      return {
+        ok: false,
+        fieldErrors: { media: ["Add at least one photo to publish."] },
+      };
+    }
+    if (selectedTargets.length === 0) {
+      return {
+        ok: false,
+        fieldErrors: { targets: ["Choose at least one account to publish to."] },
       };
     }
   }
@@ -160,6 +177,38 @@ export async function saveSocialPost(
       .from("social_post_media")
       .insert(rows);
     if (mediaError) return { ok: false, error: "Could not save the photos." };
+  }
+
+  // Reconcile targets to exactly the selected set, preserving the publish results
+  // (platform_post_id / published_at) on targets that stay. RLS (owns_social_post)
+  // scopes these writes to the operator's own post.
+  const { data: existingTargets } = await supabase
+    .from("social_post_targets")
+    .select("id, meta_account_id")
+    .eq("post_id", id);
+  const selectedSet = new Set(selectedTargets);
+  const existingByAccount = new Map(
+    (existingTargets ?? []).map((t) => [
+      t.meta_account_id as string,
+      t.id as string,
+    ])
+  );
+  const removeIds = (existingTargets ?? [])
+    .filter((t) => !selectedSet.has(t.meta_account_id as string))
+    .map((t) => t.id as string);
+  if (removeIds.length > 0) {
+    await supabase.from("social_post_targets").delete().in("id", removeIds);
+  }
+  const addRows = selectedTargets
+    .filter((mid) => !existingByAccount.has(mid))
+    .map((mid) => ({ post_id: id, meta_account_id: mid }));
+  if (addRows.length > 0) {
+    await supabase.from("social_post_targets").insert(addRows);
+  }
+
+  // Publish now: take it live immediately through the same engine the cron uses.
+  if (intent === "publish") {
+    await publishPost(supabase, id);
   }
 
   redirect(`/c/${clientSlug}/social`);

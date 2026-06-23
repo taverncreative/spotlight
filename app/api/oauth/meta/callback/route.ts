@@ -91,13 +91,16 @@ export async function GET(request: Request) {
         .upsert(
           {
             operator_id: user.id,
-            client_id: null,
             platform: "facebook",
             external_id: page.id,
             display_name: page.name,
             access_token: encryptToken(page.access_token),
             token_expires_at: pageExpiry,
             parent_account_id: null,
+            // Reconnect clears any prior auth failure. client_id is omitted so a
+            // re-connect preserves an existing client assignment (it defaults to
+            // null only on first insert).
+            needs_reconnect: false,
           },
           { onConflict: "platform,external_id" }
         )
@@ -114,13 +117,13 @@ export async function GET(request: Request) {
       await supabase.from("meta_accounts").upsert(
         {
           operator_id: user.id,
-          client_id: null,
           platform: "instagram",
           external_id: igId,
           display_name: ig?.username ?? ig?.name ?? page.name,
           access_token: encryptToken(page.access_token),
           token_expires_at: pageExpiry,
           parent_account_id: fbRow.id,
+          needs_reconnect: false,
         },
         { onConflict: "platform,external_id" }
       );

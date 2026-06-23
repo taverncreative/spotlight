@@ -37,7 +37,8 @@ function londonParts(iso: string): { date: string; time: string } {
 
 // Compose/edit a social post. The post id is provided by the server (stable
 // across SSR/hydration) so media can upload to its storage path before save.
-// "Save draft" and "Schedule" submit with an intent the server action reads.
+// "Save draft", "Schedule" and "Publish now" submit with an intent the server
+// action reads; "Publish now" saves then takes it live through the engine.
 export function SocialComposer({
   clientId,
   clientSlug,
@@ -46,6 +47,7 @@ export function SocialComposer({
   post,
   initialMedia,
   accounts,
+  selectedTargetIds,
 }: {
   clientId: string;
   clientSlug: string;
@@ -54,6 +56,7 @@ export function SocialComposer({
   post: ComposerPost | null;
   initialMedia: UploaderItem[];
   accounts: MetaAccount[];
+  selectedTargetIds: string[];
 }) {
   const [state, formAction, pending] = useActionState<SocialPostFormState, FormData>(
     saveSocialPost,
@@ -83,7 +86,14 @@ export function SocialComposer({
       <input type="hidden" name="mode" value={mode} />
       <input type="hidden" name="media" value={mediaJson} />
 
-      <SocialTargets accounts={accounts} />
+      <div>
+        <SocialTargets accounts={accounts} selected={selectedTargetIds} />
+        {state?.fieldErrors?.targets ? (
+          <p className="mt-1 text-sm text-destructive">
+            {state.fieldErrors.targets[0]}
+          </p>
+        ) : null}
+      </div>
 
       <div className="space-y-1.5">
         <label htmlFor="social-caption" className="text-sm font-medium">
@@ -156,8 +166,17 @@ export function SocialComposer({
         >
           Save draft
         </Button>
-        <Button type="submit" name="intent" value="schedule" disabled={pending}>
+        <Button
+          type="submit"
+          name="intent"
+          value="schedule"
+          variant="outline"
+          disabled={pending}
+        >
           Schedule
+        </Button>
+        <Button type="submit" name="intent" value="publish" disabled={pending}>
+          Publish now
         </Button>
       </div>
     </form>

@@ -25,7 +25,7 @@ export default async function EditSocialPostPage({
   const { data: post } = await supabase
     .from("social_posts")
     .select(
-      "id, client_id, caption, scheduled_at, social_post_media(position, storage_path, media_type, width, height)"
+      "id, client_id, caption, scheduled_at, social_post_media(position, storage_path, media_type, width, height), social_post_targets(meta_account_id)"
     )
     .eq("id", postId)
     .maybeSingle();
@@ -50,6 +50,10 @@ export default async function EditSocialPostPage({
       url: socialMediaPublicUrl(m.storage_path),
     }));
 
+  const selectedTargetIds = (
+    (post.social_post_targets ?? []) as { meta_account_id: string }[]
+  ).map((t) => t.meta_account_id);
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-xl font-semibold tracking-tight">Edit post</h1>
@@ -61,6 +65,7 @@ export default async function EditSocialPostPage({
         post={{ caption: post.caption, scheduled_at: post.scheduled_at }}
         initialMedia={media}
         accounts={accounts ?? []}
+        selectedTargetIds={selectedTargetIds}
       />
     </div>
   );

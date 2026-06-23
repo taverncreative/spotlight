@@ -14,6 +14,13 @@ export const GRAPH_VERSION = "v25.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
 
+// Absolute Graph API URL for a path (e.g. graphUrl(`/${pageId}/photos`)), pinned
+// to the version above. Single source for the host/version so the publisher and
+// the connect flow can't drift apart.
+export function graphUrl(path: string): string {
+  return `${GRAPH}${path}`;
+}
+
 // Facebook-Login-via-Page path: Page listing/posting, plus Instagram publishing
 // through the linked Page (instagram_basic + instagram_content_publish), plus
 // business_management for Business-owned Pages. Meta wants these comma-joined.

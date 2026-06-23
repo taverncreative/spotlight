@@ -6,10 +6,16 @@ export type MetaAccount = {
   display_name: string | null;
 };
 
-// "Post to" target selector. When the client has connected Meta accounts they
-// render as selectable checkboxes (the Meta-connect slice populates them); until
-// then meta_accounts is empty and this is the connect state.
-export function SocialTargets({ accounts }: { accounts: MetaAccount[] }) {
+// "Post to" target selector. Accounts are the client's assigned Meta accounts;
+// `selected` pre-checks the post's existing targets on edit. When the client has
+// no assigned accounts this is the connect state.
+export function SocialTargets({
+  accounts,
+  selected,
+}: {
+  accounts: MetaAccount[];
+  selected: string[];
+}) {
   return (
     <div className="space-y-1.5">
       <label className="text-sm font-medium">Post to</label>
@@ -35,6 +41,7 @@ export function SocialTargets({ accounts }: { accounts: MetaAccount[] }) {
                 type="checkbox"
                 name="target"
                 value={account.id}
+                defaultChecked={selected.includes(account.id)}
                 className="size-4 rounded border-input accent-brand"
               />
               <span>{account.display_name ?? account.platform}</span>

@@ -23,6 +23,7 @@ export const SOCIAL_STATUSES = [
   "scheduled",
   "publishing",
   "published",
+  "partial",
   "failed",
 ] as const;
 export type SocialStatus = (typeof SOCIAL_STATUSES)[number];

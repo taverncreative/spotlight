@@ -97,6 +97,7 @@ type MetaAccountRow = {
   external_id: string;
   parent_account_id: string | null;
   client_id: string | null;
+  needs_reconnect: boolean;
 };
 
 // The Meta card differs from the single-account Google cards: one connection
@@ -168,6 +169,14 @@ function MetaIntegrationCard({
                     <span className="truncate">
                       {page.display_name ?? page.external_id}
                     </span>
+                    {page.needs_reconnect ? (
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-amber-500/40 text-amber-400"
+                      >
+                        Reconnect needed
+                      </Badge>
+                    ) : null}
                   </div>
                   <MetaAccountAssign
                     key={`${page.id}:${page.client_id ?? ""}`}
@@ -188,6 +197,14 @@ function MetaIntegrationCard({
                       <span className="truncate text-xs text-muted-foreground">
                         {ig.display_name ?? ig.external_id}
                       </span>
+                      {ig.needs_reconnect ? (
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 border-amber-500/40 text-amber-400"
+                        >
+                          Reconnect needed
+                        </Badge>
+                      ) : null}
                     </div>
                     <MetaAccountAssign
                       key={`${ig.id}:${ig.client_id ?? ""}`}
@@ -239,7 +256,7 @@ export default async function IntegrationsPage({
   const { data: metaAccounts } = await supabase
     .from("meta_accounts")
     .select(
-      "id, platform, display_name, external_id, parent_account_id, client_id"
+      "id, platform, display_name, external_id, parent_account_id, client_id, needs_reconnect"
     )
     .order("created_at", { ascending: true });
 

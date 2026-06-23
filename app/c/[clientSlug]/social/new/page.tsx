@@ -33,6 +33,7 @@ export default async function NewSocialPostPage({
         post={null}
         initialMedia={[]}
         accounts={accounts ?? []}
+        selectedTargetIds={[]}
       />
     </div>
   );
