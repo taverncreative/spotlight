@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { GOOGLE_PROVIDER_KEYS, isGoogleProvider } from "@/lib/oauth/providers";
+import { META_PROVIDER, GRAPH_VERSION } from "@/lib/oauth/meta";
 import { decryptToken } from "@/lib/oauth/encryption";
 
 // Disconnect a Google provider: delete the operator's row for that provider
@@ -50,6 +51,44 @@ export async function disconnectGoogleProvider(formData: FormData) {
   }
 
   await supabase.from("oauth_connections").delete().eq("provider", provider);
+
+  revalidatePath("/settings/integrations");
+  redirect("/settings/integrations");
+}
+
+// Disconnect Meta: delete the facebook oauth_connections row and all of the
+// operator's connected Pages/IG accounts (both RLS-scoped to this operator),
+// then return to a clean Integrations URL. Meta is a single app grant (unlike
+// Google's shared GSC/GA4 grant), so the grant is revoked outright via DELETE
+// /me/permissions. Revoke is best-effort and never blocks the delete.
+export async function disconnectMeta() {
+  const supabase = await createClient();
+
+  const { data: connection } = await supabase
+    .from("oauth_connections")
+    .select("access_token")
+    .eq("provider", META_PROVIDER)
+    .maybeSingle();
+
+  if (connection) {
+    try {
+      const token = decryptToken(connection.access_token);
+      await fetch(
+        `https://graph.facebook.com/${GRAPH_VERSION}/me/permissions?access_token=${encodeURIComponent(token)}`,
+        { method: "DELETE" }
+      );
+    } catch {
+      // Best-effort revoke; proceed with the delete regardless.
+    }
+  }
+
+  await supabase
+    .from("oauth_connections")
+    .delete()
+    .eq("provider", META_PROVIDER);
+  // The operator's connected Pages/IG accounts (RLS scopes this to their rows;
+  // the filter is just supabase-js's required predicate).
+  await supabase.from("meta_accounts").delete().not("id", "is", null);
 
   revalidatePath("/settings/integrations");
   redirect("/settings/integrations");

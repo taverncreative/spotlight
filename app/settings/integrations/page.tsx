@@ -8,11 +8,11 @@ import {
   GOOGLE_PROVIDER_KEYS,
   type GoogleProvider,
 } from "@/lib/oauth/providers";
-import { disconnectGoogleProvider } from "./actions";
+import { META_PROVIDER } from "@/lib/oauth/meta";
+import { disconnectGoogleProvider, disconnectMeta } from "./actions";
 
 const COMING_SOON = [
   { name: "Google Business Profile", detail: "Reviews and local presence." },
-  { name: "Meta", detail: "Facebook and Instagram." },
 ];
 
 function Banner({
@@ -87,6 +87,100 @@ function IntegrationCard({
   );
 }
 
+type MetaAccountRow = {
+  id: string;
+  platform: string;
+  display_name: string | null;
+  external_id: string;
+  parent_account_id: string | null;
+};
+
+// The Meta card differs from the single-account Google cards: one connection
+// fans out to many Pages, each optionally with a linked Instagram account, so it
+// summarises them all. Connect links to the Meta start route; Disconnect tears
+// the whole grant down (the facebook connection + every connected account).
+function MetaIntegrationCard({
+  connected,
+  accounts,
+}: {
+  connected: boolean;
+  accounts: MetaAccountRow[];
+}) {
+  const pages = accounts.filter((a) => a.platform === "facebook");
+  const instagrams = accounts.filter((a) => a.platform === "instagram");
+
+  return (
+    <li className="rounded-lg border bg-card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Meta</p>
+          {connected ? (
+            <p className="text-xs text-muted-foreground">
+              {pages.length} Page{pages.length === 1 ? "" : "s"}
+              {instagrams.length > 0
+                ? ` · ${instagrams.length} Instagram account${
+                    instagrams.length === 1 ? "" : "s"
+                  }`
+                : ""}{" "}
+              connected
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Facebook Pages and Instagram.
+            </p>
+          )}
+        </div>
+        {connected ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <Badge variant="secondary">Connected</Badge>
+            <form action={disconnectMeta}>
+              <Button type="submit" variant="outline" size="sm">
+                Disconnect
+              </Button>
+            </form>
+          </div>
+        ) : (
+          <Button size="sm" render={<Link href="/api/oauth/meta/start" />}>
+            Connect
+          </Button>
+        )}
+      </div>
+
+      {connected && pages.length > 0 ? (
+        <ul className="mt-3 space-y-2 border-t pt-3">
+          {pages.map((page) => {
+            const linked = instagrams.filter(
+              (ig) => ig.parent_account_id === page.id
+            );
+            return (
+              <li key={page.id} className="text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 text-xs text-muted-foreground">
+                    Facebook
+                  </span>
+                  <span className="truncate">
+                    {page.display_name ?? page.external_id}
+                  </span>
+                </div>
+                {linked.map((ig) => (
+                  <div key={ig.id} className="flex items-center gap-2">
+                    <span className="w-20 shrink-0 text-xs text-muted-foreground">
+                      Instagram
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {ig.display_name ?? ig.external_id}
+                    </span>
+                  </div>
+                ))}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
+
 export default async function IntegrationsPage({
   searchParams,
 }: {
@@ -109,6 +203,18 @@ export default async function IntegrationsPage({
   );
   const conn = (provider: GoogleProvider): CardConnection =>
     byProvider.get(provider) ?? null;
+
+  // Meta connection state + the operator's connected Pages/IG accounts
+  // (meta_accounts RLS scopes these to this operator).
+  const { data: metaConn } = await supabase
+    .from("oauth_connections")
+    .select("provider")
+    .eq("provider", META_PROVIDER)
+    .maybeSingle();
+  const { data: metaAccounts } = await supabase
+    .from("meta_accounts")
+    .select("id, platform, display_name, external_id, parent_account_id")
+    .order("created_at", { ascending: true });
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -138,6 +244,11 @@ export default async function IntegrationsPage({
           name="Google Analytics 4"
           description="Traffic and engagement."
           connection={conn("google_analytics")}
+        />
+
+        <MetaIntegrationCard
+          connected={!!metaConn}
+          accounts={(metaAccounts ?? []) as MetaAccountRow[]}
         />
 
         {COMING_SOON.map((product) => (
