@@ -23,12 +23,7 @@ export async function signIn(
   });
 
   if (error) {
-    // TEMPORARY DIAGNOSTIC: surface the real Supabase auth error so we can tell
-    // apart "Invalid login credentials" / "Email not confirmed" / "Invalid API
-    // key" in prod. Revert to the generic message once diagnosed.
-    return {
-      error: `[diag] ${error.message} (status: ${error.status ?? "?"}, code: ${error.code ?? "?"})`,
-    };
+    return { error: "Email or password is incorrect." };
   }
 
   redirect("/home");
