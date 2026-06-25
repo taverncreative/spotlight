@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/wordmark";
 import { fieldInputClass } from "@/components/form-field";
@@ -8,6 +9,10 @@ import { signIn } from "./actions";
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(signIn, null);
+  // Controlled email so the value survives React 19's post-action form reset
+  // after a failed sign-in. The password is intentionally not preserved.
+  const [email, setEmail] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
@@ -28,6 +33,8 @@ export default function LoginPage() {
               type="email"
               autoComplete="email"
               required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               className={fieldInputClass}
             />
           </div>
@@ -35,14 +42,29 @@ export default function LoginPage() {
             <label htmlFor="password" className="text-sm font-medium">
               Password
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              className={fieldInputClass}
-            />
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                required
+                className={`${fieldInputClass} pr-10`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((shown) => !shown)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground outline-none"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <Eye className="h-4 w-4" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
           {state?.error ? (
             <p role="alert" className="text-sm text-destructive">
