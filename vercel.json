@@ -1,0 +1,6 @@
+{
+  "crons": [
+    { "path": "/api/cron/run-checks", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/run-publisher", "schedule": "*/5 * * * *" }
+  ]
+}
