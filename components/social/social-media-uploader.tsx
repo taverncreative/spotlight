@@ -35,64 +35,84 @@ export function SocialMediaUploader({
   postId,
   items,
   onChange,
+  onUploadingChange,
 }: {
   clientId: string;
   postId: string;
   items: UploaderItem[];
   onChange: (items: UploaderItem[]) => void;
+  onUploadingChange?: (uploading: boolean) => void;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Validate and upload one file; null means it was skipped (error shown).
+  async function uploadOne(
+    supabase: ReturnType<typeof createClient>,
+    file: File
+  ): Promise<UploaderItem | null> {
+    if (!ALLOWED_MEDIA_TYPES.includes(file.type)) {
+      setError(
+        `${file.name}: unsupported image type (use PNG, JPEG, WebP or GIF).`
+      );
+      return null;
+    }
+    if (file.size > MAX_MEDIA_BYTES) {
+      setError(`${file.name}: image must be under 10 MB.`);
+      return null;
+    }
+    const dims = await readDimensions(file);
+    const ext = (file.name.split(".").pop() ?? "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    const path = `${clientId}/${postId}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from(SOCIAL_MEDIA_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) {
+        setError(`${file.name}: upload failed.`);
+        return null;
+      }
+    } catch {
+      setError(`${file.name}: upload failed.`);
+      return null;
+    }
+    return {
+      storage_path: path,
+      media_type: "image",
+      width: dims.width,
+      height: dims.height,
+      url: socialMediaPublicUrl(path),
+    };
+  }
+
   // Uploads straight from the browser to the social-media bucket; storage RLS
   // (owns_client on the {client_id} folder) is the write gate. The server only
-  // ever sees the returned paths, at save time.
+  // ever sees the returned paths, at save time. Each finished file lands in the
+  // grid immediately (per-file done state); the button counts them off.
   async function handleFiles(files: FileList) {
+    const list = Array.from(files);
     setUploading(true);
+    onUploadingChange?.(true);
+    setProgress({ done: 0, total: list.length });
     setError(null);
     const supabase = createClient();
-    const added: UploaderItem[] = [];
+    let current = items;
     try {
-      for (const file of Array.from(files)) {
-        if (!ALLOWED_MEDIA_TYPES.includes(file.type)) {
-          setError(
-            `${file.name}: unsupported image type (use PNG, JPEG, WebP or GIF).`
-          );
-          continue;
+      for (const file of list) {
+        const item = await uploadOne(supabase, file);
+        setProgress((p) => ({ done: p.done + 1, total: p.total }));
+        if (item) {
+          current = [...current, item];
+          onChange(current);
         }
-        if (file.size > MAX_MEDIA_BYTES) {
-          setError(`${file.name}: image must be under 10 MB.`);
-          continue;
-        }
-        const dims = await readDimensions(file);
-        const ext = (file.name.split(".").pop() ?? "")
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "");
-        const path = `${clientId}/${postId}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
-        try {
-          const { error: uploadError } = await supabase.storage
-            .from(SOCIAL_MEDIA_BUCKET)
-            .upload(path, file, { contentType: file.type, upsert: false });
-          if (uploadError) {
-            setError(`${file.name}: upload failed.`);
-            continue;
-          }
-        } catch {
-          setError(`${file.name}: upload failed.`);
-          continue;
-        }
-        added.push({
-          storage_path: path,
-          media_type: "image",
-          width: dims.width,
-          height: dims.height,
-          url: socialMediaPublicUrl(path),
-        });
       }
-      onChange([...items, ...added]);
     } finally {
       setUploading(false);
+      onUploadingChange?.(false);
     }
   }
 
@@ -178,7 +198,7 @@ export function SocialMediaUploader({
         disabled={uploading}
       >
         {uploading
-          ? "Uploading…"
+          ? `Uploading ${progress.done}/${progress.total}…`
           : items.length > 0
             ? "Add more photos"
             : "Add photos"}

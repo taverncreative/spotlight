@@ -69,6 +69,7 @@ export function SocialComposer({
 
   const [caption, setCaption] = useState(post?.caption ?? "");
   const [media, setMedia] = useState<UploaderItem[]>(initialMedia);
+  const [mediaUploading, setMediaUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedTargetIds);
   const prefill = post?.scheduled_at ? londonParts(post.scheduled_at) : null;
   const [date, setDate] = useState(prefill?.date ?? "");
@@ -137,6 +138,7 @@ export function SocialComposer({
           postId={postId}
           items={media}
           onChange={setMedia}
+          onUploadingChange={setMediaUploading}
         />
         <p className="mt-1 text-xs text-muted-foreground">
           {igSelected
@@ -184,13 +186,15 @@ export function SocialComposer({
         </p>
       ) : null}
 
+      {/* Submitting mid-upload would save without the in-flight photos, so all
+          three intents wait for the uploader to finish. */}
       <div className="flex justify-end gap-2">
         <Button
           type="submit"
           name="intent"
           value="draft"
           variant="outline"
-          disabled={pending}
+          disabled={pending || mediaUploading}
         >
           Save draft
         </Button>
@@ -199,11 +203,16 @@ export function SocialComposer({
           name="intent"
           value="schedule"
           variant="outline"
-          disabled={pending}
+          disabled={pending || mediaUploading}
         >
-          Schedule
+          {mediaUploading ? "Uploading photos…" : "Schedule"}
         </Button>
-        <Button type="submit" name="intent" value="publish" disabled={pending}>
+        <Button
+          type="submit"
+          name="intent"
+          value="publish"
+          disabled={pending || mediaUploading}
+        >
           Publish now
         </Button>
       </div>
