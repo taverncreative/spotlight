@@ -10,6 +10,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "seed:demo": "node --env-file=.env.local scripts/seed-demo.mts",
+    "sweep:social-orphans": "node --env-file=.env.local scripts/sweep-social-orphans.mts",
     "db:reset": "npx supabase db reset --local && psql postgresql://postgres:postgres@127.0.0.1:55322/postgres -f scripts/local-reset-grants.sql"
   },
   "dependencies": {
