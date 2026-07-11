@@ -14,7 +14,10 @@ import {
   type ErrorClass,
 } from "@/lib/social/publish-errors";
 
-export { classifyMetaError, type ErrorClass } from "@/lib/social/publish-errors";
+export {
+  classifyMetaError,
+  type ErrorClass,
+} from "@/lib/social/publish-errors";
 
 // The publisher engine — the single source of truth for taking a social post
 // live. Both the unattended cron (run-publisher) and the operator's "Publish now"
@@ -83,7 +86,10 @@ async function downloadMedia(
     .from(SOCIAL_MEDIA_BUCKET)
     .download(storagePath);
   if (error || !data) {
-    throw new PublishError(`Could not read media (${storagePath}).`, "validation");
+    throw new PublishError(
+      `Could not read media (${storagePath}).`,
+      "validation"
+    );
   }
   return data;
 }
@@ -128,8 +134,20 @@ async function publishFacebookTarget(
     );
   }
   const pageId = account.external_id;
+
+  // Text-only post: a message-only feed post. Only Facebook ever reaches here
+  // with no media (the save action requires photos for any Instagram target,
+  // and the IG container flow refuses an empty media list).
   if (media.length === 0) {
-    throw new PublishError("No media to publish.", "validation");
+    const form = new FormData();
+    form.append("message", caption);
+    form.append("access_token", pageToken);
+    const res = await fetch(graphUrl(`/${pageId}/feed`), {
+      method: "POST",
+      body: form,
+    });
+    const json = await parseGraph(res);
+    return String(json.id);
   }
 
   if (media.length === 1) {
@@ -361,7 +379,10 @@ export async function publishPost(
     // Stamp immediately before the Graph call; clear any prior error.
     await supabase
       .from("social_post_targets")
-      .update({ attempt_started_at: new Date().toISOString(), last_error: null })
+      .update({
+        attempt_started_at: new Date().toISOString(),
+        last_error: null,
+      })
       .eq("id", target.id);
 
     try {

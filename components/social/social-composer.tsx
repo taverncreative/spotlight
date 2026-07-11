@@ -4,7 +4,10 @@ import { useActionState, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { fieldInputClass } from "@/components/form-field";
-import { SocialTargets, type MetaAccount } from "@/components/social/social-targets";
+import {
+  SocialTargets,
+  type MetaAccount,
+} from "@/components/social/social-targets";
 import {
   SocialMediaUploader,
   type UploaderItem,
@@ -28,7 +31,8 @@ function londonParts(iso: string): { date: string; time: string } {
     hour: "2-digit",
     minute: "2-digit",
   });
-  for (const part of fmt.formatToParts(new Date(iso))) parts[part.type] = part.value;
+  for (const part of fmt.formatToParts(new Date(iso)))
+    parts[part.type] = part.value;
   return {
     date: `${parts.year}-${parts.month}-${parts.day}`,
     time: `${parts.hour}:${parts.minute}`,
@@ -58,16 +62,29 @@ export function SocialComposer({
   accounts: MetaAccount[];
   selectedTargetIds: string[];
 }) {
-  const [state, formAction, pending] = useActionState<SocialPostFormState, FormData>(
-    saveSocialPost,
-    null
-  );
+  const [state, formAction, pending] = useActionState<
+    SocialPostFormState,
+    FormData
+  >(saveSocialPost, null);
 
   const [caption, setCaption] = useState(post?.caption ?? "");
   const [media, setMedia] = useState<UploaderItem[]>(initialMedia);
+  const [selectedIds, setSelectedIds] = useState<string[]>(selectedTargetIds);
   const prefill = post?.scheduled_at ? londonParts(post.scheduled_at) : null;
   const [date, setDate] = useState(prefill?.date ?? "");
   const [time, setTime] = useState(prefill?.time ?? "");
+
+  // Photos are only mandatory for Instagram; Facebook supports text-only posts.
+  const igSelected = accounts.some(
+    (account) =>
+      account.platform === "instagram" && selectedIds.includes(account.id)
+  );
+
+  function toggleTarget(id: string, checked: boolean) {
+    setSelectedIds((previous) =>
+      checked ? [...previous, id] : previous.filter((x) => x !== id)
+    );
+  }
 
   const mediaJson = JSON.stringify(
     media.map((m) => ({
@@ -87,7 +104,11 @@ export function SocialComposer({
       <input type="hidden" name="media" value={mediaJson} />
 
       <div>
-        <SocialTargets accounts={accounts} selected={selectedTargetIds} />
+        <SocialTargets
+          accounts={accounts}
+          selected={selectedIds}
+          onToggle={toggleTarget}
+        />
         {state?.fieldErrors?.targets ? (
           <p className="mt-1 text-sm text-destructive">
             {state.fieldErrors.targets[0]}
@@ -117,6 +138,11 @@ export function SocialComposer({
           items={media}
           onChange={setMedia}
         />
+        <p className="mt-1 text-xs text-muted-foreground">
+          {igSelected
+            ? "Instagram requires at least one photo."
+            : "Photos are optional for Facebook-only posts."}
+        </p>
         {state?.fieldErrors?.media ? (
           <p className="mt-1 text-sm text-destructive">
             {state.fieldErrors.media[0]}
@@ -146,7 +172,9 @@ export function SocialComposer({
           />
         </div>
         {state?.fieldErrors?.schedule ? (
-          <p className="text-sm text-destructive">{state.fieldErrors.schedule[0]}</p>
+          <p className="text-sm text-destructive">
+            {state.fieldErrors.schedule[0]}
+          </p>
         ) : null}
       </div>
 

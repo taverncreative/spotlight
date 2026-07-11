@@ -7,14 +7,17 @@ export type MetaAccount = {
 };
 
 // "Post to" target selector. Accounts are the client's assigned Meta accounts;
-// `selected` pre-checks the post's existing targets on edit. When the client has
+// `selected` holds the checked target ids (controlled by the composer, so it
+// can react to the selection, e.g. the photo requirement). When the client has
 // no assigned accounts this is the connect state.
 export function SocialTargets({
   accounts,
   selected,
+  onToggle,
 }: {
   accounts: MetaAccount[];
   selected: string[];
+  onToggle: (id: string, checked: boolean) => void;
 }) {
   return (
     <div className="space-y-1.5">
@@ -41,7 +44,8 @@ export function SocialTargets({
                 type="checkbox"
                 name="target"
                 value={account.id}
-                defaultChecked={selected.includes(account.id)}
+                checked={selected.includes(account.id)}
+                onChange={(event) => onToggle(account.id, event.target.checked)}
                 className="size-4 rounded border-input accent-brand"
               />
               <span>{account.display_name ?? account.platform}</span>

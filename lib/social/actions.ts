@@ -5,7 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { reapSocialMedia } from "@/lib/social/media-paths";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
 import { publishPost } from "@/lib/social/publisher";
-import type { SocialPostFormState, SocialMediaItem } from "@/lib/social/schemas";
+import type {
+  SocialPostFormState,
+  SocialMediaItem,
+} from "@/lib/social/schemas";
 
 // All actions are owns_client / owns_social_post scoped via RLS (the policies in
 // 0020/0022/0026), so a post or its media can only ever be written for a client
@@ -25,13 +28,7 @@ function londonOffsetMinutes(date: Date): number {
   });
   const p: Record<string, string> = {};
   for (const part of dtf.formatToParts(date)) p[part.type] = part.value;
-  const asIfUtc = Date.UTC(
-    +p.year,
-    +p.month - 1,
-    +p.day,
-    +p.hour,
-    +p.minute
-  );
+  const asIfUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
   return Math.round((asIfUtc - date.getTime()) / 60000);
 }
 
@@ -92,13 +89,41 @@ export async function saveSocialPost(
     String(formData.get("schedule_time") ?? "")
   );
 
-  if (intent === "schedule") {
-    if (media.length === 0) {
+  const supabase = await createClient();
+
+  // Photos are mandatory only when an Instagram target is selected: IG has no
+  // text-only posts, while a Facebook Page accepts a message-only feed post.
+  // The lookup is RLS-scoped, so foreign ids simply resolve to no rows.
+  let requiresMedia = false;
+  if (selectedTargets.length > 0) {
+    const { data: targetAccounts } = await supabase
+      .from("meta_accounts")
+      .select("id, platform")
+      .in("id", selectedTargets);
+    requiresMedia = (targetAccounts ?? []).some(
+      (account) => account.platform === "instagram"
+    );
+  }
+
+  if (intent === "schedule" || intent === "publish") {
+    if (media.length === 0 && requiresMedia) {
       return {
         ok: false,
-        fieldErrors: { media: ["Add at least one photo to schedule."] },
+        fieldErrors: {
+          media: ["Add at least one photo to post to Instagram."],
+        },
       };
     }
+    // A text-only post still needs a caption, or there is nothing to publish.
+    if (media.length === 0 && caption.trim() === "") {
+      return {
+        ok: false,
+        fieldErrors: { media: ["Add a caption or at least one photo."] },
+      };
+    }
+  }
+
+  if (intent === "schedule") {
     if (!scheduledAt) {
       return {
         ok: false,
@@ -108,29 +133,26 @@ export async function saveSocialPost(
     if (new Date(scheduledAt).getTime() <= Date.now()) {
       return {
         ok: false,
-        fieldErrors: { schedule: ["The scheduled time must be in the future."] },
+        fieldErrors: {
+          schedule: ["The scheduled time must be in the future."],
+        },
       };
     }
   }
 
   if (intent === "publish") {
-    if (media.length === 0) {
-      return {
-        ok: false,
-        fieldErrors: { media: ["Add at least one photo to publish."] },
-      };
-    }
     if (selectedTargets.length === 0) {
       return {
         ok: false,
-        fieldErrors: { targets: ["Choose at least one account to publish to."] },
+        fieldErrors: {
+          targets: ["Choose at least one account to publish to."],
+        },
       };
     }
   }
 
   const status = intent === "schedule" ? "scheduled" : "draft";
   const storedScheduledAt = intent === "schedule" ? scheduledAt : null;
-  const supabase = await createClient();
 
   if (mode === "edit") {
     const { data, error } = await supabase
