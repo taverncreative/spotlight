@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { uploadPostImage } from "@/lib/posts/image-actions";
+import { uploadPostImage } from "@/lib/posts/image-upload";
 
 // Featured image control: upload, preview, replace, remove. The resolved public
 // URL is mirrored into a hidden input so it persists with the post on save.
@@ -22,13 +22,13 @@ export function FeaturedImageInput({
   async function handleFile(file: File) {
     setUploading(true);
     setError(null);
-    const formData = new FormData();
-    formData.set("file", file);
-    formData.set("client_id", clientId);
-    const result = await uploadPostImage(formData);
-    setUploading(false);
-    if (result.ok) setUrl(result.url);
-    else setError(result.error);
+    try {
+      const result = await uploadPostImage(file, clientId);
+      if (result.ok) setUrl(result.url);
+      else setError(result.error);
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExtension from "@tiptap/extension-link";
@@ -18,7 +18,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { uploadPostImage } from "@/lib/posts/image-actions";
+import { uploadPostImage } from "@/lib/posts/image-upload";
 
 // WYSIWYG body editor (Tiptap) that stores and round-trips clean Markdown via
 // tiptap-markdown. immediatelyRender: false avoids SSR/hydration mismatch under
@@ -33,6 +33,8 @@ export function PostEditor({
   onChange: (markdown: string) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -58,12 +60,17 @@ export function PostEditor({
   }
 
   const insertImage = async (file: File) => {
-    const formData = new FormData();
-    formData.set("file", file);
-    formData.set("client_id", clientId);
-    const result = await uploadPostImage(formData);
-    if (result.ok) {
-      editor.chain().focus().setImage({ src: result.url }).run();
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const result = await uploadPostImage(file, clientId);
+      if (result.ok) {
+        editor.chain().focus().setImage({ src: result.url }).run();
+      } else {
+        setUploadError(result.error);
+      }
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -75,42 +82,92 @@ export function PostEditor({
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: input }).run();
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href: input })
+      .run();
   };
 
   return (
     <div className="rounded-md border bg-transparent">
       <div className="flex flex-wrap gap-1 border-b p-1">
-        <ToolButton label="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}>
+        <ToolButton
+          label="Bold"
+          active={editor.isActive("bold")}
+          onClick={() => editor.chain().focus().toggleBold().run()}
+        >
           <Bold className="size-4" />
         </ToolButton>
-        <ToolButton label="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}>
+        <ToolButton
+          label="Italic"
+          active={editor.isActive("italic")}
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+        >
           <Italic className="size-4" />
         </ToolButton>
-        <ToolButton label="Heading 2" active={editor.isActive("heading", { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
+        <ToolButton
+          label="Heading 2"
+          active={editor.isActive("heading", { level: 2 })}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 2 }).run()
+          }
+        >
           <Heading2 className="size-4" />
         </ToolButton>
-        <ToolButton label="Heading 3" active={editor.isActive("heading", { level: 3 })} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>
+        <ToolButton
+          label="Heading 3"
+          active={editor.isActive("heading", { level: 3 })}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 3 }).run()
+          }
+        >
           <Heading3 className="size-4" />
         </ToolButton>
-        <ToolButton label="Quote" active={editor.isActive("blockquote")} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
+        <ToolButton
+          label="Quote"
+          active={editor.isActive("blockquote")}
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        >
           <Quote className="size-4" />
         </ToolButton>
-        <ToolButton label="Bullet list" active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}>
+        <ToolButton
+          label="Bullet list"
+          active={editor.isActive("bulletList")}
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+        >
           <List className="size-4" />
         </ToolButton>
-        <ToolButton label="Numbered list" active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
+        <ToolButton
+          label="Numbered list"
+          active={editor.isActive("orderedList")}
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        >
           <ListOrdered className="size-4" />
         </ToolButton>
-        <ToolButton label="Link" active={editor.isActive("link")} onClick={toggleLink}>
+        <ToolButton
+          label="Link"
+          active={editor.isActive("link")}
+          onClick={toggleLink}
+        >
           <Link2 className="size-4" />
         </ToolButton>
-        <ToolButton label="Insert image" active={false} onClick={() => fileRef.current?.click()}>
+        <ToolButton
+          label={uploading ? "Uploading image…" : "Insert image"}
+          active={false}
+          onClick={() => {
+            if (!uploading) fileRef.current?.click();
+          }}
+        >
           <ImageIcon className="size-4" />
         </ToolButton>
       </div>
 
       <EditorContent editor={editor} />
+      {uploadError ? (
+        <p className="px-3 pb-2 text-sm text-destructive">{uploadError}</p>
+      ) : null}
 
       <input
         ref={fileRef}
