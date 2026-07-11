@@ -72,7 +72,7 @@ export default function LoginPage() {
             </p>
           ) : null}
           <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Signing in" : "Sign in"}
+            {pending ? "Signing in…" : "Sign in"}
           </Button>
         </form>
       </div>
