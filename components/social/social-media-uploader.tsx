@@ -2,9 +2,14 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { uploadSocialMedia } from "@/lib/social/media-actions";
+import { createClient } from "@/lib/supabase/client";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
-import type { SocialMediaItem } from "@/lib/social/schemas";
+import {
+  ALLOWED_MEDIA_TYPES,
+  MAX_MEDIA_BYTES,
+  SOCIAL_MEDIA_BUCKET,
+  type SocialMediaItem,
+} from "@/lib/social/schemas";
 
 // A media item plus its derived preview URL (the row stores only the path).
 export type UploaderItem = SocialMediaItem & { url: string };
@@ -40,31 +45,55 @@ export function SocialMediaUploader({
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Uploads straight from the browser to the social-media bucket; storage RLS
+  // (owns_client on the {client_id} folder) is the write gate. The server only
+  // ever sees the returned paths, at save time.
   async function handleFiles(files: FileList) {
     setUploading(true);
     setError(null);
+    const supabase = createClient();
     const added: UploaderItem[] = [];
-    for (const file of Array.from(files)) {
-      const dims = await readDimensions(file);
-      const formData = new FormData();
-      formData.set("file", file);
-      formData.set("client_id", clientId);
-      formData.set("post_id", postId);
-      const result = await uploadSocialMedia(formData);
-      if (!result.ok) {
-        setError(result.error);
-        continue;
+    try {
+      for (const file of Array.from(files)) {
+        if (!ALLOWED_MEDIA_TYPES.includes(file.type)) {
+          setError(
+            `${file.name}: unsupported image type (use PNG, JPEG, WebP or GIF).`
+          );
+          continue;
+        }
+        if (file.size > MAX_MEDIA_BYTES) {
+          setError(`${file.name}: image must be under 10 MB.`);
+          continue;
+        }
+        const dims = await readDimensions(file);
+        const ext = (file.name.split(".").pop() ?? "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "");
+        const path = `${clientId}/${postId}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
+        try {
+          const { error: uploadError } = await supabase.storage
+            .from(SOCIAL_MEDIA_BUCKET)
+            .upload(path, file, { contentType: file.type, upsert: false });
+          if (uploadError) {
+            setError(`${file.name}: upload failed.`);
+            continue;
+          }
+        } catch {
+          setError(`${file.name}: upload failed.`);
+          continue;
+        }
+        added.push({
+          storage_path: path,
+          media_type: "image",
+          width: dims.width,
+          height: dims.height,
+          url: socialMediaPublicUrl(path),
+        });
       }
-      added.push({
-        storage_path: result.storage_path,
-        media_type: "image",
-        width: dims.width,
-        height: dims.height,
-        url: socialMediaPublicUrl(result.storage_path),
-      });
+      onChange([...items, ...added]);
+    } finally {
+      setUploading(false);
     }
-    onChange([...items, ...added]);
-    setUploading(false);
   }
 
   function move(index: number, dir: -1 | 1) {
@@ -148,7 +177,11 @@ export function SocialMediaUploader({
         onClick={() => fileRef.current?.click()}
         disabled={uploading}
       >
-        {uploading ? "Uploading…" : items.length > 0 ? "Add more photos" : "Add photos"}
+        {uploading
+          ? "Uploading…"
+          : items.length > 0
+            ? "Add more photos"
+            : "Add photos"}
       </Button>
 
       <input
