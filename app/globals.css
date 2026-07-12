@@ -44,6 +44,17 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* Status tier (warm bento). Semantic meaning colours plus a 15% tint surface
+     for chip backgrounds. Consumers migrate onto these in the next slice; until
+     then the status literals (emerald/amber) still render their old values. */
+  --color-status-ok: var(--status-ok);
+  --color-status-ok-surface: var(--status-ok-surface);
+  --color-status-warn: var(--status-warn);
+  --color-status-warn-surface: var(--status-warn-surface);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-surface: var(--status-danger-surface);
+  --color-status-info: var(--status-info);
+  --color-status-info-surface: var(--status-info-surface);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -51,36 +62,42 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Warm bento semantic radii. Defined here for the next slice to consume
+     (rounded-card / rounded-control / rounded-pill); no component reads them
+     yet, so this slice changes no corners. */
+  --radius-card: 1rem;
+  --radius-control: 0.6875rem;
+  --radius-pill: 6.1875rem;
 }
 
 :root {
-  /* The Spotlight brand accent, baked in and used sparingly. Everything
-     accent-coloured reads it through --primary and --ring, so one value
-     re-themes the lot. Defined here so it inherits unchanged into dark mode and
-     across every route, including login. */
-  --brand: #1d8fef;
+  /* The Spotlight brand accent, now the warm-bento terracotta, used sparingly.
+     Everything accent-coloured reads it through --primary and --ring, so one
+     value re-themes the lot. Light and dark carry their own terracotta fill
+     (dark overrides below), so it stays legible on each canvas. */
+  --brand: oklch(0.545 0.141 39); /* #B24D2A terracotta (light) */
   --brand-foreground: oklch(0.99 0 0);
 
-  /* Light theme: a soft, faintly cool neutral canvas (not stark white), white
-     cards that lift off it, low-contrast borders and text that is readable
-     without being harsh. */
-  --background: oklch(0.985 0.002 255);
-  --foreground: oklch(0.21 0.012 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.012 260);
+  /* Light theme: warm bento. A cream page, white tiles that lift off it, warm
+     field-sink fills, low-contrast hairline borders, and warm-brown text that
+     reads without being harsh. */
+  --background: oklch(0.942 0.01 72.7); /* page-cream #F0EBE5 */
+  --foreground: oklch(0.255 0.021 66.6); /* text primary #2A2118 */
+  --card: oklch(1 0 0); /* tile-white #FFFFFF */
+  --card-foreground: oklch(0.255 0.021 66.6);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.012 260);
+  --popover-foreground: oklch(0.255 0.021 66.6);
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
-  --secondary: oklch(0.968 0.003 255);
-  --secondary-foreground: oklch(0.25 0.012 260);
-  --muted: oklch(0.968 0.003 255);
-  --muted-foreground: oklch(0.52 0.012 258);
-  --accent: oklch(0.962 0.004 255);
-  --accent-foreground: oklch(0.25 0.012 260);
+  --secondary: oklch(0.966 0.009 78.3); /* field-sink #F7F3ED */
+  --secondary-foreground: oklch(0.255 0.021 66.6);
+  --muted: oklch(0.966 0.009 78.3); /* field-sink #F7F3ED */
+  --muted-foreground: oklch(0.597 0.026 69.4); /* text secondary #8A7D6F */
+  --accent: oklch(0.966 0.009 78.3); /* field-sink #F7F3ED */
+  --accent-foreground: oklch(0.255 0.021 66.6);
   --destructive: oklch(0.585 0.2 25);
-  --border: oklch(0.92 0.004 255);
-  --input: oklch(0.91 0.004 255);
+  --border: oklch(0.909 0.015 80.7); /* hairline #E6E0D6 */
+  --input: oklch(0.909 0.015 80.7); /* hairline #E6E0D6 */
   --ring: var(--brand);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -88,40 +105,66 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.992 0.002 255);
-  --sidebar-foreground: oklch(0.21 0.012 260);
+  --sidebar: oklch(0.942 0.01 72.7); /* page-cream #F0EBE5 */
+  --sidebar-foreground: oklch(0.255 0.021 66.6);
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-foreground);
-  --sidebar-accent: oklch(0.962 0.004 255);
-  --sidebar-accent-foreground: oklch(0.25 0.012 260);
-  --sidebar-border: oklch(0.92 0.004 255);
+  --sidebar-accent: oklch(0.966 0.009 78.3); /* field-sink #F7F3ED */
+  --sidebar-accent-foreground: oklch(0.255 0.021 66.6);
+  --sidebar-border: oklch(0.909 0.015 80.7); /* hairline #E6E0D6 */
   --sidebar-ring: var(--brand);
+
+  /* Status tier, light. Gold is deepened here (#8A6410, not the bright dark-mode
+     gold) so it stays legible as text and count numerals on the cream canvas.
+     Amber is pushed darker/oranger to separate at-risk from healthy on the
+     monitoring board; danger stays a true saturated red as the alarm exception;
+     info is a warm neutral for scheduled. */
+  --status-ok: oklch(0.529 0.104 80.9); /* deepened gold #8A6410 */
+  --status-warn: oklch(0.588 0.135 55); /* amber #B8631A */
+  --status-danger: oklch(0.554 0.18 30.4); /* red #C63A29 */
+  --status-info: oklch(0.597 0.026 69.4); /* warm neutral #8A7D6F */
+  --status-ok-surface: color-mix(in oklch, var(--status-ok) 15%, transparent);
+  --status-warn-surface: color-mix(
+    in oklch,
+    var(--status-warn) 15%,
+    transparent
+  );
+  --status-danger-surface: color-mix(
+    in oklch,
+    var(--status-danger) 15%,
+    transparent
+  );
+  --status-info-surface: color-mix(
+    in oklch,
+    var(--status-info) 15%,
+    transparent
+  );
 }
 
 .dark {
-  /* Dark theme (the default): a soft dark slate canvas (not stark black),
-     cards a touch lighter so they lift, hairline borders and near-white text
-     that is easy on the eyes. --brand and --brand-foreground inherit from
-     :root, so the one accent value serves both themes. */
-  --background: oklch(0.185 0.006 260);
-  --foreground: oklch(0.955 0.003 255);
-  --card: oklch(0.214 0.007 260);
-  --card-foreground: oklch(0.955 0.003 255);
-  --popover: oklch(0.214 0.007 260);
-  --popover-foreground: oklch(0.955 0.003 255);
+  /* Dark theme (the default): warm bento. A warm near-black page, tiles a touch
+     lighter so they lift, translucent hairline borders that sit on any surface,
+     and warm off-white text. The terracotta brand is brightened for the dark
+     canvas; --brand-foreground inherits from :root. */
+  --brand: oklch(0.605 0.145 39.7); /* #C85E38 terracotta (dark) */
+  --background: oklch(0.211 0.007 67.4); /* page #1B1815 */
+  --foreground: oklch(0.942 0.01 72.7); /* text primary #F0EBE5 */
+  --card: oklch(0.256 0.007 48.4); /* tile #262220 */
+  --card-foreground: oklch(0.942 0.01 72.7);
+  --popover: oklch(0.256 0.007 48.4);
+  --popover-foreground: oklch(0.942 0.01 72.7);
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
-  --secondary: oklch(0.27 0.008 260);
-  --secondary-foreground: oklch(0.955 0.003 255);
-  --muted: oklch(0.27 0.008 260);
-  --muted-foreground: oklch(0.7 0.012 258);
-  --accent: oklch(0.275 0.009 260);
-  --accent-foreground: oklch(0.955 0.003 255);
-  /* Danger/error in dark mode is lifted to a lighter, clearly legible red so
-     error text, overdue items and danger surfaces read comfortably against the
-     dark canvas. Light mode keeps its darker --destructive (in :root). */
+  --secondary: oklch(0.293 0.01 61.1); /* field-sink #302B27 */
+  --secondary-foreground: oklch(0.942 0.01 72.7);
+  --muted: oklch(0.293 0.01 61.1); /* field-sink #302B27 */
+  --muted-foreground: oklch(0.655 0.025 75.7); /* text secondary #9A8F80 */
+  --accent: oklch(0.293 0.01 61.1); /* field-sink #302B27 */
+  --accent-foreground: oklch(0.942 0.01 72.7);
+  /* Danger/error in dark mode stays a lighter, clearly legible red so error
+     text, overdue items and danger surfaces read comfortably. */
   --destructive: oklch(0.72 0.19 22);
-  --border: oklch(1 0 0 / 9%);
+  --border: oklch(1 0 0 / 9%); /* translucent hairline (kept translucent) */
   --input: oklch(1 0 0 / 12%);
   --ring: var(--brand);
   --chart-1: oklch(0.87 0 0);
@@ -129,14 +172,38 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.2 0.007 260);
-  --sidebar-foreground: oklch(0.955 0.003 255);
+  --sidebar: oklch(0.211 0.007 67.4); /* page #1B1815 */
+  --sidebar-foreground: oklch(0.942 0.01 72.7);
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-foreground);
-  --sidebar-accent: oklch(0.275 0.009 260);
-  --sidebar-accent-foreground: oklch(0.955 0.003 255);
-  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-accent: oklch(0.293 0.01 61.1); /* field-sink #302B27 */
+  --sidebar-accent-foreground: oklch(0.942 0.01 72.7);
+  --sidebar-border: oklch(1 0 0 / 9%); /* translucent hairline */
   --sidebar-ring: var(--brand);
+
+  /* Status tier, dark. Bright gold reads well on the dark canvas; amber is
+     deepened to hold its lightness gap below gold; danger is the lifted alarm
+     red; info is a warm neutral. */
+  --status-ok: oklch(0.798 0.135 82.2); /* bright gold #E8B44A */
+  --status-warn: oklch(0.696 0.142 64.7); /* amber #D98829 */
+  --status-danger: oklch(0.665 0.167 31.5); /* red #E8654F */
+  --status-info: oklch(0.655 0.025 75.7); /* warm neutral #9A8F80 */
+  --status-ok-surface: color-mix(in oklch, var(--status-ok) 15%, transparent);
+  --status-warn-surface: color-mix(
+    in oklch,
+    var(--status-warn) 15%,
+    transparent
+  );
+  --status-danger-surface: color-mix(
+    in oklch,
+    var(--status-danger) 15%,
+    transparent
+  );
+  --status-info-surface: color-mix(
+    in oklch,
+    var(--status-info) 15%,
+    transparent
+  );
 }
 
 @layer base {
