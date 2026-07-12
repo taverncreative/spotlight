@@ -75,6 +75,34 @@ export function SocialComposer({
   const [date, setDate] = useState(prefill?.date ?? "");
   const [time, setTime] = useState(prefill?.time ?? "");
 
+  // Which submit button fired, for its pending label ("Publishing…" etc).
+  const [intent, setIntent] = useState<"draft" | "schedule" | "publish" | null>(
+    null
+  );
+
+  // A validation error is only shown while it reflects what it was checked
+  // against: changing photos or targets marks the relevant error stale. The
+  // flags are keyed to the action result they were set against, so a fresh
+  // result (new state object) automatically un-hides whatever it reports.
+  const [stale, setStale] = useState<{
+    result: SocialPostFormState;
+    media: boolean;
+    targets: boolean;
+  }>({ result: null, media: false, targets: false });
+  const mediaErrorStale = stale.result === state && stale.media;
+  const targetsErrorStale = stale.result === state && stale.targets;
+
+  function markStale(fields: { media?: boolean; targets?: boolean }) {
+    setStale((previous) => {
+      const kept = previous.result === state;
+      return {
+        result: state,
+        media: (kept && previous.media) || !!fields.media,
+        targets: (kept && previous.targets) || !!fields.targets,
+      };
+    });
+  }
+
   // Photos are only mandatory for Instagram; Facebook supports text-only posts.
   const igSelected = accounts.some(
     (account) =>
@@ -85,6 +113,13 @@ export function SocialComposer({
     setSelectedIds((previous) =>
       checked ? [...previous, id] : previous.filter((x) => x !== id)
     );
+    // The photo requirement depends on the selection, so both go stale.
+    markStale({ media: true, targets: true });
+  }
+
+  function changeMedia(items: UploaderItem[]) {
+    setMedia(items);
+    markStale({ media: true });
   }
 
   const mediaJson = JSON.stringify(
@@ -110,7 +145,7 @@ export function SocialComposer({
           selected={selectedIds}
           onToggle={toggleTarget}
         />
-        {state?.fieldErrors?.targets ? (
+        {state?.fieldErrors?.targets && !targetsErrorStale ? (
           <p className="mt-1 text-sm text-destructive">
             {state.fieldErrors.targets[0]}
           </p>
@@ -137,7 +172,7 @@ export function SocialComposer({
           clientId={clientId}
           postId={postId}
           items={media}
-          onChange={setMedia}
+          onChange={changeMedia}
           onUploadingChange={setMediaUploading}
         />
         <p className="mt-1 text-xs text-muted-foreground">
@@ -145,7 +180,7 @@ export function SocialComposer({
             ? "Instagram requires at least one photo."
             : "Photos are optional for Facebook-only posts."}
         </p>
-        {state?.fieldErrors?.media ? (
+        {state?.fieldErrors?.media && !mediaErrorStale ? (
           <p className="mt-1 text-sm text-destructive">
             {state.fieldErrors.media[0]}
           </p>
@@ -187,7 +222,9 @@ export function SocialComposer({
       ) : null}
 
       {/* Submitting mid-upload would save without the in-flight photos, so all
-          three intents wait for the uploader to finish. */}
+          three intents wait for the uploader to finish. Each button shows its
+          own pending label for the full round trip (action until redirect or
+          result), per the clicked intent. */}
       <div className="flex justify-end gap-2">
         <Button
           type="submit"
@@ -195,8 +232,9 @@ export function SocialComposer({
           value="draft"
           variant="outline"
           disabled={pending || mediaUploading}
+          onClick={() => setIntent("draft")}
         >
-          Save draft
+          {pending && intent === "draft" ? "Saving…" : "Save draft"}
         </Button>
         <Button
           type="submit"
@@ -204,16 +242,22 @@ export function SocialComposer({
           value="schedule"
           variant="outline"
           disabled={pending || mediaUploading}
+          onClick={() => setIntent("schedule")}
         >
-          {mediaUploading ? "Uploading photos…" : "Schedule"}
+          {mediaUploading
+            ? "Uploading photos…"
+            : pending && intent === "schedule"
+              ? "Scheduling…"
+              : "Schedule"}
         </Button>
         <Button
           type="submit"
           name="intent"
           value="publish"
           disabled={pending || mediaUploading}
+          onClick={() => setIntent("publish")}
         >
-          Publish now
+          {pending && intent === "publish" ? "Publishing…" : "Publish now"}
         </Button>
       </div>
     </form>
