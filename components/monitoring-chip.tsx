@@ -20,7 +20,7 @@ export function MonitoringChip({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center rounded-pill px-1.5 py-0.5 text-xs font-medium",
         TONE_CLASS[tone]
       )}
     >

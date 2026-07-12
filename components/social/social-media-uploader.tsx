@@ -142,7 +142,7 @@ export function SocialMediaUploader({
           {items.map((item, index) => (
             <li
               key={item.storage_path}
-              className="relative overflow-hidden rounded-lg border bg-card"
+              className="relative overflow-hidden rounded-card border bg-card"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img

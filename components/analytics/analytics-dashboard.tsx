@@ -51,7 +51,7 @@ function MetricCard({
   delta: MetricDelta;
 }) {
   return (
-    <div className="space-y-1 rounded-lg border bg-card px-4 py-3">
+    <div className="space-y-1 rounded-card border bg-card px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
       <DeltaBadge delta={delta} />
@@ -65,7 +65,7 @@ function ChannelTable({ rows }: { rows: ChannelRow[] }) {
       <h2 className="text-sm font-medium text-muted-foreground">
         Traffic by channel
       </h2>
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="overflow-hidden rounded-card border bg-card">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-xs text-muted-foreground">
@@ -112,7 +112,7 @@ function PagesTable({ rows }: { rows: PageRow[] }) {
   return (
     <section className="space-y-2">
       <h2 className="text-sm font-medium text-muted-foreground">Top pages</h2>
-      <div className="overflow-hidden rounded-lg border bg-card">
+      <div className="overflow-hidden rounded-card border bg-card">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-xs text-muted-foreground">
@@ -198,7 +198,7 @@ export function AnalyticsDashboard({
       </header>
 
       {result.status === "no_data" ? (
-        <div className="rounded-lg border bg-card p-6 text-sm">
+        <div className="rounded-card border bg-card p-6 text-sm">
           <p className="font-medium">No analytics data yet</p>
           <p className="mt-1 text-muted-foreground">
             Google Analytics has no data for this property in the selected

@@ -44,7 +44,7 @@ export function FeaturedImageInput({
           <img
             src={url}
             alt=""
-            className="h-40 w-full rounded-lg border object-cover"
+            className="h-40 w-full rounded-card border object-cover"
           />
           <div className="flex gap-2">
             <Button

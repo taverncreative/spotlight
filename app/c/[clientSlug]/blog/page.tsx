@@ -56,7 +56,7 @@ export default async function BlogPage({
       </div>
 
       {posts.length === 0 ? (
-        <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+        <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No posts yet. Write your first post.
         </p>
       ) : (
@@ -64,7 +64,7 @@ export default async function BlogPage({
           {posts.map((post) => (
             <li
               key={post.id}
-              className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+              className="flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3"
             >
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2">

@@ -41,7 +41,7 @@ export default async function EditSocialPostPage({
     return (
       <div className="mx-auto max-w-2xl space-y-6">
         <h1 className="text-xl font-semibold tracking-tight">Edit post</h1>
-        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+        <div className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           This post is {post.status} and can no longer be edited.{" "}
           <Link
             href={`/c/${clientSlug}/social`}

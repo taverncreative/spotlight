@@ -44,14 +44,14 @@ export function SeoTrendChart({ data }: { data: TrendPoint[] }) {
     return (
       <div
         aria-hidden
-        className="rounded-lg border bg-card"
+        className="rounded-card border bg-card"
         style={{ height: HEIGHT }}
       />
     );
   }
 
   return (
-    <div className="rounded-lg border bg-card p-3" style={{ height: HEIGHT }}>
+    <div className="rounded-card border bg-card p-3" style={{ height: HEIGHT }}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}

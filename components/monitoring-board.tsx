@@ -83,7 +83,7 @@ function SummaryCard({
   tone: ChipTone;
 }) {
   return (
-    <div className="rounded-lg border bg-card px-4 py-3">
+    <div className="rounded-card border bg-card px-4 py-3">
       <p
         className={cn(
           "text-2xl font-semibold tabular-nums",
@@ -144,7 +144,7 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
           Needs attention
         </h2>
         {attention.length === 0 && failedPosts.length === 0 ? (
-          <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+          <p className="rounded-card border bg-card p-4 text-sm text-muted-foreground">
             All clear. Nothing needs attention.
           </p>
         ) : (
@@ -152,7 +152,7 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
             {attention.map((row) => (
               <li
                 key={row.id}
-                className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
@@ -179,7 +179,7 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
             {failedPosts.map((post) => (
               <li
                 key={post.id}
-                className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
@@ -212,7 +212,7 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Clients</h2>
         {roster.length === 0 ? (
-          <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+          <p className="rounded-card border bg-card p-4 text-sm text-muted-foreground">
             No clients yet. Add your first client to get started.
           </p>
         ) : (
@@ -220,7 +220,7 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
             {roster.map((row) => (
               <li
                 key={row.client.id}
-                className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3"
               >
                 <div className="min-w-0 space-y-1">
                   <p className="truncate text-sm font-medium">

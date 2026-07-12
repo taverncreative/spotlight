@@ -102,12 +102,12 @@ export default async function SiteDetailPage({
       </div>
 
       {history.length === 0 ? (
-        <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+        <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No checks yet for this site. Run one from the Sites list with Check
           now.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <div className="overflow-x-auto rounded-card border bg-card">
           <Table>
             <TableHeader>
               <TableRow>

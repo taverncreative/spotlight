@@ -23,7 +23,7 @@ export function SocialTargets({
     <div className="space-y-1.5">
       <label className="text-sm font-medium">Post to</label>
       {accounts.length === 0 ? (
-        <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+        <div className="rounded-card border bg-card p-4 text-sm text-muted-foreground">
           No Meta accounts connected.{" "}
           <Link
             href="/settings/integrations"
@@ -38,7 +38,7 @@ export function SocialTargets({
           {accounts.map((account) => (
             <label
               key={account.id}
-              className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm"
+              className="flex items-center gap-2 rounded-card border bg-card px-3 py-2 text-sm"
             >
               <input
                 type="checkbox"

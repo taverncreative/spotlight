@@ -131,11 +131,11 @@ export default async function SocialPage({
       </nav>
 
       {posts.length === 0 ? (
-        <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+        <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No posts yet. Create your first post.
         </p>
       ) : visible.length === 0 ? (
-        <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+        <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No {activeTab.label.toLowerCase()} for this client.
         </p>
       ) : (
@@ -161,7 +161,7 @@ export default async function SocialPage({
             return (
               <li
                 key={post.id}
-                className="flex flex-col overflow-hidden rounded-lg border bg-card"
+                className="flex flex-col overflow-hidden rounded-card border bg-card"
               >
                 <div className="relative aspect-video bg-muted">
                   {cover ? (

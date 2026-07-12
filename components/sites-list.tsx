@@ -69,7 +69,7 @@ export function SitesList({
       </div>
 
       {sites.length === 0 ? (
-        <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+        <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No sites yet. Add a site to start monitoring.
         </p>
       ) : (
@@ -77,7 +77,7 @@ export function SitesList({
           {sites.map((site) => (
             <li
               key={site.id}
-              className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+              className="flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3"
             >
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2">

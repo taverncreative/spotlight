@@ -26,7 +26,7 @@ function Notice({
           Google Search Console for this client.
         </p>
       </div>
-      <div className="rounded-lg border bg-card p-6 text-sm">
+      <div className="rounded-card border bg-card p-6 text-sm">
         <p className="font-medium">{title}</p>
         <p className="mt-1 text-muted-foreground">{children}</p>
       </div>

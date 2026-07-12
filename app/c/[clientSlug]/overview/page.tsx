@@ -21,7 +21,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border bg-card px-4 py-3">
+    <div className="rounded-card border bg-card px-4 py-3">
       <p className="text-2xl font-semibold tabular-nums">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
     </div>
@@ -136,7 +136,7 @@ export default async function OverviewPage({
           </Button>
         </div>
         {siteViews.length === 0 ? (
-          <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+          <p className="rounded-card border bg-card p-4 text-sm text-muted-foreground">
             No sites yet.
           </p>
         ) : (
@@ -144,7 +144,7 @@ export default async function OverviewPage({
             {siteViews.map((site) => (
               <li
                 key={site.id}
-                className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3"
               >
                 <p className="min-w-0 truncate text-sm font-medium">
                   {site.hostname}
@@ -199,7 +199,7 @@ export default async function OverviewPage({
           </Button>
         </div>
         {recentPosts.length === 0 ? (
-          <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+          <p className="rounded-card border bg-card p-4 text-sm text-muted-foreground">
             No posts yet.
           </p>
         ) : (
@@ -208,7 +208,7 @@ export default async function OverviewPage({
               <li key={post.id}>
                 <Link
                   href={`/c/${clientSlug}/blog/${post.id}/edit`}
-                  className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-accent"
+                  className="flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3 transition-colors hover:bg-accent"
                 >
                   <span className="min-w-0 truncate text-sm font-medium">
                     {post.title}

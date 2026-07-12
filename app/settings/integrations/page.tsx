@@ -28,7 +28,7 @@ function Banner({
   return (
     <p
       className={cn(
-        "rounded-lg border px-4 py-3 text-sm",
+        "rounded-card border px-4 py-3 text-sm",
         tone === "ok"
           ? "border-status-ok/30 bg-status-ok/10 text-status-ok"
           : "border-status-danger/30 bg-status-danger/10 text-status-danger"
@@ -55,7 +55,7 @@ function IntegrationCard({
   connection: CardConnection;
 }) {
   return (
-    <li className="rounded-lg border bg-card p-4">
+    <li className="rounded-card border bg-card p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium">{name}</p>
@@ -119,7 +119,7 @@ function MetaIntegrationCard({
   const instagrams = accounts.filter((a) => a.platform === "instagram");
 
   return (
-    <li className="rounded-lg border bg-card p-4">
+    <li className="rounded-card border bg-card p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium">Meta</p>
@@ -308,7 +308,7 @@ export default async function IntegrationsPage({
         {COMING_SOON.map((product) => (
           <li
             key={product.name}
-            className="rounded-lg border bg-card p-4 opacity-60"
+            className="rounded-card border bg-card p-4 opacity-60"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
