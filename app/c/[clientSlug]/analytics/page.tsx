@@ -119,9 +119,7 @@ export default async function AnalyticsPage({
 
   // 4. Selected property (default first) and range (default 28 days).
   const selected =
-    propertyParam && mapped.includes(propertyParam)
-      ? propertyParam
-      : mapped[0];
+    propertyParam && mapped.includes(propertyParam) ? propertyParam : mapped[0];
   const rangeKey = normalizeRangeKey(rangeParam);
 
   const result = await fetchGa4Report(selected, rangeDaysFromKey(rangeKey));

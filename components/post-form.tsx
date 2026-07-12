@@ -71,7 +71,9 @@ export function PostForm({
           className={fieldInputClass}
         />
         {state?.fieldErrors?.title ? (
-          <p className="text-sm text-destructive">{state.fieldErrors.title[0]}</p>
+          <p className="text-sm text-destructive">
+            {state.fieldErrors.title[0]}
+          </p>
         ) : null}
       </div>
 
@@ -92,7 +94,9 @@ export function PostForm({
         />
         <p className="text-xs text-muted-foreground">/{slug || "your-post"}</p>
         {state?.fieldErrors?.slug ? (
-          <p className="text-sm text-destructive">{state.fieldErrors.slug[0]}</p>
+          <p className="text-sm text-destructive">
+            {state.fieldErrors.slug[0]}
+          </p>
         ) : null}
       </div>
 

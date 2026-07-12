@@ -50,7 +50,11 @@ export function SiteRemoveDialog({
         <form action={formAction} className="flex justify-end gap-2">
           <input type="hidden" name="id" value={site?.id ?? ""} />
           <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
-          <AlertDialogAction type="submit" variant="destructive" disabled={pending}>
+          <AlertDialogAction
+            type="submit"
+            variant="destructive"
+            disabled={pending}
+          >
             {pending ? "Removing" : "Remove"}
           </AlertDialogAction>
         </form>

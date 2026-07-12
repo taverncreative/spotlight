@@ -33,7 +33,8 @@ async function checkHttp(url: string): Promise<{
       redirect: "follow",
       signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
       headers: {
-        "user-agent": "SpotlightMonitor/1.0 (+https://businesssortedkent.co.uk)",
+        "user-agent":
+          "SpotlightMonitor/1.0 (+https://businesssortedkent.co.uk)",
       },
     });
     const responseMs = Math.round(performance.now() - start);

@@ -71,7 +71,9 @@ function pickRange(
 ): ReportRow | undefined {
   return (
     rows.find((row) => row.dimensionValues?.[0]?.value === name) ??
-    rows.find((row) => row.dimensionValues?.[0]?.value === `date_range_${index}`) ??
+    rows.find(
+      (row) => row.dimensionValues?.[0]?.value === `date_range_${index}`
+    ) ??
     rows[index]
   );
 }

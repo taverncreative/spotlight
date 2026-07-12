@@ -81,7 +81,8 @@ async function loadGa4Report(
   try {
     token = await getValidAccessToken(connection);
   } catch (error) {
-    if (error instanceof TokenRefreshError) return { status: "reconnect_needed" };
+    if (error instanceof TokenRefreshError)
+      return { status: "reconnect_needed" };
     return { status: "error" };
   }
 
@@ -131,7 +132,13 @@ async function loadGa4Report(
       }),
     ]);
 
-    return parseGa4Report(totalsRows, trendRows, channelRows, pageRows, endDate);
+    return parseGa4Report(
+      totalsRows,
+      trendRows,
+      channelRows,
+      pageRows,
+      endDate
+    );
   } catch (error) {
     if (error instanceof Ga4AuthError) return { status: "reconnect_needed" };
     return { status: "error" };

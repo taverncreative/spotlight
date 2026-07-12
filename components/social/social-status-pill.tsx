@@ -6,8 +6,14 @@ import type { SocialStatus } from "@/lib/social/schemas";
 const STATUS: Record<SocialStatus, { label: string; className: string }> = {
   draft: { label: "Draft", className: "bg-muted text-muted-foreground" },
   scheduled: { label: "Scheduled", className: "bg-brand/15 text-brand" },
-  publishing: { label: "Publishing", className: "bg-amber-500/15 text-amber-400" },
-  published: { label: "Published", className: "bg-emerald-500/15 text-emerald-400" },
+  publishing: {
+    label: "Publishing",
+    className: "bg-amber-500/15 text-amber-400",
+  },
+  published: {
+    label: "Published",
+    className: "bg-emerald-500/15 text-emerald-400",
+  },
   partial: { label: "Partial", className: "bg-amber-500/15 text-amber-400" },
   failed: { label: "Failed", className: "bg-destructive/15 text-destructive" },
 };

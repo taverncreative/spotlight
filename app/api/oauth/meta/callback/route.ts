@@ -66,18 +66,20 @@ export async function GET(request: Request) {
         (long.expires_in ? long.expires_in * 1000 : META_TOKEN_TTL_MS)
     ).toISOString();
 
-    const { error: connError } = await supabase.from("oauth_connections").upsert(
-      {
-        operator_id: user.id,
-        provider: META_PROVIDER,
-        access_token: encryptToken(long.access_token),
-        refresh_token: null, // Meta has no refresh token
-        token_expiry: userExpiry,
-        scopes: [...META_SCOPES],
-        account_email: null, // email scope not requested
-      },
-      { onConflict: "operator_id,provider" }
-    );
+    const { error: connError } = await supabase
+      .from("oauth_connections")
+      .upsert(
+        {
+          operator_id: user.id,
+          provider: META_PROVIDER,
+          access_token: encryptToken(long.access_token),
+          refresh_token: null, // Meta has no refresh token
+          token_expiry: userExpiry,
+          scopes: [...META_SCOPES],
+          account_email: null, // email scope not requested
+        },
+        { onConflict: "operator_id,provider" }
+      );
     if (connError) return fail("store_failed");
 
     // Page tokens derived from a long-lived user token are themselves

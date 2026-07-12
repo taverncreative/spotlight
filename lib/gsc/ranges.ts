@@ -17,7 +17,9 @@ export function normalizeRangeKey(key: string | undefined): string {
 }
 
 export function rangeDaysFromKey(key: string | undefined): number {
-  const match = SEO_RANGES.find((range) => range.key === normalizeRangeKey(key));
+  const match = SEO_RANGES.find(
+    (range) => range.key === normalizeRangeKey(key)
+  );
   // normalizeRangeKey guarantees a match, but keep a safe fallback.
   return match?.days ?? 28;
 }

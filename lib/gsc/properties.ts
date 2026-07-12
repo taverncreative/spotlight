@@ -44,7 +44,8 @@ async function fetchGscProperties(): Promise<GscPropertiesResult> {
   } catch (error) {
     // A revoked/expired grant can't be refreshed; prompt a reconnect instead of
     // crashing the Sites page.
-    if (error instanceof TokenRefreshError) return { status: "reconnect_needed" };
+    if (error instanceof TokenRefreshError)
+      return { status: "reconnect_needed" };
     throw error;
   }
 

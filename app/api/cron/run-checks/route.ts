@@ -27,7 +27,10 @@ const TIMED_OUT: CheckResult = {
   domain_expiry: null,
 };
 
-function withCap(promise: Promise<CheckResult>, ms: number): Promise<CheckResult> {
+function withCap(
+  promise: Promise<CheckResult>,
+  ms: number
+): Promise<CheckResult> {
   return Promise.race([
     promise,
     new Promise<CheckResult>((resolve) => {
@@ -69,7 +72,10 @@ async function handler(request: Request) {
     .order("checked_at", { referencedTable: "site_checks", ascending: false })
     .limit(1, { referencedTable: "site_checks" });
   if (error) {
-    return NextResponse.json({ error: "Could not load sites" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Could not load sites" },
+      { status: 500 }
+    );
   }
 
   const sites = (data ?? []) as SiteRow[];

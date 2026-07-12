@@ -19,7 +19,9 @@ export async function reapSocialMedia(
   supabase: SupabaseClient,
   paths: (string | null | undefined)[]
 ): Promise<void> {
-  const clean = paths.filter((p): p is string => typeof p === "string" && p.length > 0);
+  const clean = paths.filter(
+    (p): p is string => typeof p === "string" && p.length > 0
+  );
   if (clean.length === 0) return;
   try {
     await supabase.storage.from(SOCIAL_MEDIA_BUCKET).remove(clean);

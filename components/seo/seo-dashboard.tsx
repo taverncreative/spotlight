@@ -195,7 +195,11 @@ export function SeoDashboard({
           </section>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <SeoTable title="Top queries" head="Query" rows={result.topQueries} />
+            <SeoTable
+              title="Top queries"
+              head="Query"
+              rows={result.topQueries}
+            />
             <SeoTable title="Top pages" head="Page" rows={result.topPages} />
           </div>
         </>

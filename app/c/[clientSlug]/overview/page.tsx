@@ -103,10 +103,13 @@ export default async function OverviewPage({
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold tracking-tight">{client.name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            {client.name}
+          </h1>
           <Badge variant={STATUS_VARIANT[status] ?? "outline"}>
-            {CLIENT_STATUS_LABELS[status as keyof typeof CLIENT_STATUS_LABELS] ??
-              status}
+            {CLIENT_STATUS_LABELS[
+              status as keyof typeof CLIENT_STATUS_LABELS
+            ] ?? status}
           </Badge>
         </div>
         {primaryUrl ? (
@@ -174,7 +177,9 @@ export default async function OverviewPage({
                       )}
                     </>
                   ) : (
-                    <MonitoringChip tone="muted">Not yet checked</MonitoringChip>
+                    <MonitoringChip tone="muted">
+                      Not yet checked
+                    </MonitoringChip>
                   )}
                 </div>
               </li>

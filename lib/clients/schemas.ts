@@ -46,7 +46,9 @@ export type ClientFormState = {
 
 // Build a field -> messages map from a Zod error. Reads error.issues directly
 // (stable across Zod versions) rather than the changing flatten helpers.
-export function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> {
+export function fieldErrorsFromZod(
+  error: z.ZodError
+): Record<string, string[]> {
   const result: Record<string, string[]> = {};
   for (const issue of error.issues) {
     const key = typeof issue.path[0] === "string" ? issue.path[0] : "";

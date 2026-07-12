@@ -46,7 +46,9 @@ export default async function BlogPage({
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold tracking-tight">Blog</h1>
-          <p className="text-sm text-muted-foreground">Posts for this client.</p>
+          <p className="text-sm text-muted-foreground">
+            Posts for this client.
+          </p>
         </div>
         <Button size="sm" render={<Link href={`/c/${clientSlug}/blog/new`} />}>
           New post
@@ -68,7 +70,9 @@ export default async function BlogPage({
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-medium">{post.title}</p>
                   <Badge
-                    variant={post.status === "published" ? "default" : "outline"}
+                    variant={
+                      post.status === "published" ? "default" : "outline"
+                    }
                   >
                     {post.status === "published" ? "Published" : "Draft"}
                   </Badge>
@@ -83,7 +87,11 @@ export default async function BlogPage({
                 {post.status === "published" ? (
                   <form action={unpublishPost}>
                     <input type="hidden" name="id" value={post.id} />
-                    <input type="hidden" name="client_slug" value={clientSlug} />
+                    <input
+                      type="hidden"
+                      name="client_slug"
+                      value={clientSlug}
+                    />
                     <Button type="submit" variant="ghost" size="sm">
                       Unpublish
                     </Button>
@@ -91,7 +99,11 @@ export default async function BlogPage({
                 ) : (
                   <form action={publishPost}>
                     <input type="hidden" name="id" value={post.id} />
-                    <input type="hidden" name="client_slug" value={clientSlug} />
+                    <input
+                      type="hidden"
+                      name="client_slug"
+                      value={clientSlug}
+                    />
                     <Button type="submit" variant="ghost" size="sm">
                       Publish
                     </Button>

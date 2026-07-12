@@ -35,7 +35,9 @@ const admin = createClient(url, secretKey, {
 
 let failures = 0;
 const check = (label: string, ok: boolean, detail = "") => {
-  console.log(`${ok ? "PASS" : "FAIL"}  ${label}${detail ? ` — ${detail}` : ""}`);
+  console.log(
+    `${ok ? "PASS" : "FAIL"}  ${label}${detail ? ` — ${detail}` : ""}`
+  );
   if (!ok) failures++;
 };
 
@@ -79,7 +81,11 @@ const { data: aUser } = await a.auth.getUser();
 const aId = aUser.user!.id;
 const { data: aClients } = await a.from("clients").select("id").limit(1);
 const aClientId = aClients?.[0]?.id as string | undefined;
-check("operator A has a seeded client", !!aClientId, aClientId ? "" : "run seed:demo");
+check(
+  "operator A has a seeded client",
+  !!aClientId,
+  aClientId ? "" : "run seed:demo"
+);
 
 // Clean any prior fixtures (idempotent reruns without a reset).
 await a.from("meta_accounts").delete().in("external_id", [PAGE_EXT, IG_EXT]);
@@ -97,7 +103,11 @@ const { data: fbRow, error: fbErr } = await a
   })
   .select("id, operator_id")
   .single();
-check("A inserts a facebook meta_accounts row", !fbErr && !!fbRow, fbErr?.message ?? "");
+check(
+  "A inserts a facebook meta_accounts row",
+  !fbErr && !!fbRow,
+  fbErr?.message ?? ""
+);
 check("inserted row defaulted operator_id to A", fbRow?.operator_id === aId);
 
 // --- Test 2: A inserts a child instagram row with parent_account_id ---
@@ -126,14 +136,22 @@ const { data: aRows } = await a
   .from("meta_accounts")
   .select("id")
   .in("external_id", [PAGE_EXT, IG_EXT]);
-check("A reads back its 2 rows", (aRows?.length ?? 0) === 2, `saw ${aRows?.length ?? 0}`);
+check(
+  "A reads back its 2 rows",
+  (aRows?.length ?? 0) === 2,
+  `saw ${aRows?.length ?? 0}`
+);
 
 // --- Test 4: B cannot see A's rows (operator-scoped RLS) ---
 const { data: bRows } = await b
   .from("meta_accounts")
   .select("id")
   .in("external_id", [PAGE_EXT, IG_EXT]);
-check("B cannot see A's meta_accounts rows", (bRows?.length ?? 0) === 0, `saw ${bRows?.length ?? 0}`);
+check(
+  "B cannot see A's meta_accounts rows",
+  (bRows?.length ?? 0) === 0,
+  `saw ${bRows?.length ?? 0}`
+);
 
 // --- Test 5: B cannot insert a row owned by A (with-check blocks it) ---
 const { error: bInsErr } = await b.from("meta_accounts").insert({
@@ -145,7 +163,9 @@ const { error: bInsErr } = await b.from("meta_accounts").insert({
 check(
   "B blocked from inserting a row owned by A",
   !!bInsErr,
-  bInsErr ? `rejected (${bInsErr.code ?? bInsErr.message})` : "insert unexpectedly succeeded"
+  bInsErr
+    ? `rejected (${bInsErr.code ?? bInsErr.message})`
+    : "insert unexpectedly succeeded"
 );
 await admin.from("meta_accounts").delete().eq("external_id", SPOOF_EXT);
 
@@ -158,7 +178,11 @@ if (aClientId && fbRow) {
     .select("id")
     .single();
   postId = post?.id as string | undefined;
-  check("A creates a social_post for its client", !postErr && !!postId, postErr?.message ?? "");
+  check(
+    "A creates a social_post for its client",
+    !postErr && !!postId,
+    postErr?.message ?? ""
+  );
 
   if (postId) {
     const { data: tgt, error: tgtErr } = await a

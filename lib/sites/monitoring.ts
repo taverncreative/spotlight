@@ -105,7 +105,12 @@ export function buildSiteView(
           httpStatus: check.http_status,
           responseMs: check.response_ms,
           ssl: expiryChip(check.ssl_expiry, "SSL", SSL_WARN_DAYS, now),
-          domain: expiryChip(check.domain_expiry, "Domain", DOMAIN_WARN_DAYS, now),
+          domain: expiryChip(
+            check.domain_expiry,
+            "Domain",
+            DOMAIN_WARN_DAYS,
+            now
+          ),
           checkedAtLabel: relativeLabel(check.checked_at, now),
         }
       : null,
@@ -116,7 +121,12 @@ export function buildSiteView(
 // Sites tab and the monitoring board so they always agree. Same thresholds as
 // above (down/expired = red; SSL <= 14d or domain <= 30d = amber; else green).
 // A null domain_expiry is unknown and never counts as at-risk.
-export type SiteRiskLevel = "down" | "expired" | "at-risk" | "healthy" | "unknown";
+export type SiteRiskLevel =
+  | "down"
+  | "expired"
+  | "at-risk"
+  | "healthy"
+  | "unknown";
 
 export type SiteRisk = {
   level: SiteRiskLevel;
@@ -186,7 +196,10 @@ export function assessSite(
     candidates.push({ label: daysLabel("SSL", sslDays), days: sslDays });
   }
   if (domainDays !== null && domainDays <= DOMAIN_WARN_DAYS) {
-    candidates.push({ label: daysLabel("Domain", domainDays), days: domainDays });
+    candidates.push({
+      label: daysLabel("Domain", domainDays),
+      days: domainDays,
+    });
   }
   if (candidates.length) {
     candidates.sort((a, b) => a.days - b.days);

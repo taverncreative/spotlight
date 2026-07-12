@@ -132,7 +132,10 @@ const TIMED_OUT: CheckResult = {
   domain_expiry: null,
 };
 
-function withCap(promise: Promise<CheckResult>, ms: number): Promise<CheckResult> {
+function withCap(
+  promise: Promise<CheckResult>,
+  ms: number
+): Promise<CheckResult> {
   return Promise.race([
     promise,
     new Promise<CheckResult>((resolve) => {

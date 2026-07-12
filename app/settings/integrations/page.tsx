@@ -80,7 +80,9 @@ function IntegrationCard({
         ) : (
           <Button
             size="sm"
-            render={<Link href={`/api/oauth/google/start?provider=${provider}`} />}
+            render={
+              <Link href={`/api/oauth/google/start?provider=${provider}`} />
+            }
           >
             Connect
           </Button>
@@ -311,7 +313,9 @@ export default async function IntegrationsPage({
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm font-medium">{product.name}</p>
-                <p className="text-xs text-muted-foreground">{product.detail}</p>
+                <p className="text-xs text-muted-foreground">
+                  {product.detail}
+                </p>
               </div>
               <Badge variant="outline">Coming soon</Badge>
             </div>

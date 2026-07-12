@@ -183,7 +183,9 @@ export function AnalyticsDashboard({
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <h1 className="text-lg font-medium">Analytics</h1>
-          <p className="truncate text-xs text-muted-foreground">{selectedName}</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {selectedName}
+          </p>
           <p className="text-xs text-muted-foreground">
             Through {formatThrough(result.through)}
           </p>
@@ -199,7 +201,8 @@ export function AnalyticsDashboard({
         <div className="rounded-lg border bg-card p-6 text-sm">
           <p className="font-medium">No analytics data yet</p>
           <p className="mt-1 text-muted-foreground">
-            Google Analytics has no data for this property in the selected range.
+            Google Analytics has no data for this property in the selected
+            range.
           </p>
         </div>
       ) : (

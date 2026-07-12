@@ -31,7 +31,10 @@ export function ClientSelector({ clients }: { clients: Client[] }) {
         <span className="max-w-[12rem] truncate">
           {active?.name ?? "Select client"}
         </span>
-        <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <ChevronsUpDown
+          className="size-4 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
       </button>
       {open ? (
         <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-md border bg-popover p-1 text-popover-foreground shadow-soft">

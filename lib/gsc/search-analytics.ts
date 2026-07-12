@@ -107,7 +107,11 @@ function totals(rows: ApiRow[]): SearchTotals {
   };
 }
 
-function delta(cur: number, prior: number, higherIsBetter: boolean): MetricDelta {
+function delta(
+  cur: number,
+  prior: number,
+  higherIsBetter: boolean
+): MetricDelta {
   if (prior === 0) return { pct: null, better: null };
   return {
     pct: ((cur - prior) / prior) * 100,
@@ -136,7 +140,8 @@ async function loadSearchPerformance(
   try {
     token = await getValidAccessToken(connection);
   } catch (error) {
-    if (error instanceof TokenRefreshError) return { status: "reconnect_needed" };
+    if (error instanceof TokenRefreshError)
+      return { status: "reconnect_needed" };
     return { status: "error" };
   }
 
@@ -147,27 +152,28 @@ async function loadSearchPerformance(
   const priorStart = ymd(endMs - (2 * rangeDays - 1) * DAY_MS);
 
   try {
-    const [curRows, priorRows, trendRows, queryRows, pageRows] = await Promise.all([
-      runQuery(token, property, { startDate: curStart, endDate }),
-      runQuery(token, property, { startDate: priorStart, endDate: priorEnd }),
-      runQuery(token, property, {
-        startDate: curStart,
-        endDate,
-        dimensions: ["date"],
-      }),
-      runQuery(token, property, {
-        startDate: curStart,
-        endDate,
-        dimensions: ["query"],
-        rowLimit: 10,
-      }),
-      runQuery(token, property, {
-        startDate: curStart,
-        endDate,
-        dimensions: ["page"],
-        rowLimit: 10,
-      }),
-    ]);
+    const [curRows, priorRows, trendRows, queryRows, pageRows] =
+      await Promise.all([
+        runQuery(token, property, { startDate: curStart, endDate }),
+        runQuery(token, property, { startDate: priorStart, endDate: priorEnd }),
+        runQuery(token, property, {
+          startDate: curStart,
+          endDate,
+          dimensions: ["date"],
+        }),
+        runQuery(token, property, {
+          startDate: curStart,
+          endDate,
+          dimensions: ["query"],
+          rowLimit: 10,
+        }),
+        runQuery(token, property, {
+          startDate: curStart,
+          endDate,
+          dimensions: ["page"],
+          rowLimit: 10,
+        }),
+      ]);
 
     // No aggregate row means the property has no data in this window.
     if (curRows.length === 0) return { status: "no_data", through: endDate };

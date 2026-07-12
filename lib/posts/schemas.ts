@@ -30,7 +30,9 @@ export type PostFormState = {
   fieldErrors?: Record<string, string[]>;
 } | null;
 
-export function fieldErrorsFromZod(error: z.ZodError): Record<string, string[]> {
+export function fieldErrorsFromZod(
+  error: z.ZodError
+): Record<string, string[]> {
   const result: Record<string, string[]> = {};
   for (const issue of error.issues) {
     const key = typeof issue.path[0] === "string" ? issue.path[0] : "";

@@ -18,10 +18,10 @@ import type { SocialPostFormState } from "@/lib/social/schemas";
 export function SocialDeleteButton({ postId }: { postId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [state, formAction, pending] = useActionState<SocialPostFormState, FormData>(
-    deleteSocialPost,
-    null
-  );
+  const [state, formAction, pending] = useActionState<
+    SocialPostFormState,
+    FormData
+  >(deleteSocialPost, null);
 
   useEffect(() => {
     if (state?.ok) {

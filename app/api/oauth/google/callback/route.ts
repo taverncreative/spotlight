@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import {
-  exchangeCodeForTokens,
-  emailFromIdToken,
-} from "@/lib/oauth/google";
+import { exchangeCodeForTokens, emailFromIdToken } from "@/lib/oauth/google";
 import { isGoogleProvider, scopesFor } from "@/lib/oauth/providers";
 import { encryptToken } from "@/lib/oauth/encryption";
 import { appUrl } from "@/lib/app-url";

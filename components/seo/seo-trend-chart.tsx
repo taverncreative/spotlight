@@ -42,14 +42,21 @@ export function SeoTrendChart({ data }: { data: TrendPoint[] }) {
   return (
     <div className="rounded-lg border bg-card p-3" style={{ height: HEIGHT }}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+        <AreaChart
+          data={data}
+          margin={{ top: 8, right: 8, bottom: 0, left: -12 }}
+        >
           <defs>
             <linearGradient id="seo-clicks-fill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
               <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+          <CartesianGrid
+            stroke="var(--border)"
+            strokeDasharray="3 3"
+            vertical={false}
+          />
           <XAxis
             dataKey="date"
             tickFormatter={shortDate}

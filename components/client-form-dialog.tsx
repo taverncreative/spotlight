@@ -40,10 +40,10 @@ export function ClientFormDialog({
   const router = useRouter();
   const isEdit = client !== null;
   const action = isEdit ? updateClientAction : createClientAction;
-  const [state, formAction, pending] = useActionState<ClientFormState, FormData>(
-    action,
-    null
-  );
+  const [state, formAction, pending] = useActionState<
+    ClientFormState,
+    FormData
+  >(action, null);
 
   const [name, setName] = useState(client?.name ?? "");
   const [slug, setSlug] = useState(client?.slug ?? "");
@@ -76,9 +76,7 @@ export function ClientFormDialog({
           </DialogDescription>
         </div>
         <form action={formAction} className="space-y-4">
-          {client ? (
-            <input type="hidden" name="id" value={client.id} />
-          ) : null}
+          {client ? <input type="hidden" name="id" value={client.id} /> : null}
 
           <div className="space-y-1.5">
             <label htmlFor="client-name" className="text-sm font-medium">

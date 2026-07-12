@@ -41,7 +41,10 @@ export function AnalyticsControls({
           aria-label="Google Analytics property"
           value={selected}
           onChange={(event) => go({ property: event.target.value })}
-          className={cn(fieldInputClass, "h-8 w-auto max-w-[16rem] py-1 text-xs")}
+          className={cn(
+            fieldInputClass,
+            "h-8 w-auto max-w-[16rem] py-1 text-xs"
+          )}
         >
           {properties.map((property) => (
             <option key={property.property} value={property.property}>
