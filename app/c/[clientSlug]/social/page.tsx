@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
 import { SocialStatusPill } from "@/components/social/social-status-pill";
+import { SocialCancelButton } from "@/components/social/social-cancel-button";
 import { SocialDeleteButton } from "@/components/social/social-delete-button";
 
 type MediaRow = { position: number; storage_path: string };
@@ -144,6 +145,9 @@ export default async function SocialPage({
                   </p>
                   <p className="text-xs text-muted-foreground">{when}</p>
                   <div className="mt-auto flex items-center justify-end gap-1 pt-1">
+                    {post.status === "scheduled" ? (
+                      <SocialCancelButton postId={post.id} />
+                    ) : null}
                     {post.status === "draft" || post.status === "scheduled" ? (
                       <Button
                         variant="ghost"

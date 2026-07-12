@@ -246,6 +246,30 @@ export async function saveSocialPost(
   redirect(`/c/${clientSlug}/social`);
 }
 
+// Cancel a scheduled post back to draft (never deleted). Atomic on status, so
+// a post the publisher has already claimed cannot be pulled back mid-publish.
+export async function cancelScheduledPost(
+  id: string
+): Promise<SocialPostFormState> {
+  if (!id) return { ok: false, error: "Missing post id." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("social_posts")
+    .update({ status: "draft", scheduled_at: null })
+    .eq("id", id)
+    .eq("status", "scheduled")
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false, error: "Could not cancel the schedule." };
+  if (!data) {
+    return {
+      ok: false,
+      error: "This post is no longer scheduled, so there is nothing to cancel.",
+    };
+  }
+  return { ok: true };
+}
+
 // Delete a post (cascades media + targets), then reap its storage objects
 // (best-effort; the post is already gone).
 export async function deleteSocialPost(
