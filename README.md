@@ -100,7 +100,8 @@ else with 401. Execution history: Vercel → Settings → Cron Jobs.
   sample clients.
 
 - **Checks** — `npm run verify` runs typecheck, lint and the prettier check
-  in one go.
+  in one go. It is the pre-commit gate: run it before every commit and only
+  commit on a clean pass.
 
 ## Fresh production deploy
 
