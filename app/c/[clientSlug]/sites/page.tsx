@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { SitesList } from "@/components/sites-list";
-import { buildSiteView } from "@/lib/sites/monitoring";
+import { buildSiteViews } from "@/lib/sites/monitoring";
 import { requireClient } from "@/lib/clients/require-client";
 import { listGscProperties } from "@/lib/gsc/properties";
 import { listGa4Properties } from "@/lib/ga4/properties";
@@ -34,10 +34,7 @@ export default async function SitesPage({
     listGa4Properties(),
   ]);
 
-  const now = Date.now();
-  const views = (sites ?? []).map((site) =>
-    buildSiteView(site, site.site_checks?.[0] ?? null, now)
-  );
+  const views = buildSiteViews(sites ?? []);
 
   return (
     <SitesList

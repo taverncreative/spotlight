@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
-import { buildSiteView } from "@/lib/sites/monitoring";
+import { buildSiteViews } from "@/lib/sites/monitoring";
 import { hostnameFromUrl } from "@/lib/sites/schemas";
 import { CLIENT_STATUS_LABELS } from "@/lib/clients/schemas";
 import { MonitoringChip } from "@/components/monitoring-chip";
@@ -90,12 +90,9 @@ export default async function OverviewPage({
   const status = (clientRes.data?.status as string | undefined) ?? "active";
   const sites = (sitesRes.data ?? []) as SiteRow[];
   const posts = (postsRes.data ?? []) as PostRow[];
-  const now = Date.now();
 
   const primaryUrl = sites[0]?.url ?? null;
-  const siteViews = sites.map((site) =>
-    buildSiteView(site, site.site_checks?.[0] ?? null, now)
-  );
+  const siteViews = buildSiteViews(sites);
   const draftCount = posts.filter((post) => post.status === "draft").length;
   const recentPosts = posts.slice(0, 3);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   Area,
   AreaChart,
@@ -22,13 +22,24 @@ function shortDate(value: string): string {
   });
 }
 
+// True only after hydration: the server snapshot is false, the client
+// snapshot true, and nothing ever notifies — the placeholder-then-swap
+// behaviour of the old mounted flag without setState in an effect.
+const emptySubscribe = () => () => {};
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+}
+
 // Daily-sessions trend. recharts is client-only and ResponsiveContainer measures
 // the DOM, so we render a same-size placeholder until mounted (no hydration
 // mismatch), then swap in the chart. isAnimationActive is off because recharts
 // 2.x's entry animation stalls at width 0 under React 19.
 export function AnalyticsTrendChart({ data }: { data: TrendPoint[] }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
 
   if (!mounted) {
     return (

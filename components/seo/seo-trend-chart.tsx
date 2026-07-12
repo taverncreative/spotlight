@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   Area,
   AreaChart,
@@ -22,12 +22,23 @@ function shortDate(value: string): string {
   });
 }
 
+// True only after hydration: the server snapshot is false, the client
+// snapshot true, and nothing ever notifies — the placeholder-then-swap
+// behaviour of the old mounted flag without setState in an effect.
+const emptySubscribe = () => () => {};
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+}
+
 // Daily-clicks trend. recharts is client-only and ResponsiveContainer measures
 // the DOM, so we render a same-size placeholder until mounted — the server and
 // first client paint match (no hydration mismatch), then the chart swaps in.
 export function SeoTrendChart({ data }: { data: TrendPoint[] }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
 
   if (!mounted) {
     return (

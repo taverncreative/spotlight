@@ -84,6 +84,17 @@ type CheckRow = {
   checked_at: string;
 };
 
+// Build views for a whole result set with a single clock read. Pages call this
+// instead of reading Date.now() in their render bodies (react-hooks/purity).
+export function buildSiteViews(
+  sites: (SiteRow & { site_checks?: CheckRow[] | null })[]
+): SiteView[] {
+  const now = Date.now();
+  return sites.map((site) =>
+    buildSiteView(site, site.site_checks?.[0] ?? null, now)
+  );
+}
+
 export function buildSiteView(
   site: SiteRow,
   check: CheckRow | null,
