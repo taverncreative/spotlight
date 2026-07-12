@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +12,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { deletePost } from "@/lib/posts/actions";
-import type { PostFormState } from "@/lib/posts/schemas";
 
 // Per-row delete with a confirm dialog (the Slice 6 site-remove pattern).
+// Calls the action directly inside a transition (no form/effect), so success
+// can close the dialog and refresh without setState-in-effect; failures show
+// inline instead of silently leaving the dialog open.
 export function PostDeleteButton({
   postId,
   title,
@@ -24,21 +26,37 @@ export function PostDeleteButton({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [state, formAction, pending] = useActionState<PostFormState, FormData>(
-    deletePost,
-    null
-  );
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if (state?.ok) {
-      setOpen(false);
-      router.refresh();
-    }
-  }, [state, router]);
+  function confirmDelete() {
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        formData.set("id", postId);
+        const result = await deletePost(null, formData);
+        if (result?.ok) {
+          setOpen(false);
+          router.refresh();
+        } else {
+          setError(result?.error ?? "Could not delete the post.");
+        }
+      } catch {
+        setError("Could not delete the post.");
+      }
+    });
+  }
 
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
+      >
         Delete
       </Button>
       <AlertDialog open={open} onOpenChange={setOpen}>
@@ -49,17 +67,18 @@ export function PostDeleteButton({
               This permanently deletes “{title}”. This cannot be undone.
             </AlertDialogDescription>
           </div>
-          <form action={formAction} className="flex justify-end gap-2">
-            <input type="hidden" name="id" value={postId} />
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <div className="flex justify-end gap-2">
             <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              type="submit"
+              type="button"
               variant="destructive"
+              onClick={confirmDelete}
               disabled={pending}
             >
               {pending ? "Deleting" : "Delete"}
             </AlertDialogAction>
-          </form>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </>
