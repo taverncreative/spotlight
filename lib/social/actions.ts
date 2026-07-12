@@ -155,13 +155,23 @@ export async function saveSocialPost(
   const storedScheduledAt = intent === "schedule" ? scheduledAt : null;
 
   if (mode === "edit") {
+    // Only draft/scheduled posts are editable. The status filter is atomic, so
+    // a post the publisher claims mid-edit cannot be overwritten from here.
     const { data, error } = await supabase
       .from("social_posts")
       .update({ caption, status, scheduled_at: storedScheduledAt })
       .eq("id", id)
+      .in("status", ["draft", "scheduled"])
       .select("id")
       .maybeSingle();
-    if (error || !data) return { ok: false, error: "Could not save the post." };
+    if (error) return { ok: false, error: "Could not save the post." };
+    if (!data) {
+      return {
+        ok: false,
+        error:
+          "This post is publishing or already published and can no longer be edited.",
+      };
+    }
   } else {
     const { error } = await supabase.from("social_posts").insert({
       id,

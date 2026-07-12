@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
@@ -25,13 +26,33 @@ export default async function EditSocialPostPage({
   const { data: post } = await supabase
     .from("social_posts")
     .select(
-      "id, client_id, caption, scheduled_at, social_post_media(position, storage_path, media_type, width, height), social_post_targets(meta_account_id)"
+      "id, client_id, status, caption, scheduled_at, social_post_media(position, storage_path, media_type, width, height), social_post_targets(meta_account_id)"
     )
     .eq("id", postId)
     .maybeSingle();
   // RLS already limits to the operator's posts; also ensure it belongs to the
   // client in the URL, not another of the operator's clients.
   if (!post || post.client_id !== client.id) notFound();
+
+  // Editable only while the post is still the operator's to change: once the
+  // publisher has claimed it (publishing) or it has a terminal status, editing
+  // is blocked (the save action enforces this atomically too).
+  if (post.status !== "draft" && post.status !== "scheduled") {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <h1 className="text-xl font-semibold tracking-tight">Edit post</h1>
+        <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+          This post is {post.status} and can no longer be edited.{" "}
+          <Link
+            href={`/c/${clientSlug}/social`}
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Back to Social
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const { data: accounts } = await supabase
     .from("meta_accounts")

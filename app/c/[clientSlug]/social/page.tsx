@@ -7,7 +7,10 @@ import { SocialStatusPill } from "@/components/social/social-status-pill";
 import { SocialDeleteButton } from "@/components/social/social-delete-button";
 
 type MediaRow = { position: number; storage_path: string };
-type TargetRow = { meta_account_id: string; meta_accounts: { platform: string } | null };
+type TargetRow = {
+  meta_account_id: string;
+  meta_accounts: { platform: string } | null;
+};
 type PostRow = {
   id: string;
   caption: string;
@@ -67,9 +70,14 @@ export default async function SocialPage({
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold tracking-tight">Social</h1>
-          <p className="text-sm text-muted-foreground">Posts for this client.</p>
+          <p className="text-sm text-muted-foreground">
+            Posts for this client.
+          </p>
         </div>
-        <Button size="sm" render={<Link href={`/c/${clientSlug}/social/new`} />}>
+        <Button
+          size="sm"
+          render={<Link href={`/c/${clientSlug}/social/new`} />}
+        >
           New post
         </Button>
       </div>
@@ -136,15 +144,19 @@ export default async function SocialPage({
                   </p>
                   <p className="text-xs text-muted-foreground">{when}</p>
                   <div className="mt-auto flex items-center justify-end gap-1 pt-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      render={
-                        <Link href={`/c/${clientSlug}/social/${post.id}/edit`} />
-                      }
-                    >
-                      Edit
-                    </Button>
+                    {post.status === "draft" || post.status === "scheduled" ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        render={
+                          <Link
+                            href={`/c/${clientSlug}/social/${post.id}/edit`}
+                          />
+                        }
+                      >
+                        Edit
+                      </Button>
+                    ) : null}
                     <SocialDeleteButton postId={post.id} />
                   </div>
                 </div>
