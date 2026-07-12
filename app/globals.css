@@ -95,7 +95,9 @@
   --muted-foreground: oklch(0.597 0.026 69.4); /* text secondary #8A7D6F */
   --accent: oklch(0.966 0.009 78.3); /* field-sink #F7F3ED */
   --accent-foreground: oklch(0.255 0.021 66.6);
-  --destructive: oklch(0.585 0.2 25);
+  /* Aliased to the status alarm red so error states and status-danger are one
+     identical red across the app. */
+  --destructive: var(--status-danger);
   --border: oklch(0.909 0.015 80.7); /* hairline #E6E0D6 */
   --input: oklch(0.909 0.015 80.7); /* hairline #E6E0D6 */
   --ring: var(--brand);
@@ -161,9 +163,10 @@
   --muted-foreground: oklch(0.655 0.025 75.7); /* text secondary #9A8F80 */
   --accent: oklch(0.293 0.01 61.1); /* field-sink #302B27 */
   --accent-foreground: oklch(0.942 0.01 72.7);
-  /* Danger/error in dark mode stays a lighter, clearly legible red so error
-     text, overdue items and danger surfaces read comfortably. */
-  --destructive: oklch(0.72 0.19 22);
+  /* Aliased to the status alarm red (dark) so error states and status-danger
+     are one identical red. The status token already carries the lighter, dark-
+     legible red, so error text and danger surfaces stay comfortable. */
+  --destructive: var(--status-danger);
   --border: oklch(1 0 0 / 9%); /* translucent hairline (kept translucent) */
   --input: oklch(1 0 0 / 12%);
   --ring: var(--brand);

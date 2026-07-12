@@ -30,8 +30,8 @@ function Banner({
       className={cn(
         "rounded-lg border px-4 py-3 text-sm",
         tone === "ok"
-          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-          : "border-destructive/30 bg-destructive/10 text-destructive"
+          ? "border-status-ok/30 bg-status-ok/10 text-status-ok"
+          : "border-status-danger/30 bg-status-danger/10 text-status-danger"
       )}
     >
       {children}
@@ -174,7 +174,7 @@ function MetaIntegrationCard({
                     {page.needs_reconnect ? (
                       <Badge
                         variant="outline"
-                        className="shrink-0 border-amber-500/40 text-amber-400"
+                        className="shrink-0 border-status-warn/40 text-status-warn"
                       >
                         Reconnect needed
                       </Badge>
@@ -202,7 +202,7 @@ function MetaIntegrationCard({
                       {ig.needs_reconnect ? (
                         <Badge
                           variant="outline"
-                          className="shrink-0 border-amber-500/40 text-amber-400"
+                          className="shrink-0 border-status-warn/40 text-status-warn"
                         >
                           Reconnect needed
                         </Badge>

@@ -15,9 +15,9 @@ import type { ChipTone } from "@/lib/sites/monitoring";
 import type { SiteFormState } from "@/lib/sites/schemas";
 
 const TONE_TEXT: Record<ChipTone, string> = {
-  ok: "text-emerald-400",
-  warn: "text-amber-400",
-  danger: "text-destructive",
+  ok: "text-status-ok",
+  warn: "text-status-warn",
+  danger: "text-status-danger",
   muted: "text-muted-foreground",
 };
 

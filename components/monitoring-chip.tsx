@@ -4,9 +4,9 @@ import type { ChipTone } from "@/lib/sites/monitoring";
 // Shared status chip for the Sites tab, the monitoring board and the per-client
 // Overview. Tones and markup moved here verbatim so all three stay identical.
 const TONE_CLASS: Record<ChipTone, string> = {
-  ok: "bg-emerald-500/15 text-emerald-400",
-  warn: "bg-amber-500/15 text-amber-400",
-  danger: "bg-destructive/15 text-destructive",
+  ok: "bg-status-ok-surface text-status-ok",
+  warn: "bg-status-warn-surface text-status-warn",
+  danger: "bg-status-danger-surface text-status-danger",
   muted: "bg-muted text-muted-foreground",
 };
 

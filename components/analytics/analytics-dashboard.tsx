@@ -32,7 +32,7 @@ function DeltaBadge({ delta }: { delta: MetricDelta }) {
     <p
       className={cn(
         "text-xs tabular-nums",
-        delta.better ? "text-emerald-400" : "text-destructive"
+        delta.better ? "text-status-ok" : "text-status-danger"
       )}
     >
       {rising ? "▲" : "▼"} {Math.abs(delta.pct).toFixed(1)}%{" "}

@@ -5,17 +5,26 @@ import type { SocialStatus } from "@/lib/social/schemas";
 // app (MonitoringChip), with a colour per lifecycle state.
 const STATUS: Record<SocialStatus, { label: string; className: string }> = {
   draft: { label: "Draft", className: "bg-muted text-muted-foreground" },
-  scheduled: { label: "Scheduled", className: "bg-brand/15 text-brand" },
+  scheduled: {
+    label: "Scheduled",
+    className: "bg-status-info-surface text-status-info",
+  },
   publishing: {
     label: "Publishing",
-    className: "bg-amber-500/15 text-amber-400",
+    className: "bg-status-warn-surface text-status-warn",
   },
   published: {
     label: "Published",
-    className: "bg-emerald-500/15 text-emerald-400",
+    className: "bg-status-ok-surface text-status-ok",
   },
-  partial: { label: "Partial", className: "bg-amber-500/15 text-amber-400" },
-  failed: { label: "Failed", className: "bg-destructive/15 text-destructive" },
+  partial: {
+    label: "Partial",
+    className: "bg-status-warn-surface text-status-warn",
+  },
+  failed: {
+    label: "Failed",
+    className: "bg-status-danger-surface text-status-danger",
+  },
 };
 
 export function SocialStatusPill({ status }: { status: string }) {
