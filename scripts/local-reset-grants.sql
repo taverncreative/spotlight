@@ -14,11 +14,21 @@
 -- It is idempotent and harmless if run against an already-correct database:
 -- every statement is a grant/revoke that simply asserts the intended end state.
 
--- 1. The standard Supabase grants across the public schema.
+-- 1. The standard Supabase grants across the public schema, minus anon on
+-- tables: migration 0032 revokes all anon table access (RLS already denies it
+-- every row; TRUNCATE is not RLS-governed), so anon is deliberately absent
+-- from the tables line. Sequence/routine grants stay as hosted Supabase has
+-- them. KEEP IN SYNC WITH migration 0032_security_hardening.sql.
 grant usage on schema public to anon, authenticated, service_role;
-grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to authenticated, service_role;
 grant all on all sequences in schema public to anon, authenticated, service_role;
 grant all on all routines in schema public to anon, authenticated, service_role;
+
+-- 1b. Re-apply 0032's trim of authenticated, AFTER the blanket grant above
+-- (which would otherwise re-grant them): TRUNCATE is RLS-exempt, REFERENCES
+-- and TRIGGER are DDL-adjacent; PostgREST can express none of them.
+revoke truncate, references, trigger on all tables in schema public
+  from authenticated;
 
 -- 2. Re-apply the column-level update carve-out on public.users, AFTER the
 -- blanket grant above (which would otherwise re-grant full update). A session
