@@ -40,10 +40,19 @@ export type RosterRow = {
   chips: RosterChip[];
 };
 
+export type FailedPostAttention = {
+  id: string;
+  clientName: string;
+  clientSlug: string;
+  caption: string;
+  issue: string;
+};
+
 export type BoardModel = {
   summary: { down: number; atRisk: number; healthy: number };
   attention: AttentionRow[];
   roster: RosterRow[];
+  failedPosts: FailedPostAttention[];
 };
 
 function CheckAllButton() {
@@ -107,7 +116,7 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
     setDialogOpen(true);
   }
 
-  const { summary, attention, roster } = board;
+  const { summary, attention, roster, failedPosts } = board;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -134,7 +143,7 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
         <h2 className="text-sm font-medium text-muted-foreground">
           Needs attention
         </h2>
-        {attention.length === 0 ? (
+        {attention.length === 0 && failedPosts.length === 0 ? (
           <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
             All clear. Nothing needs attention.
           </p>
@@ -158,7 +167,38 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
                   <Button
                     variant="outline"
                     size="sm"
-                    render={<Link href={`/c/${row.clientSlug}/sites`} />}
+                    render={
+                      <Link href={`/c/${row.clientSlug}/sites/${row.id}`} />
+                    }
+                  >
+                    Open
+                  </Button>
+                </div>
+              </li>
+            ))}
+            {failedPosts.map((post) => (
+              <li
+                key={post.id}
+                className="flex items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {post.clientName}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {post.caption || "No caption"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <MonitoringChip tone="danger">{post.issue}</MonitoringChip>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={
+                      <Link
+                        href={`/c/${post.clientSlug}/social?status=failed`}
+                      />
+                    }
                   >
                     Open
                   </Button>
@@ -192,7 +232,9 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
                         No sites yet
                       </span>
                     ) : row.kind === "unchecked" ? (
-                      <MonitoringChip tone="muted">Not yet checked</MonitoringChip>
+                      <MonitoringChip tone="muted">
+                        Not yet checked
+                      </MonitoringChip>
                     ) : (
                       row.chips.map((chip) => (
                         <MonitoringChip key={chip.label} tone={chip.tone}>

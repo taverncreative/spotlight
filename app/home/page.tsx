@@ -3,6 +3,7 @@ import {
   MonitoringBoard,
   type AttentionRow,
   type BoardModel,
+  type FailedPostAttention,
   type RosterChip,
   type RosterRow,
 } from "@/components/monitoring-board";
@@ -25,23 +26,21 @@ type BoardSite = {
   client_id: string;
   site_checks: BoardCheck[];
 };
+type FailedPostRow = {
+  id: string;
+  caption: string;
+  status: string;
+  last_error: string | null;
+  clients: { name: string; slug: string } | null;
+};
 
-export default async function HomePage() {
-  const supabase = await createClient();
-  const [clientsRes, sitesRes] = await Promise.all([
-    supabase.from("clients").select("id, name, slug, status").order("name"),
-    supabase
-      .from("sites")
-      .select(
-        "id, url, client_id, site_checks(status, ssl_expiry, domain_expiry, checked_at)"
-      )
-      .eq("monitoring_enabled", true)
-      .order("checked_at", { referencedTable: "site_checks", ascending: false })
-      .limit(1, { referencedTable: "site_checks" }),
-  ]);
-
-  const clients = (clientsRes.data ?? []) as ClientRow[];
-  const sites = (sitesRes.data ?? []) as BoardSite[];
+// Assemble the board model outside the component so the render stays pure
+// (Date.now() lives here, per request, not in the component body).
+function buildBoard(
+  clients: ClientRow[],
+  sites: BoardSite[],
+  failedRows: FailedPostRow[]
+): BoardModel {
   const now = Date.now();
 
   const clientById = new Map(clients.map((client) => [client.id, client]));
@@ -109,7 +108,9 @@ export default async function HomePage() {
       if (check.status === "up") upCount++;
       if (risk.sslDays !== null) {
         soonestSsl =
-          soonestSsl === null ? risk.sslDays : Math.min(soonestSsl, risk.sslDays);
+          soonestSsl === null
+            ? risk.sslDays
+            : Math.min(soonestSsl, risk.sslDays);
       }
       if (risk.domainDays !== null) {
         soonestDomain =
@@ -136,11 +137,48 @@ export default async function HomePage() {
     roster.push({ client, kind: "healthy", chips });
   }
 
-  const board: BoardModel = {
+  // Failed/partial social posts join the attention zone, each linking to the
+  // relevant client's failed-posts view.
+  const failedPosts: FailedPostAttention[] = failedRows.map((row) => ({
+    id: row.id,
+    clientName: row.clients?.name ?? "Unknown client",
+    clientSlug: row.clients?.slug ?? "",
+    caption: row.caption,
+    issue: row.status === "partial" ? "Partially published" : "Publish failed",
+  }));
+
+  return {
     summary: { down, atRisk, healthy },
     attention,
     roster,
+    failedPosts,
   };
+}
+
+export default async function HomePage() {
+  const supabase = await createClient();
+  const [clientsRes, sitesRes, failedRes] = await Promise.all([
+    supabase.from("clients").select("id, name, slug, status").order("name"),
+    supabase
+      .from("sites")
+      .select(
+        "id, url, client_id, site_checks(status, ssl_expiry, domain_expiry, checked_at)"
+      )
+      .eq("monitoring_enabled", true)
+      .order("checked_at", { referencedTable: "site_checks", ascending: false })
+      .limit(1, { referencedTable: "site_checks" }),
+    supabase
+      .from("social_posts")
+      .select("id, caption, status, last_error, clients(name, slug)")
+      .in("status", ["failed", "partial"])
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const board = buildBoard(
+    (clientsRes.data ?? []) as ClientRow[],
+    (sitesRes.data ?? []) as BoardSite[],
+    (failedRes.data ?? []) as unknown as FailedPostRow[]
+  );
 
   return <MonitoringBoard board={board} />;
 }
