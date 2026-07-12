@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SiteFormDialog } from "@/components/site-form-dialog";
 import { SiteRemoveDialog } from "@/components/site-remove-dialog";
@@ -25,6 +27,9 @@ export function SitesList({
   gscProperties: GscPropertiesResult;
   ga4Properties: Ga4PropertiesResult;
 }) {
+  // The slug comes from the route rather than a prop, so the server page
+  // stays untouched (it lives under /c/[clientSlug]/sites).
+  const { clientSlug } = useParams<{ clientSlug: string }>();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SiteView | null>(null);
   const [formKey, setFormKey] = useState(0);
@@ -76,7 +81,12 @@ export function SitesList({
             >
               <div className="min-w-0 space-y-1">
                 <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-medium">{site.hostname}</p>
+                  <Link
+                    href={`/c/${clientSlug}/sites/${site.id}`}
+                    className="truncate text-sm font-medium underline-offset-4 hover:underline"
+                  >
+                    {site.hostname}
+                  </Link>
                   {!site.monitoringEnabled ? (
                     <MonitoringChip tone="muted">Paused</MonitoringChip>
                   ) : null}
@@ -96,7 +106,9 @@ export function SitesList({
                           : ""}
                       </MonitoringChip>
                       {site.check.responseMs != null ? (
-                        <MonitoringChip tone="muted">{site.check.responseMs} ms</MonitoringChip>
+                        <MonitoringChip tone="muted">
+                          {site.check.responseMs} ms
+                        </MonitoringChip>
                       ) : null}
                       {site.check.ssl ? (
                         <MonitoringChip tone={site.check.ssl.tone}>
@@ -113,7 +125,9 @@ export function SitesList({
                       </span>
                     </>
                   ) : (
-                    <MonitoringChip tone="muted">Not yet checked</MonitoringChip>
+                    <MonitoringChip tone="muted">
+                      Not yet checked
+                    </MonitoringChip>
                   )}
                 </div>
               </div>
