@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
@@ -19,9 +20,21 @@ type PostRow = {
   scheduled_at: string | null;
   published_at: string | null;
   created_at: string;
+  last_error: string | null;
   social_post_media: MediaRow[];
   social_post_targets: TargetRow[];
 };
+
+// Status tabs. "Failed" folds in partial (some targets failed) so nothing
+// broken hides behind a tab; "publishing" only ever appears under All.
+const STATUS_TABS: { key: string | null; label: string; matches: string[] }[] =
+  [
+    { key: null, label: "All", matches: [] },
+    { key: "draft", label: "Drafts", matches: ["draft"] },
+    { key: "scheduled", label: "Scheduled", matches: ["scheduled"] },
+    { key: "published", label: "Published", matches: ["published"] },
+    { key: "failed", label: "Failed", matches: ["failed", "partial"] },
+  ];
 
 function formatLondon(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -39,17 +52,24 @@ function formatLondon(iso: string): string {
 // RLS scopes everything via requireClient + owns_client.
 export default async function SocialPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ clientSlug: string }>;
+  searchParams: Promise<{ status?: string }>;
 }) {
   const { clientSlug } = await params;
+  const { status: statusParam } = await searchParams;
   const { client } = await requireClient(clientSlug);
+
+  const activeTab =
+    STATUS_TABS.find((tab) => tab.key !== null && tab.key === statusParam) ??
+    STATUS_TABS[0];
 
   const supabase = await createClient();
   const { data } = await supabase
     .from("social_posts")
     .select(
-      "id, caption, status, scheduled_at, published_at, created_at, social_post_media(position, storage_path), social_post_targets(meta_account_id, meta_accounts(platform))"
+      "id, caption, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path), social_post_targets(meta_account_id, meta_accounts(platform))"
     )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });
@@ -65,6 +85,11 @@ export default async function SocialPage({
     if (bScheduled) return 1;
     return b.created_at.localeCompare(a.created_at);
   });
+
+  const visible =
+    activeTab.key === null
+      ? ordered
+      : ordered.filter((post) => activeTab.matches.includes(post.status));
 
   return (
     <div className="space-y-6">
@@ -83,13 +108,39 @@ export default async function SocialPage({
         </Button>
       </div>
 
+      <nav className="flex flex-wrap gap-1" aria-label="Filter by status">
+        {STATUS_TABS.map((tab) => (
+          <Link
+            key={tab.label}
+            href={
+              tab.key === null
+                ? `/c/${clientSlug}/social`
+                : `/c/${clientSlug}/social?status=${tab.key}`
+            }
+            aria-current={tab.key === activeTab.key ? "page" : undefined}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-sm transition-colors",
+              tab.key === activeTab.key
+                ? "bg-accent font-medium text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
+
       {posts.length === 0 ? (
         <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
           No posts yet. Create your first post.
         </p>
+      ) : visible.length === 0 ? (
+        <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+          No {activeTab.label.toLowerCase()} for this client.
+        </p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {ordered.map((post) => {
+          {visible.map((post) => {
             const media = (post.social_post_media ?? [])
               .slice()
               .sort((a, b) => a.position - b.position);
@@ -144,6 +195,12 @@ export default async function SocialPage({
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground">{when}</p>
+                  {(post.status === "failed" || post.status === "partial") &&
+                  post.last_error ? (
+                    <p className="text-xs text-destructive">
+                      {post.last_error}
+                    </p>
+                  ) : null}
                   <div className="mt-auto flex items-center justify-end gap-1 pt-1">
                     {post.status === "scheduled" ? (
                       <SocialCancelButton postId={post.id} />
