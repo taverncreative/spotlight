@@ -99,23 +99,27 @@ export function SitesList({
                 <div className="flex flex-wrap items-center gap-1.5">
                   {site.check ? (
                     <>
-                      <MonitoringChip tone={site.check.statusTone}>
-                        {site.check.status === "up" ? "Up" : "Down"}
-                        {site.check.httpStatus
-                          ? ` · ${site.check.httpStatus}`
-                          : ""}
+                      <MonitoringChip
+                        tone={site.check.statusTone}
+                        title={
+                          site.check.httpStatus != null
+                            ? `HTTP ${site.check.httpStatus}`
+                            : undefined
+                        }
+                      >
+                        {site.check.statusLabel}
                       </MonitoringChip>
                       {site.check.responseMs != null ? (
                         <MonitoringChip tone="muted">
                           {site.check.responseMs} ms
                         </MonitoringChip>
                       ) : null}
-                      {site.check.ssl ? (
+                      {site.check.ssl && site.check.ssl.tone !== "ok" ? (
                         <MonitoringChip tone={site.check.ssl.tone}>
                           {site.check.ssl.label}
                         </MonitoringChip>
                       ) : null}
-                      {site.check.domain ? (
+                      {site.check.domain && site.check.domain.tone !== "ok" ? (
                         <MonitoringChip tone={site.check.domain.tone}>
                           {site.check.domain.label}
                         </MonitoringChip>

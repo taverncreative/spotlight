@@ -129,6 +129,7 @@ function buildBoard(
     const conn = connByClient.get(client.id) ?? { gsc: false, ga4: false };
 
     let upCount = 0;
+    let downCount = 0;
     let checkedCount = 0;
     let worstRank = 4;
     let soonestSsl: number | null = null;
@@ -139,6 +140,7 @@ function buildBoard(
       checkedCount++;
       const risk = assessSite(check, now);
       if (check.status === "up") upCount++;
+      else downCount++;
       worstRank = Math.min(worstRank, risk.sortRank);
       if (risk.sslDays !== null) {
         soonestSsl =
@@ -171,8 +173,13 @@ function buildBoard(
     } else {
       kind = "monitored";
       tone = toneFromRank(worstRank);
-      healthLabel = `${upCount}/${clientSites.length} up`;
       sortRank = worstRank;
+      healthLabel =
+        downCount > 0
+          ? `${downCount} down`
+          : worstRank <= 2
+            ? "At risk"
+            : "Healthy";
     }
 
     return {

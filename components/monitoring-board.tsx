@@ -237,8 +237,6 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
                 <tr className="border-b text-xs text-muted-foreground">
                   <th className="px-3 py-2 text-left font-medium">Client</th>
                   <th className="px-3 py-2 text-left font-medium">Health</th>
-                  <th className="px-3 py-2 text-right font-medium">SSL</th>
-                  <th className="px-3 py-2 text-right font-medium">Domain</th>
                   <th className="px-3 py-2 text-right font-medium">
                     Scheduled
                   </th>
@@ -260,14 +258,6 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
                       <MonitoringChip tone={row.tone}>
                         {row.healthLabel}
                       </MonitoringChip>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                      {row.soonestSsl !== null ? `${row.soonestSsl}d` : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
-                      {row.soonestDomain !== null
-                        ? `${row.soonestDomain}d`
-                        : "—"}
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {row.scheduled > 0 ? (

@@ -12,13 +12,16 @@ const TONE_CLASS: Record<ChipTone, string> = {
 
 export function MonitoringChip({
   tone,
+  title,
   children,
 }: {
   tone: ChipTone;
+  title?: string;
   children: React.ReactNode;
 }) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex items-center rounded-pill px-1.5 py-0.5 text-xs font-medium",
         TONE_CLASS[tone]

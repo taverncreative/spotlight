@@ -152,26 +152,26 @@ export default async function OverviewPage({
                 <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                   {site.check ? (
                     <>
-                      <MonitoringChip tone={site.check.statusTone}>
-                        {site.check.status === "up" ? "Up" : "Down"}
-                        {site.check.httpStatus
-                          ? ` · ${site.check.httpStatus}`
-                          : ""}
+                      <MonitoringChip
+                        tone={site.check.statusTone}
+                        title={
+                          site.check.httpStatus != null
+                            ? `HTTP ${site.check.httpStatus}`
+                            : undefined
+                        }
+                      >
+                        {site.check.statusLabel}
                       </MonitoringChip>
-                      {site.check.ssl ? (
+                      {site.check.ssl && site.check.ssl.tone !== "ok" ? (
                         <MonitoringChip tone={site.check.ssl.tone}>
                           {site.check.ssl.label}
                         </MonitoringChip>
-                      ) : (
-                        <MonitoringChip tone="muted">SSL —</MonitoringChip>
-                      )}
-                      {site.check.domain ? (
+                      ) : null}
+                      {site.check.domain && site.check.domain.tone !== "ok" ? (
                         <MonitoringChip tone={site.check.domain.tone}>
                           {site.check.domain.label}
                         </MonitoringChip>
-                      ) : (
-                        <MonitoringChip tone="muted">Domain —</MonitoringChip>
-                      )}
+                      ) : null}
                     </>
                   ) : (
                     <MonitoringChip tone="muted">

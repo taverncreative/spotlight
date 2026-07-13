@@ -9,6 +9,7 @@ export type ChipTone = "ok" | "warn" | "danger" | "muted";
 export type SiteCheckView = {
   status: "up" | "down";
   statusTone: ChipTone;
+  statusLabel: string;
   httpStatus: number | null;
   responseMs: number | null;
   ssl: { label: string; tone: ChipTone } | null;
@@ -28,9 +29,11 @@ export type SiteView = {
   check: SiteCheckView | null;
 };
 
-// Amber thresholds for "at risk"; below zero days is expired (red).
-const SSL_WARN_DAYS = 14;
-const DOMAIN_WARN_DAYS = 30;
+// Amber thresholds for "at risk"; below zero days is expired (red). Widened so
+// the board flags expiry earlier: a pill appearing lines up exactly with the
+// site going amber, since expiryChip and assessSite share these constants.
+const SSL_WARN_DAYS = 30;
+const DOMAIN_WARN_DAYS = 60;
 const DAY_MS = 86_400_000;
 
 function daysUntil(iso: string | null, now: number): number | null {
@@ -38,6 +41,22 @@ function daysUntil(iso: string | null, now: number): number | null {
   const target = new Date(iso).getTime();
   if (Number.isNaN(target)) return null;
   return Math.floor((target - now) / DAY_MS);
+}
+
+// Plain-language expiry phrasing, shared by the Sites/Overview pills and the
+// board's attention chip so they read identically.
+function expiresInLabel(prefix: string, days: number): string {
+  return `${prefix} expires in ${days} day${days === 1 ? "" : "s"}`;
+}
+
+// Plain-language site status from the stored fields (checker untouched). Tone is
+// set separately; the HTTP code is surfaced on hover, not in the word.
+function describeStatus(status: string, httpStatus: number | null): string {
+  if (status !== "down") return "Healthy";
+  if (httpStatus === null) return "Not responding";
+  if (httpStatus >= 500) return "Server error";
+  if (httpStatus >= 400) return "Page error";
+  return "Down";
 }
 
 function expiryChip(
@@ -49,8 +68,9 @@ function expiryChip(
   const days = daysUntil(iso, now);
   if (days === null) return null;
   if (days < 0) return { label: `${label} expired`, tone: "danger" };
-  if (days <= warnDays) return { label: `${label} ${days}d`, tone: "warn" };
-  return { label: `${label} ${days}d`, tone: "ok" };
+  const worded = expiresInLabel(label, days);
+  if (days <= warnDays) return { label: worded, tone: "warn" };
+  return { label: worded, tone: "ok" };
 }
 
 function relativeLabel(iso: string, now: number): string {
@@ -113,6 +133,7 @@ export function buildSiteView(
       ? {
           status: check.status === "down" ? "down" : "up",
           statusTone: check.status === "down" ? "danger" : "ok",
+          statusLabel: describeStatus(check.status, check.http_status),
           httpStatus: check.http_status,
           responseMs: check.response_ms,
           ssl: expiryChip(check.ssl_expiry, "SSL", SSL_WARN_DAYS, now),
@@ -148,10 +169,6 @@ export type SiteRisk = {
   sslDays: number | null;
   domainDays: number | null;
 };
-
-function daysLabel(prefix: string, days: number): string {
-  return `${prefix} ${days} day${days === 1 ? "" : "s"}`;
-}
 
 export function assessSite(
   check: {
@@ -204,11 +221,11 @@ export function assessSite(
 
   const candidates: { label: string; days: number }[] = [];
   if (sslDays !== null && sslDays <= SSL_WARN_DAYS) {
-    candidates.push({ label: daysLabel("SSL", sslDays), days: sslDays });
+    candidates.push({ label: expiresInLabel("SSL", sslDays), days: sslDays });
   }
   if (domainDays !== null && domainDays <= DOMAIN_WARN_DAYS) {
     candidates.push({
-      label: daysLabel("Domain", domainDays),
+      label: expiresInLabel("Domain", domainDays),
       days: domainDays,
     });
   }
