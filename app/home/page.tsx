@@ -3,10 +3,10 @@ import {
   MonitoringBoard,
   type AttentionRow,
   type BoardModel,
+  type ClientComparisonRow,
   type FailedPostAttention,
-  type RosterChip,
-  type RosterRow,
 } from "@/components/monitoring-board";
+import type { ChipTone } from "@/lib/sites/monitoring";
 import { assessSite } from "@/lib/sites/monitoring";
 import { hostnameFromUrl } from "@/lib/sites/schemas";
 import type { ClientRow } from "@/components/client-form-dialog";
@@ -33,15 +33,49 @@ type FailedPostRow = {
   last_error: string | null;
   clients: { name: string; slug: string } | null;
 };
+type SocialCountRow = { client_id: string; status: string };
+type SitePropRow = {
+  client_id: string;
+  gsc_property: string | null;
+  ga4_property: string | null;
+};
 
 // Assemble the board model outside the component so the render stays pure
 // (Date.now() lives here, per request, not in the component body).
 function buildBoard(
   clients: ClientRow[],
   sites: BoardSite[],
-  failedRows: FailedPostRow[]
+  failedRows: FailedPostRow[],
+  socialCounts: SocialCountRow[],
+  siteProps: SitePropRow[]
 ): BoardModel {
   const now = Date.now();
+
+  // Social scheduled/failed counts per client (failed folds in partial, matching
+  // the attention zone). Cheap: only these three statuses are fetched.
+  const socialByClient = new Map<
+    string,
+    { scheduled: number; failed: number }
+  >();
+  for (const row of socialCounts) {
+    const counts = socialByClient.get(row.client_id) ?? {
+      scheduled: 0,
+      failed: 0,
+    };
+    if (row.status === "scheduled") counts.scheduled++;
+    else counts.failed++;
+    socialByClient.set(row.client_id, counts);
+  }
+
+  // SEO/GA4 connection presence per client: any of the client's sites carries a
+  // mapped property. Presence only, no live Google call.
+  const connByClient = new Map<string, { gsc: boolean; ga4: boolean }>();
+  for (const row of siteProps) {
+    const conn = connByClient.get(row.client_id) ?? { gsc: false, ga4: false };
+    if (row.gsc_property) conn.gsc = true;
+    if (row.ga4_property) conn.ga4 = true;
+    connByClient.set(row.client_id, conn);
+  }
 
   const clientById = new Map(clients.map((client) => [client.id, client]));
   const sitesByClient = new Map<string, BoardSite[]>();
@@ -52,7 +86,6 @@ function buildBoard(
   }
 
   const attention: AttentionRow[] = [];
-  const atRiskClients = new Set<string>();
   let down = 0;
   let atRisk = 0;
   let healthy = 0;
@@ -65,7 +98,6 @@ function buildBoard(
 
     if (risk.sortRank <= 2) {
       const client = clientById.get(site.client_id);
-      atRiskClients.add(site.client_id);
       attention.push({
         id: site.id,
         clientName: client?.name ?? "Unknown client",
@@ -86,18 +118,19 @@ function buildBoard(
       (a.soonestDays ?? Infinity) - (b.soonestDays ?? Infinity)
   );
 
-  const roster: RosterRow[] = [];
-  for (const client of clients) {
-    if (atRiskClients.has(client.id)) continue;
-    const clientSites = sitesByClient.get(client.id) ?? [];
+  // One comparison row per client (all clients, not just healthy ones), sorted
+  // worst-first by the same risk ranking the attention zone uses.
+  const toneFromRank = (rank: number): ChipTone =>
+    rank <= 1 ? "danger" : rank === 2 ? "warn" : rank === 3 ? "ok" : "muted";
 
-    if (clientSites.length === 0) {
-      roster.push({ client, kind: "empty", chips: [] });
-      continue;
-    }
+  const clientRows: ClientComparisonRow[] = clients.map((client) => {
+    const clientSites = sitesByClient.get(client.id) ?? [];
+    const social = socialByClient.get(client.id) ?? { scheduled: 0, failed: 0 };
+    const conn = connByClient.get(client.id) ?? { gsc: false, ga4: false };
 
     let upCount = 0;
     let checkedCount = 0;
+    let worstRank = 4;
     let soonestSsl: number | null = null;
     let soonestDomain: number | null = null;
     for (const site of clientSites) {
@@ -106,6 +139,7 @@ function buildBoard(
       checkedCount++;
       const risk = assessSite(check, now);
       if (check.status === "up") upCount++;
+      worstRank = Math.min(worstRank, risk.sortRank);
       if (risk.sslDays !== null) {
         soonestSsl =
           soonestSsl === null
@@ -120,22 +154,50 @@ function buildBoard(
       }
     }
 
-    if (checkedCount === 0) {
-      roster.push({ client, kind: "unchecked", chips: [] });
-      continue;
+    let kind: ClientComparisonRow["kind"];
+    let tone: ChipTone;
+    let healthLabel: string;
+    let sortRank: number;
+    if (clientSites.length === 0) {
+      kind = "empty";
+      tone = "muted";
+      healthLabel = "No sites";
+      sortRank = 6;
+    } else if (checkedCount === 0) {
+      kind = "unchecked";
+      tone = "muted";
+      healthLabel = "Not checked";
+      sortRank = 5;
+    } else {
+      kind = "monitored";
+      tone = toneFromRank(worstRank);
+      healthLabel = `${upCount}/${clientSites.length} up`;
+      sortRank = worstRank;
     }
 
-    const chips: RosterChip[] = [
-      { label: `${upCount}/${clientSites.length} up`, tone: "ok" },
-      soonestSsl !== null
-        ? { label: `SSL ${soonestSsl}d`, tone: "ok" }
-        : { label: "SSL —", tone: "muted" },
-      soonestDomain !== null
-        ? { label: `Domain ${soonestDomain}d`, tone: "ok" }
-        : { label: "Domain —", tone: "muted" },
-    ];
-    roster.push({ client, kind: "healthy", chips });
-  }
+    return {
+      client,
+      kind,
+      tone,
+      healthLabel,
+      sortRank,
+      upCount,
+      totalSites: clientSites.length,
+      soonestSsl,
+      soonestDomain,
+      scheduled: social.scheduled,
+      failed: social.failed,
+      gscConnected: conn.gsc,
+      ga4Connected: conn.ga4,
+    };
+  });
+
+  clientRows.sort(
+    (a, b) =>
+      a.sortRank - b.sortRank ||
+      (a.soonestSsl ?? Infinity) - (b.soonestSsl ?? Infinity) ||
+      a.client.name.localeCompare(b.client.name)
+  );
 
   // Failed/partial social posts join the attention zone, each linking to the
   // relevant client's failed-posts view.
@@ -150,34 +212,47 @@ function buildBoard(
   return {
     summary: { down, atRisk, healthy },
     attention,
-    roster,
+    clientRows,
     failedPosts,
   };
 }
 
 export default async function HomePage() {
   const supabase = await createClient();
-  const [clientsRes, sitesRes, failedRes] = await Promise.all([
-    supabase.from("clients").select("id, name, slug, status").order("name"),
-    supabase
-      .from("sites")
-      .select(
-        "id, url, client_id, site_checks(status, ssl_expiry, domain_expiry, checked_at)"
-      )
-      .eq("monitoring_enabled", true)
-      .order("checked_at", { referencedTable: "site_checks", ascending: false })
-      .limit(1, { referencedTable: "site_checks" }),
-    supabase
-      .from("social_posts")
-      .select("id, caption, status, last_error, clients(name, slug)")
-      .in("status", ["failed", "partial"])
-      .order("created_at", { ascending: false }),
-  ]);
+  const [clientsRes, sitesRes, failedRes, socialCountsRes, sitePropsRes] =
+    await Promise.all([
+      supabase.from("clients").select("id, name, slug, status").order("name"),
+      supabase
+        .from("sites")
+        .select(
+          "id, url, client_id, site_checks(status, ssl_expiry, domain_expiry, checked_at)"
+        )
+        .eq("monitoring_enabled", true)
+        .order("checked_at", {
+          referencedTable: "site_checks",
+          ascending: false,
+        })
+        .limit(1, { referencedTable: "site_checks" }),
+      supabase
+        .from("social_posts")
+        .select("id, caption, status, last_error, clients(name, slug)")
+        .in("status", ["failed", "partial"])
+        .order("created_at", { ascending: false }),
+      // Lean per-client social counts (scheduled + failed/partial) — no captions.
+      supabase
+        .from("social_posts")
+        .select("client_id, status")
+        .in("status", ["scheduled", "failed", "partial"]),
+      // SEO/GA4 connection presence across all sites (property columns only).
+      supabase.from("sites").select("client_id, gsc_property, ga4_property"),
+    ]);
 
   const board = buildBoard(
     (clientsRes.data ?? []) as ClientRow[],
     (sitesRes.data ?? []) as BoardSite[],
-    (failedRes.data ?? []) as unknown as FailedPostRow[]
+    (failedRes.data ?? []) as unknown as FailedPostRow[],
+    (socialCountsRes.data ?? []) as SocialCountRow[],
+    (sitePropsRes.data ?? []) as SitePropRow[]
   );
 
   return <MonitoringBoard board={board} />;

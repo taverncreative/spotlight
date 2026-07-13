@@ -32,12 +32,24 @@ export type AttentionRow = {
   soonestDays: number | null;
 };
 
-export type RosterChip = { label: string; tone: ChipTone };
-
-export type RosterRow = {
+// One row per client in the All-projects comparison table. Monitoring figures
+// (up/total, soonest SSL/domain) are computed from the latest check; social
+// counts and the SEO/GA4 connection flags come from cheap DB reads (no live
+// Google calls). sortRank drives the worst-first order.
+export type ClientComparisonRow = {
   client: ClientRow;
-  kind: "healthy" | "unchecked" | "empty";
-  chips: RosterChip[];
+  kind: "monitored" | "unchecked" | "empty";
+  tone: ChipTone;
+  healthLabel: string;
+  sortRank: number;
+  upCount: number;
+  totalSites: number;
+  soonestSsl: number | null;
+  soonestDomain: number | null;
+  scheduled: number;
+  failed: number;
+  gscConnected: boolean;
+  ga4Connected: boolean;
 };
 
 export type FailedPostAttention = {
@@ -51,7 +63,7 @@ export type FailedPostAttention = {
 export type BoardModel = {
   summary: { down: number; atRisk: number; healthy: number };
   attention: AttentionRow[];
-  roster: RosterRow[];
+  clientRows: ClientComparisonRow[];
   failedPosts: FailedPostAttention[];
 };
 
@@ -98,8 +110,9 @@ function SummaryCard({
 }
 
 // The cross-client monitoring board: summary counts, a Needs attention zone
-// (one row per at-risk site, worst-first) and the Healthy/roster zone (one row
-// per client not needing attention). Open goes to that client's Sites tab.
+// (one row per at-risk site, worst-first) and the All-projects comparison table
+// (one row per client, worst-first, with monitoring, social and SEO/GA4
+// connection columns). Open goes to that client's Sites tab.
 export function MonitoringBoard({ board }: { board: BoardModel }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
@@ -116,7 +129,7 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
     setDialogOpen(true);
   }
 
-  const { summary, attention, roster, failedPosts } = board;
+  const { summary, attention, clientRows, failedPosts } = board;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -210,59 +223,103 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
       </section>
 
       <section className="space-y-2">
-        <h2 className="text-sm font-medium text-muted-foreground">Clients</h2>
-        {roster.length === 0 ? (
+        <h2 className="text-sm font-medium text-muted-foreground">
+          All projects
+        </h2>
+        {clientRows.length === 0 ? (
           <p className="rounded-card border bg-card p-4 text-sm text-muted-foreground">
             No clients yet. Add your first client to get started.
           </p>
         ) : (
-          <ul className="grid gap-2">
-            {roster.map((row) => (
-              <li
-                key={row.client.id}
-                className="flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3"
-              >
-                <div className="min-w-0 space-y-1">
-                  <p className="truncate text-sm font-medium">
-                    {row.client.name}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {row.kind === "empty" ? (
-                      <span className="text-xs text-muted-foreground">
-                        No sites yet
+          <div className="overflow-x-auto rounded-card border bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-xs text-muted-foreground">
+                  <th className="px-3 py-2 text-left font-medium">Client</th>
+                  <th className="px-3 py-2 text-left font-medium">Health</th>
+                  <th className="px-3 py-2 text-right font-medium">SSL</th>
+                  <th className="px-3 py-2 text-right font-medium">Domain</th>
+                  <th className="px-3 py-2 text-right font-medium">
+                    Scheduled
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium">Failed</th>
+                  <th className="px-3 py-2 text-left font-medium">SEO</th>
+                  <th className="px-3 py-2 text-left font-medium">GA4</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {clientRows.map((row) => (
+                  <tr key={row.client.id} className="border-b last:border-0">
+                    <td className="px-3 py-2 font-medium">
+                      <span className="block max-w-[12rem] truncate">
+                        {row.client.name}
                       </span>
-                    ) : row.kind === "unchecked" ? (
-                      <MonitoringChip tone="muted">
-                        Not yet checked
+                    </td>
+                    <td className="px-3 py-2">
+                      <MonitoringChip tone={row.tone}>
+                        {row.healthLabel}
                       </MonitoringChip>
-                    ) : (
-                      row.chips.map((chip) => (
-                        <MonitoringChip key={chip.label} tone={chip.tone}>
-                          {chip.label}
-                        </MonitoringChip>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    render={<Link href={`/c/${row.client.slug}/sites`} />}
-                  >
-                    Open
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEdit(row.client)}
-                  >
-                    Edit
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      {row.soonestSsl !== null ? `${row.soonestSsl}d` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                      {row.soonestDomain !== null
+                        ? `${row.soonestDomain}d`
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {row.scheduled > 0 ? (
+                        row.scheduled
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {row.failed > 0 ? (
+                        <span className="text-status-danger">{row.failed}</span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.gscConnected ? (
+                        <MonitoringChip tone="ok">Connected</MonitoringChip>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.ga4Connected ? (
+                        <MonitoringChip tone="ok">Connected</MonitoringChip>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          render={<Link href={`/c/${row.client.slug}/sites`} />}
+                        >
+                          Open
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(row.client)}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

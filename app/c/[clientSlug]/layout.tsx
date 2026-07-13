@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
 import { ClientSelector } from "@/components/client-selector";
+import { AllProjectsButton } from "@/components/all-projects-button";
 import { ModuleBar } from "@/components/module-bar";
 import { createClient } from "@/lib/supabase/server";
 import { getTheme } from "@/lib/theme";
@@ -39,6 +40,7 @@ export default async function ClientLayout({
           <Wordmark textClassName="text-sm" />
           <span className="h-5 w-px bg-border" aria-hidden="true" />
           <ClientSelector clients={clients} />
+          <AllProjectsButton />
         </div>
         <div className="flex items-center gap-3">
           <Button

@@ -26,7 +26,7 @@ export function ClientSelector({ clients }: { clients: Client[] }) {
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-md border border-input px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+        className="flex items-center gap-2 rounded-control border border-input px-3 py-1.5 text-sm transition-colors hover:bg-accent"
       >
         <span className="max-w-[12rem] truncate">
           {active?.name ?? "Select client"}
