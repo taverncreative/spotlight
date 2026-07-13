@@ -7,12 +7,35 @@ import {
   fieldErrorsFromZod,
   type SiteFormState,
 } from "@/lib/sites/schemas";
-import { listGscProperties, isAllowedProperty } from "@/lib/gsc/properties";
-import { listGa4Properties, isAllowedGa4Property } from "@/lib/ga4/properties";
+import {
+  listGscProperties,
+  isAllowedProperty,
+  type GscPropertiesResult,
+} from "@/lib/gsc/properties";
+import {
+  listGa4Properties,
+  isAllowedGa4Property,
+  type Ga4PropertiesResult,
+} from "@/lib/ga4/properties";
 
 // All three actions operate under RLS: the sites policy allows writes only when
 // owns_client(client_id) is true, so a site can never be created under, or moved
 // to, a client the operator does not own.
+
+// Property lists for the site edit form, fetched lazily when the dialog opens
+// rather than on the Overview page load — both are live Google calls behind the
+// token layer (getValidAccessToken), so keeping them here keeps the landing page
+// DB-only and off the token path.
+export async function loadSiteFormProperties(): Promise<{
+  gsc: GscPropertiesResult;
+  ga4: Ga4PropertiesResult;
+}> {
+  const [gsc, ga4] = await Promise.all([
+    listGscProperties(),
+    listGa4Properties(),
+  ]);
+  return { gsc, ga4 };
+}
 
 function parseForm(formData: FormData) {
   return siteFormSchema.safeParse({

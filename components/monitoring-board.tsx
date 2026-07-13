@@ -292,7 +292,9 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
                         <Button
                           variant="outline"
                           size="sm"
-                          render={<Link href={`/c/${row.client.slug}/sites`} />}
+                          render={
+                            <Link href={`/c/${row.client.slug}/overview`} />
+                          }
                         >
                           Open
                         </Button>

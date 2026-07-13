@@ -11,7 +11,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { fieldInputClass } from "@/components/form-field";
-import { createSite, updateSite } from "@/lib/sites/actions";
+import {
+  createSite,
+  updateSite,
+  loadSiteFormProperties,
+} from "@/lib/sites/actions";
 import {
   INTERVAL_OPTIONS,
   DEFAULT_INTERVAL_MINUTES,
@@ -28,15 +32,11 @@ export function SiteFormDialog({
   onOpenChange,
   clientId,
   site,
-  gscProperties,
-  ga4Properties,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientId: string;
   site: SiteView | null;
-  gscProperties: GscPropertiesResult;
-  ga4Properties: Ga4PropertiesResult;
 }) {
   const router = useRouter();
   const isEdit = site !== null;
@@ -52,6 +52,25 @@ export function SiteFormDialog({
     String(site?.checkIntervalMinutes ?? DEFAULT_INTERVAL_MINUTES)
   );
   const [enabled, setEnabled] = useState(site?.monitoringEnabled ?? true);
+
+  // Property lists load lazily when the edit dialog opens (a live Google call
+  // behind the token layer), so the Overview landing page stays DB-only. Add
+  // mode has no property mapping, so it never fetches. null = still loading.
+  const [properties, setProperties] = useState<{
+    gsc: GscPropertiesResult;
+    ga4: Ga4PropertiesResult;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!open || !isEdit) return;
+    let active = true;
+    loadSiteFormProperties().then((result) => {
+      if (active) setProperties(result);
+    });
+    return () => {
+      active = false;
+    };
+  }, [open, isEdit]);
 
   useEffect(() => {
     if (state?.ok) {
@@ -136,7 +155,11 @@ export function SiteFormDialog({
               <label htmlFor="site-gsc" className="text-sm font-medium">
                 Search Console property
               </label>
-              {gscProperties.status === "connected" ? (
+              {properties === null ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading properties…
+                </p>
+              ) : properties.gsc.status === "connected" ? (
                 <>
                   <select
                     id="site-gsc"
@@ -145,7 +168,7 @@ export function SiteFormDialog({
                     className={fieldInputClass}
                   >
                     <option value="">Not mapped</option>
-                    {gscProperties.properties.map((property) => (
+                    {properties.gsc.properties.map((property) => (
                       <option key={property.siteUrl} value={property.siteUrl}>
                         {property.siteUrl}
                       </option>
@@ -157,7 +180,7 @@ export function SiteFormDialog({
                     </p>
                   ) : null}
                 </>
-              ) : gscProperties.status === "not_connected" ? (
+              ) : properties.gsc.status === "not_connected" ? (
                 <p className="text-sm text-muted-foreground">
                   <Link
                     href="/settings/integrations"
@@ -187,7 +210,11 @@ export function SiteFormDialog({
               <label htmlFor="site-ga4" className="text-sm font-medium">
                 Google Analytics property
               </label>
-              {ga4Properties.status === "connected" ? (
+              {properties === null ? (
+                <p className="text-sm text-muted-foreground">
+                  Loading properties…
+                </p>
+              ) : properties.ga4.status === "connected" ? (
                 <>
                   <select
                     id="site-ga4"
@@ -196,7 +223,7 @@ export function SiteFormDialog({
                     className={fieldInputClass}
                   >
                     <option value="">Not mapped</option>
-                    {ga4Properties.properties.map((property) => (
+                    {properties.ga4.properties.map((property) => (
                       <option key={property.property} value={property.property}>
                         {property.displayName}
                       </option>
@@ -208,7 +235,7 @@ export function SiteFormDialog({
                     </p>
                   ) : null}
                 </>
-              ) : ga4Properties.status === "not_connected" ? (
+              ) : properties.ga4.status === "not_connected" ? (
                 <p className="text-sm text-muted-foreground">
                   <Link
                     href="/settings/integrations"

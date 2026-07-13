@@ -6,12 +6,11 @@ import { requireClient } from "@/lib/clients/require-client";
 import { buildSiteViews } from "@/lib/sites/monitoring";
 import { hostnameFromUrl } from "@/lib/sites/schemas";
 import { CLIENT_STATUS_LABELS } from "@/lib/clients/schemas";
-import { MonitoringChip } from "@/components/monitoring-chip";
+import { SitesList } from "@/components/sites-list";
 
-// Per-client Overview dashboard: read-only aggregation of the built modules
-// (sites + posts), all owns_client-scoped via requireClient. No new tables. Site
-// chips reuse buildSiteView so they match the Sites tab exactly; null SSL/Domain
-// show "—" as on the board.
+// Per-client Overview dashboard: client header, stat cards, the site-management
+// surface (Site health, via SitesList — add/edit/remove, check now/all) and
+// recent posts, all owns_client-scoped via requireClient. No new tables.
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline"> = {
   active: "default",
@@ -42,6 +41,8 @@ type SiteRow = {
   label: string | null;
   monitoring_enabled: boolean;
   check_interval_minutes: number;
+  gsc_property: string | null;
+  ga4_property: string | null;
   site_checks: {
     status: string;
     http_status: number | null;
@@ -69,12 +70,15 @@ export default async function OverviewPage({
   const { client } = await requireClient(clientSlug);
 
   const supabase = await createClient();
+  // DB-only: the site property columns are read here for the edit form's
+  // current-value prefill, but the live GSC/GA4 property lists are fetched lazily
+  // by the dialog on open, so this landing page makes no Google calls.
   const [clientRes, sitesRes, postsRes] = await Promise.all([
     supabase.from("clients").select("status").eq("id", client.id).maybeSingle(),
     supabase
       .from("sites")
       .select(
-        "id, url, label, monitoring_enabled, check_interval_minutes, site_checks(status, http_status, response_ms, ssl_expiry, domain_expiry, checked_at)"
+        "id, url, label, monitoring_enabled, check_interval_minutes, gsc_property, ga4_property, site_checks(status, http_status, response_ms, ssl_expiry, domain_expiry, checked_at)"
       )
       .eq("client_id", client.id)
       .order("created_at", { ascending: true })
@@ -122,68 +126,7 @@ export default async function OverviewPage({
         <StatCard label="Drafts" value={draftCount} />
       </div>
 
-      <section className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium text-muted-foreground">
-            Site health
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            render={<Link href={`/c/${clientSlug}/sites`} />}
-          >
-            View sites
-          </Button>
-        </div>
-        {siteViews.length === 0 ? (
-          <p className="rounded-card border bg-card p-4 text-sm text-muted-foreground">
-            No sites yet.
-          </p>
-        ) : (
-          <ul className="grid gap-2">
-            {siteViews.map((site) => (
-              <li
-                key={site.id}
-                className="flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3"
-              >
-                <p className="min-w-0 truncate text-sm font-medium">
-                  {site.hostname}
-                </p>
-                <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                  {site.check ? (
-                    <>
-                      <MonitoringChip
-                        tone={site.check.statusTone}
-                        title={
-                          site.check.httpStatus != null
-                            ? `HTTP ${site.check.httpStatus}`
-                            : undefined
-                        }
-                      >
-                        {site.check.statusLabel}
-                      </MonitoringChip>
-                      {site.check.ssl && site.check.ssl.tone !== "ok" ? (
-                        <MonitoringChip tone={site.check.ssl.tone}>
-                          {site.check.ssl.label}
-                        </MonitoringChip>
-                      ) : null}
-                      {site.check.domain && site.check.domain.tone !== "ok" ? (
-                        <MonitoringChip tone={site.check.domain.tone}>
-                          {site.check.domain.label}
-                        </MonitoringChip>
-                      ) : null}
-                    </>
-                  ) : (
-                    <MonitoringChip tone="muted">
-                      Not yet checked
-                    </MonitoringChip>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <SitesList clientId={client.id} title="Site health" sites={siteViews} />
 
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-3">

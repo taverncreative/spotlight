@@ -87,8 +87,8 @@ export default async function AnalyticsPage({
     return (
       <Notice title="Map a Google Analytics property">
         Map a site to a GA4 property on the{" "}
-        <Link href={`/c/${clientSlug}/sites`} className={linkClass}>
-          Sites tab
+        <Link href={`/c/${clientSlug}/overview`} className={linkClass}>
+          Overview
         </Link>{" "}
         to see its analytics here.
       </Notice>

@@ -10,8 +10,6 @@ import { CheckNowButton } from "@/components/check-now-button";
 import { CheckAllButton } from "@/components/check-all-button";
 import { MonitoringChip } from "@/components/monitoring-chip";
 import type { SiteView } from "@/lib/sites/monitoring";
-import type { GscPropertiesResult } from "@/lib/gsc/properties";
-import type { Ga4PropertiesResult } from "@/lib/ga4/properties";
 
 // The Sites module: list with monitoring chips, plus add/edit/remove. The chip
 // rendering is data-driven so it lights up automatically once Slice 7 writes
@@ -19,13 +17,11 @@ import type { Ga4PropertiesResult } from "@/lib/ga4/properties";
 export function SitesList({
   clientId,
   sites,
-  gscProperties,
-  ga4Properties,
+  title = "Site health",
 }: {
   clientId: string;
   sites: SiteView[];
-  gscProperties: GscPropertiesResult;
-  ga4Properties: Ga4PropertiesResult;
+  title?: string;
 }) {
   // The slug comes from the route rather than a prop, so the server page
   // stays untouched (it lives under /c/[clientSlug]/sites).
@@ -54,17 +50,14 @@ export function SitesList({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight">Sites</h1>
-          <p className="text-sm text-muted-foreground">
-            Websites monitored for this client.
-          </p>
-        </div>
+        <h2 className="text-sm font-medium text-muted-foreground">{title}</h2>
         <div className="flex items-center gap-2">
           {sites.length > 0 ? <CheckAllButton clientId={clientId} /> : null}
-          <Button onClick={openAdd}>Add site</Button>
+          <Button onClick={openAdd} size="sm">
+            Add site
+          </Button>
         </div>
       </div>
 
@@ -163,8 +156,6 @@ export function SitesList({
         onOpenChange={setFormOpen}
         clientId={clientId}
         site={editing}
-        gscProperties={gscProperties}
-        ga4Properties={ga4Properties}
       />
       <SiteRemoveDialog
         key={`remove-${removeKey}`}

@@ -82,8 +82,8 @@ export default async function SeoPage({
     return (
       <Notice title="Map a Search Console property">
         Map a site to a Search Console property on the{" "}
-        <Link href={`/c/${clientSlug}/sites`} className={linkClass}>
-          Sites tab
+        <Link href={`/c/${clientSlug}/overview`} className={linkClass}>
+          Overview
         </Link>{" "}
         to see its performance here.
       </Notice>

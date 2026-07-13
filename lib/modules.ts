@@ -5,7 +5,6 @@ export type ClientModule = { segment: string; label: string };
 
 export const CLIENT_MODULES: ClientModule[] = [
   { segment: "overview", label: "Overview" },
-  { segment: "sites", label: "Sites" },
   { segment: "seo", label: "SEO" },
   { segment: "analytics", label: "Analytics" },
   { segment: "business", label: "Business" },
