@@ -69,7 +69,7 @@ function IntegrationCard({
         </div>
         {connection ? (
           <div className="flex shrink-0 items-center gap-2">
-            <Badge variant="secondary">Connected</Badge>
+            <Badge variant="success">Connected</Badge>
             <form action={disconnectGoogleProvider}>
               <input type="hidden" name="provider" value={provider} />
               <Button type="submit" variant="outline" size="sm">
@@ -141,7 +141,7 @@ function MetaIntegrationCard({
         </div>
         {connected ? (
           <div className="flex shrink-0 items-center gap-2">
-            <Badge variant="secondary">Connected</Badge>
+            <Badge variant="success">Connected</Badge>
             <form action={disconnectMeta}>
               <Button type="submit" variant="outline" size="sm">
                 Disconnect
