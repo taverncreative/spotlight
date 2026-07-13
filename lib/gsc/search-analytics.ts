@@ -43,7 +43,13 @@ export type SeoTableRow = {
   position: number;
 };
 
-export type TrendPoint = { date: string; clicks: number };
+export type TrendPoint = {
+  date: string;
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+};
 
 export type SearchAnalyticsResult =
   | { status: "reconnect_needed" }
@@ -191,7 +197,13 @@ async function loadSearchPerformance(
         position: delta(current.position, prior.position, false),
       },
       trend: trendRows
-        .map((row) => ({ date: row.keys?.[0] ?? "", clicks: row.clicks ?? 0 }))
+        .map((row) => ({
+          date: row.keys?.[0] ?? "",
+          clicks: row.clicks ?? 0,
+          impressions: row.impressions ?? 0,
+          ctr: row.ctr ?? 0,
+          position: row.position ?? 0,
+        }))
         .sort((a, b) => a.date.localeCompare(b.date)),
       topQueries: toTableRows(queryRows),
       topPages: toTableRows(pageRows),

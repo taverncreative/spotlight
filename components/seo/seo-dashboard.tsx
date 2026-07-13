@@ -1,8 +1,6 @@
-import { cn } from "@/lib/utils";
 import { SeoControls } from "@/components/seo/seo-controls";
-import { SeoTrendChart } from "@/components/seo/seo-trend-chart";
+import { SeoMetricsChart } from "@/components/seo/seo-metrics-chart";
 import type {
-  MetricDelta,
   SearchAnalyticsResult,
   SeoTableRow,
 } from "@/lib/gsc/search-analytics";
@@ -19,42 +17,6 @@ function formatThrough(ymd: string): string {
     year: "numeric",
     timeZone: "UTC",
   });
-}
-
-function DeltaBadge({ delta }: { delta: MetricDelta }) {
-  if (delta.pct === null) {
-    return <p className="text-xs text-muted-foreground">— vs prev</p>;
-  }
-  const rising = delta.pct >= 0;
-  return (
-    <p
-      className={cn(
-        "text-xs tabular-nums",
-        delta.better ? "text-status-ok" : "text-status-danger"
-      )}
-    >
-      {rising ? "▲" : "▼"} {Math.abs(delta.pct).toFixed(1)}%{" "}
-      <span className="text-muted-foreground">vs prev</span>
-    </p>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  delta,
-}: {
-  label: string;
-  value: string;
-  delta: MetricDelta;
-}) {
-  return (
-    <div className="space-y-1 rounded-card border bg-card px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold tabular-nums">{value}</p>
-      <DeltaBadge delta={delta} />
-    </div>
-  );
 }
 
 function SeoTable({
@@ -164,35 +126,11 @@ export function SeoDashboard({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <MetricCard
-              label="Clicks"
-              value={result.current.clicks.toLocaleString()}
-              delta={result.deltas.clicks}
-            />
-            <MetricCard
-              label="Impressions"
-              value={result.current.impressions.toLocaleString()}
-              delta={result.deltas.impressions}
-            />
-            <MetricCard
-              label="CTR"
-              value={`${(result.current.ctr * 100).toFixed(1)}%`}
-              delta={result.deltas.ctr}
-            />
-            <MetricCard
-              label="Avg. position"
-              value={result.current.position.toFixed(1)}
-              delta={result.deltas.position}
-            />
-          </div>
-
-          <section className="space-y-2">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              Daily clicks
-            </h2>
-            <SeoTrendChart data={result.trend} />
-          </section>
+          <SeoMetricsChart
+            current={result.current}
+            deltas={result.deltas}
+            trend={result.trend}
+          />
 
           <div className="grid gap-6 md:grid-cols-2">
             <SeoTable

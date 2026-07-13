@@ -141,6 +141,15 @@
     var(--status-info) 15%,
     transparent
   );
+
+  /* Decorative categorical series colours for the SEO multi-metric chart. Vivid
+     warm hues spread across the arc (rose/terracotta/orange/gold); no status
+     meaning is present on a pure-metrics chart, so they may sit on status hues.
+     Light values are darker to read on the white card. */
+  --chart-metric-clicks: oklch(0.56 0.174 11);
+  --chart-metric-impressions: oklch(0.6 0.129 67);
+  --chart-metric-ctr: oklch(0.58 0.113 96);
+  --chart-metric-position: oklch(0.56 0.156 35);
 }
 
 .dark {
@@ -207,6 +216,12 @@
     var(--status-info) 15%,
     transparent
   );
+
+  /* Series colours, dark: lighter so each line reads on the dark tile. */
+  --chart-metric-clicks: oklch(0.73 0.137 7);
+  --chart-metric-impressions: oklch(0.74 0.132 67);
+  --chart-metric-ctr: oklch(0.78 0.128 98);
+  --chart-metric-position: oklch(0.7 0.139 38);
 }
 
 @layer base {
