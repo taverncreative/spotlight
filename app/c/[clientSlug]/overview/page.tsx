@@ -7,6 +7,7 @@ import { buildSiteViews } from "@/lib/sites/monitoring";
 import { hostnameFromUrl } from "@/lib/sites/schemas";
 import { CLIENT_STATUS_LABELS } from "@/lib/clients/schemas";
 import { SitesList } from "@/components/sites-list";
+import { ContentApiKeys, type ApiKeyRow } from "@/components/content-api-keys";
 
 // Per-client Overview dashboard: client header, stat cards, the site-management
 // surface (Site health, via SitesList — add/edit/remove, check now/all) and
@@ -73,7 +74,7 @@ export default async function OverviewPage({
   // DB-only: the site property columns are read here for the edit form's
   // current-value prefill, but the live GSC/GA4 property lists are fetched lazily
   // by the dialog on open, so this landing page makes no Google calls.
-  const [clientRes, sitesRes, postsRes] = await Promise.all([
+  const [clientRes, sitesRes, postsRes, keysRes] = await Promise.all([
     supabase.from("clients").select("status").eq("id", client.id).maybeSingle(),
     supabase
       .from("sites")
@@ -89,11 +90,17 @@ export default async function OverviewPage({
       .select("id, title, status, published_at, updated_at")
       .eq("client_id", client.id)
       .order("updated_at", { ascending: false }),
+    supabase
+      .from("client_api_keys")
+      .select("id, key_prefix, label, created_at, revoked_at")
+      .eq("client_id", client.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const status = (clientRes.data?.status as string | undefined) ?? "active";
   const sites = (sitesRes.data ?? []) as SiteRow[];
   const posts = (postsRes.data ?? []) as PostRow[];
+  const apiKeys = (keysRes.data ?? []) as ApiKeyRow[];
 
   const primaryUrl = sites[0]?.url ?? null;
   const siteViews = buildSiteViews(sites);
@@ -176,6 +183,8 @@ export default async function OverviewPage({
           </ul>
         )}
       </section>
+
+      <ContentApiKeys clientSlug={clientSlug} keys={apiKeys} />
     </div>
   );
 }
