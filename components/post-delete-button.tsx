@@ -64,7 +64,9 @@ export function PostDeleteButton({
           <div className="space-y-2">
             <AlertDialogTitle>Delete post?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes “{title}”. This cannot be undone.
+              This permanently deletes “{title}”. This cannot be undone. If this
+              post is published to a live site, it may take a few minutes to
+              disappear after their cache refreshes.
             </AlertDialogDescription>
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
