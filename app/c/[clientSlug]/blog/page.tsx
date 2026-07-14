@@ -113,6 +113,15 @@ export default async function BlogPage({
                   variant="ghost"
                   size="sm"
                   render={
+                    <Link href={`/c/${clientSlug}/blog/${post.id}/preview`} />
+                  }
+                >
+                  Preview
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  render={
                     <Link href={`/c/${clientSlug}/blog/${post.id}/edit`} />
                   }
                 >

@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
+import { Button } from "@/components/ui/button";
 import { PostForm } from "@/components/post-form";
 
 export default async function EditPostPage({
@@ -25,7 +27,16 @@ export default async function EditPostPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-xl font-semibold tracking-tight">Edit post</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold tracking-tight">Edit post</h1>
+        <Button
+          variant="outline"
+          size="sm"
+          render={<Link href={`/c/${clientSlug}/blog/${post.id}/preview`} />}
+        >
+          Preview
+        </Button>
+      </div>
       <PostForm
         clientId={client.id}
         clientSlug={clientSlug}
