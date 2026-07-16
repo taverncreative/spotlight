@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
+import { londonParts } from "@/lib/social/london";
 import { StatusPill } from "@/components/ui/status-pill";
+import { SocialCalendar } from "@/components/social/social-calendar";
 import { SocialCancelButton } from "@/components/social/social-cancel-button";
 import { SocialDeleteButton } from "@/components/social/social-delete-button";
 
@@ -56,15 +58,22 @@ export default async function SocialPage({
   searchParams,
 }: {
   params: Promise<{ clientSlug: string }>;
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; view?: string; month?: string }>;
 }) {
   const { clientSlug } = await params;
-  const { status: statusParam } = await searchParams;
+  const { status: statusParam, view, month: monthParam } = await searchParams;
   const { client } = await requireClient(clientSlug);
 
   const activeTab =
     STATUS_TABS.find((tab) => tab.key !== null && tab.key === statusParam) ??
     STATUS_TABS[0];
+
+  // Calendar view state: an invalid or absent ?month falls back to the current
+  // Europe/London month (never the server's UTC month).
+  const isCalendar = view === "calendar";
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam ?? "")
+    ? (monthParam as string)
+    : londonParts(new Date().toISOString()).date.slice(0, 7);
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -109,29 +118,65 @@ export default async function SocialPage({
         </Button>
       </div>
 
-      <nav className="flex flex-wrap gap-1" aria-label="Filter by status">
-        {STATUS_TABS.map((tab) => (
-          <Link
-            key={tab.label}
-            href={
-              tab.key === null
-                ? `/c/${clientSlug}/social`
-                : `/c/${clientSlug}/social?status=${tab.key}`
-            }
-            aria-current={tab.key === activeTab.key ? "page" : undefined}
-            className={cn(
-              "rounded-md px-2.5 py-1 text-sm transition-colors",
-              tab.key === activeTab.key
-                ? "bg-accent font-medium text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {isCalendar ? (
+          <div />
+        ) : (
+          <nav className="flex flex-wrap gap-1" aria-label="Filter by status">
+            {STATUS_TABS.map((tab) => (
+              <Link
+                key={tab.label}
+                href={
+                  tab.key === null
+                    ? `/c/${clientSlug}/social`
+                    : `/c/${clientSlug}/social?status=${tab.key}`
+                }
+                aria-current={tab.key === activeTab.key ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-sm transition-colors",
+                  tab.key === activeTab.key
+                    ? "bg-accent font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </nav>
+        )}
+        <nav className="flex gap-1" aria-label="View">
+          {[
+            {
+              label: "List",
+              href: `/c/${clientSlug}/social`,
+              active: !isCalendar,
+            },
+            {
+              label: "Calendar",
+              href: `/c/${clientSlug}/social?view=calendar`,
+              active: isCalendar,
+            },
+          ].map((viewTab) => (
+            <Link
+              key={viewTab.label}
+              href={viewTab.href}
+              aria-current={viewTab.active ? "page" : undefined}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-sm transition-colors",
+                viewTab.active
+                  ? "bg-accent font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {viewTab.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
 
-      {posts.length === 0 ? (
+      {isCalendar ? (
+        <SocialCalendar posts={posts} clientSlug={clientSlug} month={month} />
+      ) : posts.length === 0 ? (
         <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No posts yet. Create your first post.
         </p>

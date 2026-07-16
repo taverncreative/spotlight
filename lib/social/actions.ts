@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { reapSocialMedia } from "@/lib/social/media-paths";
+import { londonOffsetMinutes } from "@/lib/social/london";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
 import { publishPost } from "@/lib/social/publisher";
 import type {
@@ -13,24 +14,6 @@ import type {
 // All actions are owns_client / owns_social_post scoped via RLS (the policies in
 // 0020/0022/0026), so a post or its media can only ever be written for a client
 // the operator owns.
-
-// The offset (minutes) of Europe/London at the given instant: +60 in BST, 0 in
-// GMT. Computed by formatting the instant in the London zone and diffing.
-function londonOffsetMinutes(date: Date): number {
-  const dtf = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/London",
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const p: Record<string, string> = {};
-  for (const part of dtf.formatToParts(date)) p[part.type] = part.value;
-  const asIfUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
-  return Math.round((asIfUtc - date.getTime()) / 60000);
-}
 
 // Interpret a date (YYYY-MM-DD) + time (HH:MM) as Europe/London wall-clock and
 // return the UTC ISO instant, or null if either part is missing/invalid.

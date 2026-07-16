@@ -13,31 +13,10 @@ import {
   type UploaderItem,
 } from "@/components/social/social-media-uploader";
 import { saveSocialPost } from "@/lib/social/actions";
+import { londonParts } from "@/lib/social/london";
 import type { SocialPostFormState } from "@/lib/social/schemas";
 
 type ComposerPost = { caption: string; scheduled_at: string | null };
-
-// The Europe/London wall-clock date + time for a UTC ISO, to prefill the
-// schedule inputs on edit. Intl with an IANA zone is deterministic across server
-// and client, so this is hydration-safe.
-function londonParts(iso: string): { date: string; time: string } {
-  const parts: Record<string, string> = {};
-  const fmt = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/London",
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  for (const part of fmt.formatToParts(new Date(iso)))
-    parts[part.type] = part.value;
-  return {
-    date: `${parts.year}-${parts.month}-${parts.day}`,
-    time: `${parts.hour}:${parts.minute}`,
-  };
-}
 
 // Compose/edit a social post. The post id is provided by the server (stable
 // across SSR/hydration) so media can upload to its storage path before save.
