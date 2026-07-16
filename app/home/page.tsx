@@ -33,7 +33,11 @@ type FailedPostRow = {
   last_error: string | null;
   clients: { name: string; slug: string } | null;
 };
-type SocialCountRow = { client_id: string; status: string };
+type SocialCountRow = {
+  client_id: string;
+  status: string;
+  scheduled_at: string | null;
+};
 type SitePropRow = {
   client_id: string;
   gsc_property: string | null;
@@ -52,18 +56,27 @@ function buildBoard(
   const now = Date.now();
 
   // Social scheduled/failed counts per client (failed folds in partial, matching
-  // the attention zone). Cheap: only these three statuses are fetched.
+  // the attention zone). Cheap: only these three statuses are fetched. The
+  // scheduled rows are also kept per client to feed the runway bars.
   const socialByClient = new Map<
     string,
     { scheduled: number; failed: number }
+  >();
+  const runwayByClient = new Map<
+    string,
+    { status: string; scheduled_at: string | null }[]
   >();
   for (const row of socialCounts) {
     const counts = socialByClient.get(row.client_id) ?? {
       scheduled: 0,
       failed: 0,
     };
-    if (row.status === "scheduled") counts.scheduled++;
-    else counts.failed++;
+    if (row.status === "scheduled") {
+      counts.scheduled++;
+      const runway = runwayByClient.get(row.client_id) ?? [];
+      runway.push({ status: row.status, scheduled_at: row.scheduled_at });
+      runwayByClient.set(row.client_id, runway);
+    } else counts.failed++;
     socialByClient.set(row.client_id, counts);
   }
 
@@ -196,6 +209,7 @@ function buildBoard(
       failed: social.failed,
       gscConnected: conn.gsc,
       ga4Connected: conn.ga4,
+      runwayPosts: runwayByClient.get(client.id) ?? [],
     };
   });
 
@@ -245,10 +259,11 @@ export default async function HomePage() {
         .select("id, caption, status, last_error, clients(name, slug)")
         .in("status", ["failed", "partial"])
         .order("created_at", { ascending: false }),
-      // Lean per-client social counts (scheduled + failed/partial) — no captions.
+      // Lean per-client social rows (scheduled + failed/partial) — no captions.
+      // scheduled_at feeds the per-client runway bars.
       supabase
         .from("social_posts")
-        .select("client_id, status")
+        .select("client_id, status, scheduled_at")
         .in("status", ["scheduled", "failed", "partial"]),
       // SEO/GA4 connection presence across all sites (property columns only).
       supabase.from("sites").select("client_id, gsc_property, ga4_property"),

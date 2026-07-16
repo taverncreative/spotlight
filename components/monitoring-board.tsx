@@ -1,11 +1,15 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { Fragment, useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { MonitoringChip } from "@/components/monitoring-chip";
+import {
+  SocialRunway,
+  type RunwayPost,
+} from "@/components/social/social-runway";
 import {
   ClientFormDialog,
   type ClientRow,
@@ -50,6 +54,8 @@ export type ClientComparisonRow = {
   failed: number;
   gscConnected: boolean;
   ga4Connected: boolean;
+  // Lean rows for the runway bar (no captions/hrefs/thumbnails: inert dots).
+  runwayPosts: RunwayPost[];
 };
 
 export type FailedPostAttention = {
@@ -248,66 +254,81 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
               </thead>
               <tbody>
                 {clientRows.map((row) => (
-                  <tr key={row.client.id} className="border-b last:border-0">
-                    <td className="px-3 py-2 font-medium">
-                      <span className="block max-w-[12rem] truncate">
-                        {row.client.name}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <MonitoringChip tone={row.tone}>
-                        {row.healthLabel}
-                      </MonitoringChip>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {row.scheduled > 0 ? (
-                        row.scheduled
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {row.failed > 0 ? (
-                        <span className="text-status-danger">{row.failed}</span>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {row.gscConnected ? (
-                        <MonitoringChip tone="ok">Connected</MonitoringChip>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      {row.ga4Connected ? (
-                        <MonitoringChip tone="ok">Connected</MonitoringChip>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          render={
-                            <Link href={`/c/${row.client.slug}/overview`} />
-                          }
-                        >
-                          Open
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(row.client)}
-                        >
-                          Edit
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
+                  <Fragment key={row.client.id}>
+                    <tr>
+                      <td className="px-3 py-2 font-medium">
+                        <span className="block max-w-[12rem] truncate">
+                          {row.client.name}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <MonitoringChip tone={row.tone}>
+                          {row.healthLabel}
+                        </MonitoringChip>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {row.scheduled > 0 ? (
+                          row.scheduled
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {row.failed > 0 ? (
+                          <span className="text-status-danger">
+                            {row.failed}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.gscConnected ? (
+                          <MonitoringChip tone="ok">Connected</MonitoringChip>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.ga4Connected ? (
+                          <MonitoringChip tone="ok">Connected</MonitoringChip>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            render={
+                              <Link href={`/c/${row.client.slug}/overview`} />
+                            }
+                          >
+                            Open
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEdit(row.client)}
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                    {/* Full-width runway row: the bar needs the table's whole
+                      width so queue lengths compare honestly on one scale. */}
+                    <tr className="border-b last:border-0">
+                      <td colSpan={7} className="px-3 pt-0 pb-2.5">
+                        <SocialRunway posts={row.runwayPosts} />
+                      </td>
+                    </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
