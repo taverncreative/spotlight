@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
@@ -139,7 +140,7 @@ export default async function SocialPage({
           No {activeTab.label.toLowerCase()} for this client.
         </p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {visible.map((post) => {
             const media = (post.social_post_media ?? [])
               .slice()
@@ -163,7 +164,7 @@ export default async function SocialPage({
                 key={post.id}
                 className="flex flex-col overflow-hidden rounded-card border bg-card"
               >
-                <div className="relative aspect-video bg-muted">
+                <div className="relative aspect-square bg-muted">
                   {cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -182,10 +183,10 @@ export default async function SocialPage({
                     </span>
                   ) : null}
                 </div>
-                <div className="flex flex-1 flex-col gap-2 p-3">
+                <div className="flex flex-1 flex-col gap-1.5 p-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <StatusPill status={post.status} />
-                    <span className="text-xs text-muted-foreground capitalize">
+                    <span className="truncate text-xs text-muted-foreground capitalize">
                       {platforms.length ? platforms.join(", ") : "No targets"}
                     </span>
                   </div>
@@ -197,28 +198,30 @@ export default async function SocialPage({
                   <p className="text-xs text-muted-foreground">{when}</p>
                   {(post.status === "failed" || post.status === "partial") &&
                   post.last_error ? (
-                    <p className="text-xs text-destructive">
+                    <p className="line-clamp-3 text-xs text-destructive">
                       {post.last_error}
                     </p>
                   ) : null}
                   <div className="mt-auto flex items-center justify-end gap-1 pt-1">
                     {post.status === "scheduled" ? (
-                      <SocialCancelButton postId={post.id} />
+                      <SocialCancelButton postId={post.id} iconTrigger />
                     ) : null}
                     {post.status === "draft" || post.status === "scheduled" ? (
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="icon-sm"
+                        aria-label="Edit post"
+                        title="Edit"
                         render={
                           <Link
                             href={`/c/${clientSlug}/social/${post.id}/edit`}
                           />
                         }
                       >
-                        Edit
+                        <Pencil />
                       </Button>
                     ) : null}
-                    <SocialDeleteButton postId={post.id} />
+                    <SocialDeleteButton postId={post.id} iconTrigger />
                   </div>
                 </div>
               </li>

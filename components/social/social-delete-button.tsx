@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -17,7 +18,16 @@ import { deleteSocialPost } from "@/lib/social/actions";
 // Calls the action directly inside a transition (no form/effect), so success
 // can close the dialog and refresh without setState-in-effect; failures show
 // inline instead of silently leaving the dialog open.
-export function SocialDeleteButton({ postId }: { postId: string }) {
+export function SocialDeleteButton({
+  postId,
+  iconTrigger = false,
+}: {
+  postId: string;
+  // Render the trigger as an icon-sm button (for the card grid's icon action
+  // row) instead of the default text button. Social posts have no title, so the
+  // accessible label is the generic "Delete post".
+  iconTrigger?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,13 +55,15 @@ export function SocialDeleteButton({ postId }: { postId: string }) {
     <>
       <Button
         variant="ghost"
-        size="sm"
+        size={iconTrigger ? "icon-sm" : "sm"}
+        aria-label={iconTrigger ? "Delete post" : undefined}
+        title={iconTrigger ? "Delete" : undefined}
         onClick={() => {
           setError(null);
           setOpen(true);
         }}
       >
-        Delete
+        {iconTrigger ? <Trash2 /> : "Delete"}
       </Button>
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent size="sm">
