@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ExternalLink, Pencil, Send, Undo2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +18,30 @@ type PostRow = {
   meta_description: string | null;
 };
 
+// Status tabs, mirroring the social list's link-based pattern. Blog's lifecycle
+// is only draft|published, so the set is smaller; "empty" is the message shown
+// when the tab filters everything out.
+const STATUS_TABS: {
+  key: string | null;
+  label: string;
+  matches: string[];
+  empty: string;
+}[] = [
+  { key: null, label: "All", matches: [], empty: "" },
+  {
+    key: "draft",
+    label: "Drafts",
+    matches: ["draft"],
+    empty: "No drafts for this client.",
+  },
+  {
+    key: "published",
+    label: "Published",
+    matches: ["published"],
+    empty: "No published posts for this client.",
+  },
+];
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -24,18 +50,25 @@ function formatDate(iso: string): string {
   });
 }
 
-// Blog module: the client's posts as a card grid (newest-updated first), each
-// with its featured image, status pill, meta description and per-card
-// publish/unpublish, preview, edit and delete. Mirrors the social card grid, at
-// two columns so the four controls fit. RLS scopes everything via requireClient
-// + owns_client.
+// Blog module: the client's posts as a card grid (newest-updated first) with
+// status filter tabs, each card showing its square featured image, status pill,
+// meta description and icon actions (publish/unpublish, preview, edit, delete).
+// Mirrors the social card grid. RLS scopes everything via requireClient +
+// owns_client.
 export default async function BlogPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ clientSlug: string }>;
+  searchParams: Promise<{ status?: string }>;
 }) {
   const { clientSlug } = await params;
+  const { status: statusParam } = await searchParams;
   const { client } = await requireClient(clientSlug);
+
+  const activeTab =
+    STATUS_TABS.find((tab) => tab.key !== null && tab.key === statusParam) ??
+    STATUS_TABS[0];
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -46,6 +79,12 @@ export default async function BlogPage({
     .eq("client_id", client.id)
     .order("updated_at", { ascending: false });
   const posts = (data ?? []) as PostRow[];
+
+  // The DB already orders by updated_at desc; the tab only filters.
+  const visible =
+    activeTab.key === null
+      ? posts
+      : posts.filter((post) => activeTab.matches.includes(post.status));
 
   return (
     <div className="space-y-6">
@@ -61,18 +100,44 @@ export default async function BlogPage({
         </Button>
       </div>
 
+      <nav className="flex flex-wrap gap-1" aria-label="Filter by status">
+        {STATUS_TABS.map((tab) => (
+          <Link
+            key={tab.label}
+            href={
+              tab.key === null
+                ? `/c/${clientSlug}/blog`
+                : `/c/${clientSlug}/blog?status=${tab.key}`
+            }
+            aria-current={tab.key === activeTab.key ? "page" : undefined}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-sm transition-colors",
+              tab.key === activeTab.key
+                ? "bg-accent font-medium text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
+
       {posts.length === 0 ? (
         <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No posts yet. Write your first post.
         </p>
+      ) : visible.length === 0 ? (
+        <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
+          {activeTab.empty}
+        </p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-2">
-          {posts.map((post) => (
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {visible.map((post) => (
             <li
               key={post.id}
               className="flex flex-col overflow-hidden rounded-card border bg-card"
             >
-              <div className="relative aspect-video bg-muted">
+              <div className="relative aspect-square bg-muted">
                 {post.featured_image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -86,7 +151,7 @@ export default async function BlogPage({
                   </div>
                 )}
               </div>
-              <div className="flex flex-1 flex-col gap-2 p-3">
+              <div className="flex flex-1 flex-col gap-1.5 p-2.5">
                 <StatusPill status={post.status} />
                 <p className="line-clamp-2 text-sm font-medium">{post.title}</p>
                 {post.meta_description ? (
@@ -108,8 +173,14 @@ export default async function BlogPage({
                         name="client_slug"
                         value={clientSlug}
                       />
-                      <Button type="submit" variant="ghost" size="sm">
-                        Unpublish
+                      <Button
+                        type="submit"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Unpublish "${post.title}"`}
+                        title="Unpublish"
+                      >
+                        <Undo2 />
                       </Button>
                     </form>
                   ) : (
@@ -120,30 +191,44 @@ export default async function BlogPage({
                         name="client_slug"
                         value={clientSlug}
                       />
-                      <Button type="submit" variant="ghost" size="sm">
-                        Publish
+                      <Button
+                        type="submit"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Publish "${post.title}"`}
+                        title="Publish"
+                      >
+                        <Send />
                       </Button>
                     </form>
                   )}
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
+                    aria-label={`Preview "${post.title}"`}
+                    title="Preview"
                     render={
                       <Link href={`/c/${clientSlug}/blog/${post.id}/preview`} />
                     }
                   >
-                    Preview
+                    <ExternalLink />
                   </Button>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
+                    aria-label={`Edit "${post.title}"`}
+                    title="Edit"
                     render={
                       <Link href={`/c/${clientSlug}/blog/${post.id}/edit`} />
                     }
                   >
-                    Edit
+                    <Pencil />
                   </Button>
-                  <PostDeleteButton postId={post.id} title={post.title} />
+                  <PostDeleteButton
+                    postId={post.id}
+                    title={post.title}
+                    iconTrigger
+                  />
                 </div>
               </div>
             </li>
