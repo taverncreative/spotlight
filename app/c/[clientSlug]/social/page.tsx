@@ -119,7 +119,20 @@ export default async function SocialPage({
         </Button>
       </div>
 
-      <SocialRunway posts={posts} />
+      <SocialRunway
+        posts={posts.map((post) => {
+          const cover = (post.social_post_media ?? [])
+            .slice()
+            .sort((a, b) => a.position - b.position)[0];
+          return {
+            status: post.status,
+            scheduled_at: post.scheduled_at,
+            caption: post.caption,
+            href: `/c/${clientSlug}/social/${post.id}/edit`,
+            thumbnail: cover ? socialMediaPublicUrl(cover.storage_path) : null,
+          };
+        })}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         {isCalendar ? (
