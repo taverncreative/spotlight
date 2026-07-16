@@ -65,13 +65,35 @@ export function PostEditor({
     try {
       const result = await uploadPostImage(file, clientId);
       if (result.ok) {
-        editor.chain().focus().setImage({ src: result.url }).run();
+        // Alt is skippable (Cancel or blank inserts without); the ALT toolbar
+        // button can add or edit it later. tiptap-markdown serializes it as
+        // ![alt](url), so it flows to every renderer with no further plumbing.
+        const alt = window.prompt(
+          "Alt text (describe the image; leave blank to skip)",
+          ""
+        );
+        editor
+          .chain()
+          .focus()
+          .setImage({ src: result.url, ...(alt ? { alt } : {}) })
+          .run();
       } else {
         setUploadError(result.error);
       }
     } finally {
       setUploading(false);
     }
+  };
+
+  const editAlt = () => {
+    if (!editor.isActive("image")) return;
+    const current = (editor.getAttributes("image").alt as string | null) ?? "";
+    const input = window.prompt(
+      "Alt text (describe the image for screen readers and SEO)",
+      current
+    );
+    if (input === null) return;
+    editor.chain().focus().updateAttributes("image", { alt: input }).run();
   };
 
   const toggleLink = () => {
@@ -162,6 +184,14 @@ export function PostEditor({
         >
           <ImageIcon className="size-4" />
         </ToolButton>
+        <ToolButton
+          label="Alt text (select an image first)"
+          active={editor.isActive("image")}
+          disabled={!editor.isActive("image")}
+          onClick={editAlt}
+        >
+          <span className="text-[10px] font-semibold tracking-wide">ALT</span>
+        </ToolButton>
       </div>
 
       <EditorContent editor={editor} />
@@ -187,11 +217,13 @@ export function PostEditor({
 function ToolButton({
   label,
   active,
+  disabled = false,
   onClick,
   children,
 }: {
   label: string;
   active: boolean;
+  disabled?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -201,10 +233,12 @@ function ToolButton({
       aria-label={label}
       aria-pressed={active}
       title={label}
+      disabled={disabled}
       onClick={onClick}
       className={cn(
         "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-        active && "bg-accent text-brand"
+        active && "bg-accent text-brand",
+        disabled && "pointer-events-none opacity-40"
       )}
     >
       {children}
