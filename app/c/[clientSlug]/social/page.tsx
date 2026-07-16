@@ -8,6 +8,7 @@ import { socialMediaPublicUrl } from "@/lib/social/media-paths";
 import { londonParts } from "@/lib/social/london";
 import { StatusPill } from "@/components/ui/status-pill";
 import { SocialCalendar } from "@/components/social/social-calendar";
+import { SocialRunway } from "@/components/social/social-runway";
 import { SocialCancelButton } from "@/components/social/social-cancel-button";
 import { SocialDeleteButton } from "@/components/social/social-delete-button";
 
@@ -117,6 +118,8 @@ export default async function SocialPage({
           New post
         </Button>
       </div>
+
+      <SocialRunway posts={posts} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         {isCalendar ? (
