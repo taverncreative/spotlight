@@ -1,4 +1,5 @@
--- DB-level tests for the content-API read path (migrations 0033-0035).
+-- DB-level tests for the content-API read path (migrations 0033-0035, extended
+-- for 0036-0037: featured_image_alt).
 --
 -- Run from the repo root against the LOCAL stack, e.g.:
 --   psql "postgresql://postgres:postgres@127.0.0.1:55322/postgres" \
@@ -8,16 +9,32 @@
 -- migrations and seeds fixtures without persisting anything -- safe to run
 -- against a live local DB. It never touches prod.
 --
--- Proves: a draft is never returned by published_posts / published_post; and
--- content_key_client resolves a client_id only for a matching, unrevoked key on
--- the correct slug (null for revoked, wrong-slug, and another client's key).
+-- Idempotency harness: the migrations are re-applied inside the transaction,
+-- so anything they create is first dropped IF IT EXISTS. This makes the file
+-- runnable against any local state (pre- or post-0037) without editing the
+-- historical migration files; the rollback restores whatever was there.
+--
+-- Proves: a draft is never returned by published_posts / published_post;
+-- featured_image_alt flows through both functions (value and null);
+-- cross-client isolation holds in both; content_key_client resolves a
+-- client_id only for a matching, unrevoked key on the correct slug; and anon
+-- can execute BOTH read functions (the re-grant after 0037's DROP/CREATE).
 
 \set ON_ERROR_STOP on
 begin;
 
+-- Idempotency harness (rolled back with everything else).
+drop function if exists public.published_posts(uuid);
+drop function if exists public.published_post(uuid, text);
+drop function if exists public.content_key_client(text, bytea);
+drop table if exists public.client_api_keys cascade;
+alter table public.posts drop column if exists featured_image_alt;
+
 \i supabase/migrations/0033_content_api_keys_table.sql
 \i supabase/migrations/0034_content_api_keys_policies.sql
 \i supabase/migrations/0035_content_api_functions.sql
+\i supabase/migrations/0036_posts_featured_image_alt.sql
+\i supabase/migrations/0037_content_api_alt.sql
 
 -- Reuse a real operator_id (FK -> auth.users) from existing local data.
 select operator_id as opid from public.clients limit 1 \gset
@@ -26,10 +43,10 @@ insert into public.clients (id, operator_id, name, slug) values
   ('0033aaaa-0000-0000-0000-000000000001', :'opid', 'ZZ Test A 0033', 'zz-test-a-0033'),
   ('0033bbbb-0000-0000-0000-000000000002', :'opid', 'ZZ Test B 0033', 'zz-test-b-0033');
 
-insert into public.posts (client_id, title, slug, body, meta_description, status, published_at) values
-  ('0033aaaa-0000-0000-0000-000000000001', 'A Live', 'a-live-1', '# Live body A', 'meta A', 'published', now()),
-  ('0033aaaa-0000-0000-0000-000000000001', 'A Draft', 'a-draft-1', '# Draft body A', 'meta draft', 'draft', null),
-  ('0033bbbb-0000-0000-0000-000000000002', 'B Live', 'b-live-1', '# Live body B', 'meta B', 'published', now());
+insert into public.posts (client_id, title, slug, body, meta_description, featured_image, featured_image_alt, status, published_at) values
+  ('0033aaaa-0000-0000-0000-000000000001', 'A Live', 'a-live-1', '# Live body A', 'meta A', 'https://x.test/cover.png', 'A test cover image', 'published', now()),
+  ('0033aaaa-0000-0000-0000-000000000001', 'A Draft', 'a-draft-1', '# Draft body A', 'meta draft', null, null, 'draft', null),
+  ('0033bbbb-0000-0000-0000-000000000002', 'B Live', 'b-live-1', '# Live body B', 'meta B', null, null, 'published', now());
 
 -- sha256 of test plaintexts: sptl_keyA_plaintext / sptl_keyB_plaintext / sptl_keyA_revoked
 insert into public.client_api_keys (client_id, key_hash, key_prefix) values
@@ -61,11 +78,25 @@ union all select '10 key: revoked key -> null',
   case when public.content_key_client('zz-test-a-0033','\x09f9dca6d047ed63d4e5278503ba5d4979d0f7f1f046306ffad82bd8233903a9'::bytea) is null then 'PASS' else 'FAIL' end
 union all select '11 key: unknown hash -> null',
   case when public.content_key_client('zz-test-a-0033','\xdeadbeef'::bytea) is null then 'PASS' else 'FAIL' end
+union all select '13 list: featured_image_alt value',
+  case when (select featured_image_alt from public.published_posts('0033aaaa-0000-0000-0000-000000000001') where slug='a-live-1')='A test cover image' then 'PASS' else 'FAIL' end
+union all select '14 list: featured_image_alt null when unset',
+  case when (select featured_image_alt from public.published_posts('0033bbbb-0000-0000-0000-000000000002') where slug='b-live-1') is null then 'PASS' else 'FAIL' end
+union all select '15 single: featured_image_alt value',
+  case when (select featured_image_alt from public.published_post('0033aaaa-0000-0000-0000-000000000001','a-live-1'))='A test cover image' then 'PASS' else 'FAIL' end
+union all select '16 post-replace: draft excluded from BOTH functions',
+  case when not exists (select 1 from public.published_posts('0033aaaa-0000-0000-0000-000000000001') where slug='a-draft-1')
+        and (select count(*) from public.published_post('0033aaaa-0000-0000-0000-000000000001','a-draft-1'))=0
+       then 'PASS' else 'FAIL' end
+union all select '17 post-replace: single no cross-client leak',
+  case when (select count(*) from public.published_post('0033aaaa-0000-0000-0000-000000000001','b-live-1'))=0 then 'PASS' else 'FAIL' end
 order by test;
 
 set local role anon;
 select '12 anon can call published_posts' as test,
-  case when exists (select 1 from public.published_posts('0033aaaa-0000-0000-0000-000000000001')) then 'PASS' else 'FAIL' end as result;
+  case when exists (select 1 from public.published_posts('0033aaaa-0000-0000-0000-000000000001')) then 'PASS' else 'FAIL' end as result
+union all select '18 anon can call published_post (re-grant after 0037 drop)',
+  case when (select count(*) from public.published_post('0033aaaa-0000-0000-0000-000000000001','a-live-1'))=1 then 'PASS' else 'FAIL' end;
 reset role;
 
 \echo '============================================='
