@@ -137,13 +137,16 @@ export default async function BlogPage({
               key={post.id}
               className="flex flex-col overflow-hidden rounded-card border bg-card"
             >
-              <div className="relative aspect-square bg-muted">
+              {/* overflow-hidden + absolute img: the cover is a flex item, so
+                  without these a portrait image's natural height (min-height:
+                  auto) stretches the aspect-square box instead of cropping. */}
+              <div className="relative aspect-square overflow-hidden bg-muted">
                 {post.featured_image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={post.featured_image}
                     alt=""
-                    className="h-full w-full object-cover"
+                    className="absolute inset-0 h-full w-full object-cover"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
