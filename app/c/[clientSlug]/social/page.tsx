@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
-import { SocialStatusPill } from "@/components/social/social-status-pill";
+import { StatusPill } from "@/components/ui/status-pill";
 import { SocialCancelButton } from "@/components/social/social-cancel-button";
 import { SocialDeleteButton } from "@/components/social/social-delete-button";
 
@@ -184,7 +184,7 @@ export default async function SocialPage({
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <SocialStatusPill status={post.status} />
+                    <StatusPill status={post.status} />
                     <span className="text-xs text-muted-foreground capitalize">
                       {platforms.length ? platforms.join(", ") : "No targets"}
                     </span>
