@@ -21,7 +21,7 @@ export default async function PreviewPostPage({
   const { data: post } = await supabase
     .from("posts")
     .select(
-      "id, title, body, meta_description, featured_image, status, client_id"
+      "id, title, body, meta_description, featured_image, featured_image_alt, status, client_id"
     )
     .eq("id", postId)
     .maybeSingle();
@@ -50,7 +50,7 @@ export default async function PreviewPostPage({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={post.featured_image}
-            alt=""
+            alt={post.featured_image_alt ?? ""}
             className="w-full rounded-card border"
           />
         ) : null}

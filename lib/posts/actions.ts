@@ -25,6 +25,7 @@ function parseForm(formData: FormData) {
     body: String(formData.get("body") ?? ""),
     meta_description: String(formData.get("meta_description") ?? ""),
     featured_image: String(formData.get("featured_image") ?? ""),
+    featured_image_alt: String(formData.get("featured_image_alt") ?? ""),
   });
 }
 
@@ -50,6 +51,10 @@ export async function createPost(
     body: parsed.data.body || null,
     meta_description: parsed.data.meta_description || null,
     featured_image: parsed.data.featured_image || null,
+    // Alt without an image is meaningless; clear it when no image is set.
+    featured_image_alt: parsed.data.featured_image
+      ? parsed.data.featured_image_alt || null
+      : null,
     status: publish ? "published" : "draft",
     published_at: publish ? new Date().toISOString() : null,
   });
@@ -92,6 +97,10 @@ export async function updatePost(
     body: parsed.data.body || null,
     meta_description: parsed.data.meta_description || null,
     featured_image: newFeatured,
+    // Alt without an image is meaningless; clear it when the image is removed.
+    featured_image_alt: newFeatured
+      ? parsed.data.featured_image_alt || null
+      : null,
     status: publish ? "published" : "draft",
   };
   if (publish) {

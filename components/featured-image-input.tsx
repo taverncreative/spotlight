@@ -2,19 +2,24 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { fieldInputClass } from "@/components/form-field";
 import { uploadPostImage } from "@/lib/posts/image-upload";
 
-// Featured image control: upload, preview, replace, remove. The resolved public
-// URL is mirrored into a hidden input so it persists with the post on save.
-// Remove clears the URL from the post (the storage object is left in place).
+// Featured image control: upload, preview, replace, remove, plus alt text once
+// an image is set. The resolved public URL and the alt are mirrored into hidden
+// inputs so they persist with the post on save. Remove clears both from the
+// post (the storage object is left in place).
 export function FeaturedImageInput({
   clientId,
   initialUrl,
+  initialAlt,
 }: {
   clientId: string;
   initialUrl: string | null;
+  initialAlt: string | null;
 }) {
   const [url, setUrl] = useState<string | null>(initialUrl);
+  const [alt, setAlt] = useState(initialAlt ?? "");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -37,6 +42,7 @@ export function FeaturedImageInput({
         Featured image <span className="text-muted-foreground">(optional)</span>
       </label>
       <input type="hidden" name="featured_image" value={url ?? ""} />
+      <input type="hidden" name="featured_image_alt" value={url ? alt : ""} />
 
       {url ? (
         <div className="space-y-2">
@@ -46,6 +52,24 @@ export function FeaturedImageInput({
             alt=""
             className="h-40 w-full rounded-card border object-cover"
           />
+          <div className="space-y-1">
+            <label
+              htmlFor="featured-image-alt"
+              className="text-xs font-medium text-muted-foreground"
+            >
+              Alt text{" "}
+              <span className="font-normal">
+                (describes the image for screen readers and SEO)
+              </span>
+            </label>
+            <input
+              id="featured-image-alt"
+              value={alt}
+              onChange={(event) => setAlt(event.target.value)}
+              placeholder="e.g. A plumber fitting a tap in a Kent kitchen"
+              className={fieldInputClass}
+            />
+          </div>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -60,7 +84,10 @@ export function FeaturedImageInput({
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setUrl(null)}
+              onClick={() => {
+                setUrl(null);
+                setAlt("");
+              }}
             >
               Remove
             </Button>

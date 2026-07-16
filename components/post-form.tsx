@@ -16,6 +16,7 @@ export type PostFormData = {
   body: string | null;
   meta_description: string | null;
   featured_image: string | null;
+  featured_image_alt: string | null;
 };
 
 // Compose/edit form. post === null is the create case (uses clientId); otherwise
@@ -103,6 +104,7 @@ export function PostForm({
       <FeaturedImageInput
         clientId={clientId}
         initialUrl={post?.featured_image ?? null}
+        initialAlt={post?.featured_image_alt ?? null}
       />
 
       <div className="space-y-1.5">
