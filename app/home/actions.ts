@@ -13,6 +13,7 @@ function parseForm(formData: FormData) {
     name: formData.get("name"),
     slug: formData.get("slug"),
     status: formData.get("status"),
+    blog_base_url: String(formData.get("blog_base_url") ?? ""),
   });
 }
 
@@ -39,6 +40,8 @@ export async function createClientAction(
     name: parsed.data.name,
     slug: parsed.data.slug,
     status: parsed.data.status,
+    // Blank means "we do not know this client's blog root": store null, not "".
+    blog_base_url: parsed.data.blog_base_url || null,
   });
 
   if (error) {
@@ -70,6 +73,7 @@ export async function updateClientAction(
       name: parsed.data.name,
       slug: parsed.data.slug,
       status: parsed.data.status,
+      blog_base_url: parsed.data.blog_base_url || null,
     })
     .eq("id", id);
 

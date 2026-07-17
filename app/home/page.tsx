@@ -242,7 +242,10 @@ export default async function HomePage() {
   const supabase = await createClient();
   const [clientsRes, sitesRes, failedRes, socialCountsRes, sitePropsRes] =
     await Promise.all([
-      supabase.from("clients").select("id, name, slug, status").order("name"),
+      supabase
+        .from("clients")
+        .select("id, name, slug, status, blog_base_url")
+        .order("name"),
       supabase
         .from("sites")
         .select(

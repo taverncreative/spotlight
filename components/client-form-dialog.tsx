@@ -23,6 +23,7 @@ export type ClientRow = {
   name: string;
   slug: string;
   status: string;
+  blog_base_url: string | null;
 };
 
 // The add/edit client modal. client === null is the add case; otherwise it is
@@ -48,6 +49,7 @@ export function ClientFormDialog({
   const [name, setName] = useState(client?.name ?? "");
   const [slug, setSlug] = useState(client?.slug ?? "");
   const [status, setStatus] = useState(client?.status ?? "active");
+  const [blogBaseUrl, setBlogBaseUrl] = useState(client?.blog_base_url ?? "");
   // In edit mode the slug is treated as operator-set so it does not auto-rewrite.
   const [slugEdited, setSlugEdited] = useState(isEdit);
 
@@ -141,6 +143,36 @@ export function ClientFormDialog({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="client-blog-base-url" className="text-sm font-medium">
+              Blog base URL{" "}
+              <span className="text-muted-foreground">(optional)</span>
+            </label>
+            <input
+              id="client-blog-base-url"
+              name="blog_base_url"
+              type="url"
+              inputMode="url"
+              value={blogBaseUrl}
+              onChange={(event) => setBlogBaseUrl(event.target.value)}
+              placeholder="https://businesssortedkent.co.uk/news"
+              className={fieldInputClass}
+            />
+            <p className="text-xs text-muted-foreground">
+              Where this client&rsquo;s posts live publicly. Sharing a post to
+              social appends{" "}
+              <span className="font-mono">
+                {blogBaseUrl.replace(/\/+$/, "") || "…"}/post-slug
+              </span>{" "}
+              to the caption. Leave blank to omit the link.
+            </p>
+            {state?.fieldErrors?.blog_base_url ? (
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.blog_base_url[0]}
+              </p>
+            ) : null}
           </div>
 
           {state?.error ? (

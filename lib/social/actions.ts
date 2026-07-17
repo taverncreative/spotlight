@@ -310,9 +310,12 @@ export async function shareToSocial(formData: FormData): Promise<void> {
   const supabase = await createClient();
 
   // Only published posts are shareable, and RLS scopes the read to the operator.
+  // The client is embedded (many-to-one, so a single object) for its blog root.
   const { data: post } = await supabase
     .from("posts")
-    .select("client_id, title, meta_description, featured_image, status")
+    .select(
+      "client_id, title, slug, meta_description, featured_image, status, clients(blog_base_url)"
+    )
     .eq("id", id)
     .maybeSingle();
   if (!post || post.status !== "published") return;
@@ -320,10 +323,24 @@ export async function shareToSocial(formData: FormData): Promise<void> {
   const clientId = post.client_id as string;
   const socialPostId = randomUUID();
 
-  // Caption: the title, then the meta description on its own line when present.
+  // Caption: the title, the meta description, then the live post link, each on
+  // its own line. The link needs the client's blog root, which is only set when
+  // we know where their posts live publicly (the /news path is BSK's convention,
+  // not a given) — without it the link is simply left out. The stored value is
+  // already trailing-slash-stripped, but a row predating that (or edited in the
+  // DB) is stripped again here so the join can never double up the slash.
+  // clients is many-to-one, so PostgREST returns one object; the select-string
+  // parser infers an array without generated DB types, hence the cast (the same
+  // `as unknown as` idiom the publisher uses for its nested meta_accounts).
+  const client = post.clients as unknown as {
+    blog_base_url: string | null;
+  } | null;
+  const base = (client?.blog_base_url ?? "").trim().replace(/\/+$/, "");
+  const slug = (post.slug as string) ?? "";
+  const link = base && slug ? `${base}/${slug}` : "";
   const title = (post.title as string) ?? "";
   const meta = ((post.meta_description as string | null) ?? "").trim();
-  const caption = meta ? `${title}\n\n${meta}` : title;
+  const caption = [title, meta, link].filter(Boolean).join("\n\n");
 
   // Seed the draft first so the media-row insert passes owns_social_post RLS,
   // and a copy failure below simply leaves a caption-only draft to edit.

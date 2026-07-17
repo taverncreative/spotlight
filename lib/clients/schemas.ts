@@ -21,6 +21,17 @@ export function slugify(input: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+// A full http(s) URL. Parsed rather than pattern-matched so odd-but-valid hosts
+// pass and non-web schemes (mailto:, ftp:) do not.
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export const clientFormSchema = z.object({
   name: z.string().trim().min(1, "Name is required."),
   slug: z
@@ -32,6 +43,18 @@ export const clientFormSchema = z.object({
       "Use lowercase letters, numbers and single hyphens."
     ),
   status: z.enum(CLIENT_STATUSES),
+  // The public root of the client's blog. Optional: blank means we do not know
+  // where their posts live, and the share caption omits the link. The trailing
+  // slash is stripped before validating so the post link stays a plain
+  // `${blog_base_url}/${slug}` join.
+  blog_base_url: z
+    .string()
+    .trim()
+    .transform((value) => value.replace(/\/+$/, ""))
+    .refine(
+      (value) => value === "" || isHttpUrl(value),
+      "Use a full URL, e.g. https://businesssortedkent.co.uk/news"
+    ),
 });
 
 export type ClientFormValues = z.infer<typeof clientFormSchema>;
