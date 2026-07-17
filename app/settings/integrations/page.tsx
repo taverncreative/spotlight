@@ -10,6 +10,10 @@ import {
 } from "@/lib/oauth/providers";
 import { META_PROVIDER } from "@/lib/oauth/meta";
 import { MetaAccountAssign } from "@/components/integrations/meta-account-assign";
+import {
+  InboundSources,
+  type InboundSourceRow,
+} from "@/components/integrations/inbound-sources";
 import { disconnectGoogleProvider, disconnectMeta } from "./actions";
 
 type ClientOption = { id: string; name: string };
@@ -269,6 +273,15 @@ export default async function IntegrationsPage({
     .select("id, name")
     .order("name", { ascending: true });
 
+  // Inbound senders, newest first. RLS scopes these to the operator. secret_hash
+  // is deliberately not selected: the browser has no use for even the digest.
+  const { data: inboundSources } = await supabase
+    .from("inbound_sources")
+    .select(
+      "id, source_app, label, secret_prefix, created_at, last_used_at, revoked_at"
+    )
+    .order("created_at", { ascending: false });
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="space-y-1">
@@ -322,6 +335,8 @@ export default async function IntegrationsPage({
           </li>
         ))}
       </ul>
+
+      <InboundSources sources={(inboundSources ?? []) as InboundSourceRow[]} />
     </div>
   );
 }
