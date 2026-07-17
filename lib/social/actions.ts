@@ -1,8 +1,10 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { reapSocialMedia } from "@/lib/social/media-paths";
+import { postImagePath } from "@/lib/posts/image-paths";
 import { londonOffsetMinutes } from "@/lib/social/london";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
 import { publishPost } from "@/lib/social/publisher";
@@ -292,4 +294,77 @@ export async function deleteSocialPost(
   }
 
   return { ok: true };
+}
+
+// Seed a social draft from a published blog post and hand off to the composer.
+// A plain form action (from the blog card), so it never surfaces a result: on
+// success it redirects into the existing edit page, which reconstructs the
+// composer from the saved draft (caption + photo, no targets). The draft is
+// created with no targets and status 'draft', so the publisher never claims it
+// until John schedules or publishes it from the composer.
+export async function shareToSocial(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? ""); // the blog post id
+  const clientSlug = String(formData.get("client_slug") ?? "");
+  if (!id || !clientSlug) return;
+
+  const supabase = await createClient();
+
+  // Only published posts are shareable, and RLS scopes the read to the operator.
+  const { data: post } = await supabase
+    .from("posts")
+    .select("client_id, title, meta_description, featured_image, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (!post || post.status !== "published") return;
+
+  const clientId = post.client_id as string;
+  const socialPostId = randomUUID();
+
+  // Caption: the title, then the meta description on its own line when present.
+  const title = (post.title as string) ?? "";
+  const meta = ((post.meta_description as string | null) ?? "").trim();
+  const caption = meta ? `${title}\n\n${meta}` : title;
+
+  // Seed the draft first so the media-row insert passes owns_social_post RLS,
+  // and a copy failure below simply leaves a caption-only draft to edit.
+  const { error: insertError } = await supabase.from("social_posts").insert({
+    id: socialPostId,
+    client_id: clientId,
+    caption,
+    status: "draft",
+    scheduled_at: null,
+  });
+  if (insertError) return;
+
+  // Copy the featured image bytes from post-images into the social-media bucket
+  // under the new post's {client}/{post}/ folder (the layout the uploader and
+  // publisher expect). A post with no image under our bucket seeds a
+  // caption-only draft; width/height are unknown at copy time, so null.
+  const sourceKey = postImagePath(post.featured_image as string | null);
+  if (sourceKey) {
+    const dot = sourceKey.lastIndexOf(".");
+    const ext =
+      dot === -1
+        ? ""
+        : sourceKey
+            .slice(dot + 1)
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "");
+    const destKey = `${clientId}/${socialPostId}/${randomUUID()}${ext ? `.${ext}` : ""}`;
+    const { error: copyError } = await supabase.storage
+      .from("post-images")
+      .copy(sourceKey, destKey, { destinationBucket: SOCIAL_MEDIA_BUCKET });
+    if (!copyError) {
+      await supabase.from("social_post_media").insert({
+        post_id: socialPostId,
+        position: 0,
+        storage_path: destKey,
+        media_type: "image",
+        width: null,
+        height: null,
+      });
+    }
+  }
+
+  redirect(`/c/${clientSlug}/social/${socialPostId}/edit`);
 }
