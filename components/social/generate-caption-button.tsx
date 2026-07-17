@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { generateCaption } from "@/lib/social/caption";
+import { CAPTION_ERROR_MESSAGES } from "@/lib/social/schemas";
 
 // "Generate caption" for the composer's caption field: rewrites whatever is in
 // the box into a hook/teaser/CTA caption and replaces it outright, no confirm.
@@ -34,7 +35,7 @@ export function GenerateCaptionButton({
     startTransition(async () => {
       const result = await generateCaption(value);
       if (result.ok) onGenerated(result.caption);
-      else onError(result.error);
+      else onError(CAPTION_ERROR_MESSAGES[result.code]);
     });
   }
 

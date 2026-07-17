@@ -6,13 +6,59 @@ export type SocialPostFormState = {
   fieldErrors?: Record<string, string[]>;
 } | null;
 
-// Result of the caption generator, consumed by the composer's Generate button.
-// A discriminated union rather than the shape above: the caption is only ever
-// read on success, and every failure carries a message to show inline. The
-// generator never throws, so this covers all of its outcomes.
+// Caption generator failures, as codes rather than messages.
+//
+// Two reasons they live here and travel as codes. A "use server" module may only
+// export async functions, so the messages cannot sit beside the generator in
+// caption.ts and still be readable by the composer. And shareToSocial is a plain
+// form action: it cannot return a result, so it hands its failure to the
+// composer through the redirect URL, where a short code round-trips safely and a
+// raw message would let any crafted URL put words in the app's mouth.
+export const CAPTION_ERROR_CODES = [
+  "auth",
+  "billing",
+  "unavailable",
+  "unknown",
+  "rate",
+  "model",
+  "signed_out",
+  "empty",
+] as const;
+export type CaptionErrorCode = (typeof CAPTION_ERROR_CODES)[number];
+
+// The first four are John's wording, kept verbatim: each names the lever he can
+// pull. "rate" and "model" cannot honestly use any of them — our own limit is
+// not Anthropic's and must not send him to check billing for a cap we imposed,
+// and a refusal or truncation is a 200 that never reaches classify(), so blaming
+// the key would send him after a key that is fine.
+export const CAPTION_ERROR_MESSAGES: Record<CaptionErrorCode, string> = {
+  auth: "Your Anthropic API key is invalid or expired, set a new one.",
+  billing:
+    "Your Anthropic account is rate-limited or out of credits, check billing.",
+  unavailable: "Caption generation is temporarily unavailable, try again.",
+  unknown:
+    "Couldn't generate a caption. Check your API key is valid and in date, and that your account has credits.",
+  rate: "Ten captions a minute, max. Give it a moment and try again.",
+  model:
+    "The model didn't return a usable caption. Try again, or adjust the source text.",
+  signed_out: "Sign in to generate a caption.",
+  empty: "Add a topic or notes first.",
+};
+
+// Resolve a code that arrived from a URL. An unknown one yields null rather than
+// being shown, so only messages this app wrote can ever reach the operator.
+export function captionErrorMessage(code: string | undefined): string | null {
+  if (!code) return null;
+  return CAPTION_ERROR_MESSAGES[code as CaptionErrorCode] ?? null;
+}
+
+// Result of the caption generator, consumed by the composer's Generate button
+// and by shareToSocial. A discriminated union rather than the shape above: the
+// caption is only ever read on success. The generator never throws, so this
+// covers all of its outcomes.
 export type CaptionState =
   | { ok: true; caption: string }
-  | { ok: false; error: string };
+  | { ok: false; code: CaptionErrorCode };
 
 export const SOCIAL_MEDIA_BUCKET = "social-media";
 

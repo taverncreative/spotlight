@@ -161,12 +161,9 @@ export function ClientFormDialog({
               className={fieldInputClass}
             />
             <p className="text-xs text-muted-foreground">
-              Where this client&rsquo;s posts live publicly. Sharing a post to
-              social appends{" "}
-              <span className="font-mono">
-                {blogBaseUrl.replace(/\/+$/, "") || "…"}/post-slug
-              </span>{" "}
-              to the caption. Leave blank to omit the link.
+              Where this client&rsquo;s posts live publicly. Stored for
+              reference: social captions are self-contained, so this is not
+              added to them.
             </p>
             {state?.fieldErrors?.blog_base_url ? (
               <p className="text-sm text-destructive">

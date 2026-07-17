@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { reapSocialMedia } from "@/lib/social/media-paths";
+import { generateCaption } from "@/lib/social/caption";
 import { postImagePath } from "@/lib/posts/image-paths";
 import { londonOffsetMinutes } from "@/lib/social/london";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
@@ -310,12 +311,9 @@ export async function shareToSocial(formData: FormData): Promise<void> {
   const supabase = await createClient();
 
   // Only published posts are shareable, and RLS scopes the read to the operator.
-  // The client is embedded (many-to-one, so a single object) for its blog root.
   const { data: post } = await supabase
     .from("posts")
-    .select(
-      "client_id, title, slug, meta_description, featured_image, status, clients(blog_base_url)"
-    )
+    .select("client_id, title, meta_description, body, featured_image, status")
     .eq("id", id)
     .maybeSingle();
   if (!post || post.status !== "published") return;
@@ -323,24 +321,31 @@ export async function shareToSocial(formData: FormData): Promise<void> {
   const clientId = post.client_id as string;
   const socialPostId = randomUUID();
 
-  // Caption: the title, the meta description, then the live post link, each on
-  // its own line. The link needs the client's blog root, which is only set when
-  // we know where their posts live publicly (the /news path is BSK's convention,
-  // not a given) — without it the link is simply left out. The stored value is
-  // already trailing-slash-stripped, but a row predating that (or edited in the
-  // DB) is stripped again here so the join can never double up the slash.
-  // clients is many-to-one, so PostgREST returns one object; the select-string
-  // parser infers an array without generated DB types, hence the cast (the same
-  // `as unknown as` idiom the publisher uses for its nested meta_accounts).
-  const client = post.clients as unknown as {
-    blog_base_url: string | null;
-  } | null;
-  const base = (client?.blog_base_url ?? "").trim().replace(/\/+$/, "");
-  const slug = (post.slug as string) ?? "";
-  const link = base && slug ? `${base}/${slug}` : "";
   const title = (post.title as string) ?? "";
   const meta = ((post.meta_description as string | null) ?? "").trim();
-  const caption = [title, meta, link].filter(Boolean).join("\n\n");
+  const body = ((post.body as string | null) ?? "").trim();
+
+  // Seed the caption by running the post through the composer's own generator,
+  // which strips the Markdown and caps the word count. The draft carries the
+  // digest, never the article: the caption box is what gets published, so a raw
+  // body sitting in it is a wall of text one click from a client's feed (and
+  // past Instagram's 2,200 character limit).
+  //
+  // No link goes with it: a social caption is self-contained. The client's
+  // blog_base_url is still stored, it is simply not used here, so neither the
+  // slug nor the client row is read.
+  const generated = await generateCaption(
+    [title, body].filter(Boolean).join("\n\n")
+  );
+
+  // A generation failure must never leave an unpostable caption behind, so fall
+  // back to the old seed: title plus meta description is short, sound, and
+  // postable as it stands. The reason travels to the composer on the redirect,
+  // because this is a plain form action and cannot return one.
+  const caption = generated.ok
+    ? generated.caption
+    : [title, meta].filter(Boolean).join("\n\n");
+  const failure = generated.ok ? null : generated.code;
 
   // Seed the draft first so the media-row insert passes owns_social_post RLS,
   // and a copy failure below simply leaves a caption-only draft to edit.
@@ -383,5 +388,9 @@ export async function shareToSocial(formData: FormData): Promise<void> {
     }
   }
 
-  redirect(`/c/${clientSlug}/social/${socialPostId}/edit`);
+  redirect(
+    `/c/${clientSlug}/social/${socialPostId}/edit${
+      failure ? `?caption_error=${failure}` : ""
+    }`
+  );
 }

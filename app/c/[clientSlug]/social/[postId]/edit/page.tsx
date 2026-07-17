@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
+import { captionErrorMessage } from "@/lib/social/schemas";
 import { SocialComposer } from "@/components/social/social-composer";
 import type { UploaderItem } from "@/components/social/social-media-uploader";
 
@@ -16,10 +17,16 @@ type MediaRow = {
 
 export default async function EditSocialPostPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ clientSlug: string; postId: string }>;
+  // shareToSocial redirects here with caption_error set when it seeded this
+  // draft but the generation failed, so the composer can say why the caption is
+  // the plain fallback. An unrecognised code resolves to null and shows nothing.
+  searchParams: Promise<{ caption_error?: string }>;
 }) {
   const { clientSlug, postId } = await params;
+  const { caption_error: captionErrorCode } = await searchParams;
   const { client } = await requireClient(clientSlug);
 
   const supabase = await createClient();
@@ -87,6 +94,7 @@ export default async function EditSocialPostPage({
         initialMedia={media}
         accounts={accounts ?? []}
         selectedTargetIds={selectedTargetIds}
+        initialCaptionError={captionErrorMessage(captionErrorCode)}
       />
     </div>
   );

@@ -32,6 +32,7 @@ export function SocialComposer({
   initialMedia,
   accounts,
   selectedTargetIds,
+  initialCaptionError = null,
 }: {
   clientId: string;
   clientSlug: string;
@@ -41,6 +42,9 @@ export function SocialComposer({
   initialMedia: UploaderItem[];
   accounts: MetaAccount[];
   selectedTargetIds: string[];
+  // Set when a share seeded this draft but the caption generation failed, so the
+  // caption is the safe fallback and the operator needs to know why.
+  initialCaptionError?: string | null;
 }) {
   const [state, formAction, pending] = useActionState<
     SocialPostFormState,
@@ -49,7 +53,8 @@ export function SocialComposer({
 
   const [caption, setCaption] = useState(post?.caption ?? "");
   // Generator failures only: shown under the textarea, never clearing the box.
-  const [captionError, setCaptionError] = useState<string | null>(null);
+  const [captionError, setCaptionError] =
+    useState<string | null>(initialCaptionError);
   const [media, setMedia] = useState<UploaderItem[]>(initialMedia);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedTargetIds);
