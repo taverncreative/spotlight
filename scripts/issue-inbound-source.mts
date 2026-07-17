@@ -19,18 +19,35 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
+// Relative path with the .ts extension, not the @/ alias: this runs under plain
+// `node --env-file`, which does not read tsconfig's path aliases. tsc accepts the
+// extension because allowImportingTsExtensions is set.
+import { slugify } from "../lib/clients/schemas.ts";
 
 function arg(name: string): string | undefined {
   const index = process.argv.indexOf(name);
   return index === -1 ? undefined : process.argv[index + 1];
 }
 
-const sourceApp = arg("--source-app");
+const rawSourceApp = arg("--source-app");
 const label = arg("--label");
 
-if (!sourceApp || !label) {
+if (!rawSourceApp || !label) {
   console.error(
     'Usage: node --env-file=.env.vercel.local scripts/issue-inbound-source.mts --source-app <app> --label "<label>"'
+  );
+  process.exit(1);
+}
+
+// Normalise exactly as the in-app UI does (lib/inbound/actions.ts), reusing the
+// same slugify, so the two issuing paths cannot diverge: "GEM CRM" from either
+// one lands on gem-crm. Without this the script would store the raw value and a
+// space or capital could fragment one sender into two, splitting its
+// (source_app, request_id) idempotency scope.
+const sourceApp = slugify(rawSourceApp);
+if (!sourceApp) {
+  console.error(
+    `FAIL  "${rawSourceApp}" normalises to an empty source name. Use letters and numbers, for example gem-crm.`
   );
   process.exit(1);
 }

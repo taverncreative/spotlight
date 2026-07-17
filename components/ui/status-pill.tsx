@@ -6,9 +6,10 @@ import { cn } from "@/lib/utils";
 // instead of each inventing its own chip.
 //
 // The map is the union of the module lifecycles: blog uses draft|published,
-// social uses all six. Callers pass a plain status string (both list queries
-// type it as string), and an unknown value falls back to the neutral draft
-// styling rather than throwing on a status a module adds later.
+// social uses all six, and the requests inbox uses new|in_progress|done.
+// Callers pass a plain status string (the list queries type it as string), and
+// an unknown value falls back to the neutral draft styling rather than throwing
+// on a status a module adds later.
 
 type StatusTone = "muted" | "info" | "warn" | "ok" | "danger";
 
@@ -26,7 +27,10 @@ type Status =
   | "publishing"
   | "published"
   | "partial"
-  | "failed";
+  | "failed"
+  | "new"
+  | "in_progress"
+  | "done";
 
 const STATUS: Record<Status, { label: string; tone: StatusTone }> = {
   draft: { label: "Draft", tone: "muted" },
@@ -35,6 +39,12 @@ const STATUS: Record<Status, { label: string; tone: StatusTone }> = {
   published: { label: "Published", tone: "ok" },
   partial: { label: "Partial", tone: "warn" },
   failed: { label: "Failed", tone: "danger" },
+  // The requests inbox. Tones echo the publish lifecycle deliberately: untouched
+  // reads as info, in-flight as warn, finished as ok, so a status chip means the
+  // same thing wherever it appears.
+  new: { label: "New", tone: "info" },
+  in_progress: { label: "In progress", tone: "warn" },
+  done: { label: "Done", tone: "ok" },
 };
 
 export function StatusPill({
