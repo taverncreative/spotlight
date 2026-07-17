@@ -87,9 +87,22 @@ Rules:
 - No em dashes. Use commas or full stops instead.
 - No emoji unless the source text implies it.
 - Never invent facts, offers, prices, dates or claims that are not in the source.
-- Do not write a URL. A link is appended after your text automatically; when the source contains one, write the cta so it reads naturally before a link on its own line.
+- Never write a URL yourself.
 - At most two hashtags, and only where they earn their place. No hashtag walls.
 - Under 80 words across all three beats.`;
+
+// Whether there is a link is resolved in code, not left to the model to infer:
+// firstUrl() has already run by the time the prompt is built, so it can state
+// the case outright rather than describe both and hope.
+//
+// This is the fix for captions that promised "read the full post below" with
+// nothing below them. The rule used to say a link was appended automatically,
+// full stop, when in fact one is only appended if the source carried a URL, so
+// on a link-free source the model was being told to write a cta pointing at
+// something that would never arrive.
+const LINK_RULE = `A link is appended on its own line after your text. The cta may drive to it and should read naturally before it.`;
+
+const NO_LINK_RULE = `There is no link, and none will be appended. The caption must stand on its own: deliver the value in the teaser rather than promising it elsewhere, and end with a link-free cta such as "get in touch" or "drop us a message". Never write "read more", "read here", "the full breakdown is here", "click below", or anything else that points the reader at a link they will not find.`;
 
 // Map an SDK error to one of the four messages. Order matters twice here:
 //
@@ -151,7 +164,7 @@ export async function generateCaption(source: string): Promise<CaptionState> {
       // thinking and return a truncated caption. It would look like a broken
       // feature rather than a misconfiguration.
       thinking: { type: "disabled" },
-      system: CAPTION_SYSTEM,
+      system: `${CAPTION_SYSTEM}\n\n${link ? LINK_RULE : NO_LINK_RULE}`,
       messages: [{ role: "user", content: brief }],
       output_config: { format: zodOutputFormat(CaptionSchema) },
     });
