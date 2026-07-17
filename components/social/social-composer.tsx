@@ -12,6 +12,7 @@ import {
   SocialMediaUploader,
   type UploaderItem,
 } from "@/components/social/social-media-uploader";
+import { GenerateCaptionButton } from "@/components/social/generate-caption-button";
 import { saveSocialPost } from "@/lib/social/actions";
 import { londonParts } from "@/lib/social/london";
 import type { SocialPostFormState } from "@/lib/social/schemas";
@@ -47,6 +48,8 @@ export function SocialComposer({
   >(saveSocialPost, null);
 
   const [caption, setCaption] = useState(post?.caption ?? "");
+  // Generator failures only: shown under the textarea, never clearing the box.
+  const [captionError, setCaptionError] = useState<string | null>(null);
   const [media, setMedia] = useState<UploaderItem[]>(initialMedia);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedTargetIds);
@@ -132,9 +135,16 @@ export function SocialComposer({
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="social-caption" className="text-sm font-medium">
-          Caption
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label htmlFor="social-caption" className="text-sm font-medium">
+            Caption
+          </label>
+          <GenerateCaptionButton
+            value={caption}
+            onGenerated={setCaption}
+            onError={setCaptionError}
+          />
+        </div>
         <textarea
           id="social-caption"
           name="caption"
@@ -144,6 +154,9 @@ export function SocialComposer({
           placeholder="Write your caption…"
           className={fieldInputClass}
         />
+        {captionError ? (
+          <p className="text-sm text-destructive">{captionError}</p>
+        ) : null}
       </div>
 
       <div>

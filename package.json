@@ -15,6 +15,7 @@
     "db:reset": "npx supabase db reset --local && psql postgresql://postgres:postgres@127.0.0.1:55322/postgres -f scripts/local-reset-grants.sql"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.1",
     "@base-ui/react": "^1.5.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.1",

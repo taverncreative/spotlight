@@ -6,6 +6,14 @@ export type SocialPostFormState = {
   fieldErrors?: Record<string, string[]>;
 } | null;
 
+// Result of the caption generator, consumed by the composer's Generate button.
+// A discriminated union rather than the shape above: the caption is only ever
+// read on success, and every failure carries a message to show inline. The
+// generator never throws, so this covers all of its outcomes.
+export type CaptionState =
+  | { ok: true; caption: string }
+  | { ok: false; error: string };
+
 export const SOCIAL_MEDIA_BUCKET = "social-media";
 
 // Images only for now (the schema allows 'video' for later). Mirrors the
