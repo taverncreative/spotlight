@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, Pencil, Send, Share2, Undo2 } from "lucide-react";
+import { ExternalLink, Pencil, Send, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { publishPost, unpublishPost } from "@/lib/posts/actions";
 import { shareToSocial } from "@/lib/social/actions";
+import { ShareToSocialButton } from "@/components/share-to-social-button";
 import { PostDeleteButton } from "@/components/post-delete-button";
 
 type PostRow = {
@@ -178,15 +179,7 @@ export default async function BlogPage({
                           name="client_slug"
                           value={clientSlug}
                         />
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Share "${post.title}" to social`}
-                          title="Share to social"
-                        >
-                          <Share2 />
-                        </Button>
+                        <ShareToSocialButton title={post.title} />
                       </form>
                       <form action={unpublishPost}>
                         <input type="hidden" name="id" value={post.id} />
