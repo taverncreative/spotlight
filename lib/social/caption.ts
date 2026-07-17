@@ -18,9 +18,9 @@ import type { CaptionState } from "@/lib/social/schemas";
 
 // The four failure messages, John's wording kept verbatim: each names the lever
 // he can pull.
-const AUTH = "Your Anthropic API key is invalid or expired — set a new one.";
+const AUTH = "Your Anthropic API key is invalid or expired, set a new one.";
 const BILLING =
-  "Your Anthropic account is rate-limited or out of credits — check billing.";
+  "Your Anthropic account is rate-limited or out of credits, check billing.";
 const UNAVAILABLE = "Caption generation is temporarily unavailable, try again.";
 const UNKNOWN =
   "Couldn't generate a caption. Check your API key is valid and in date, and that your account has credits.";
@@ -83,11 +83,12 @@ Rewrite the source text into one caption in three beats:
 - cta: one short line telling the reader what to do next.
 
 Rules:
-- UK English.
+- UK English spelling throughout: organise, colour, specialise, centre.
+- No em dashes. Use commas or full stops instead.
+- No emoji unless the source text implies it.
 - Never invent facts, offers, prices, dates or claims that are not in the source.
 - Do not write a URL. A link is appended after your text automatically; when the source contains one, write the cta so it reads naturally before a link on its own line.
 - At most two hashtags, and only where they earn their place. No hashtag walls.
-- No emoji unless the source uses them.
 - Under 80 words across all three beats.`;
 
 // Map an SDK error to one of the four messages. Order matters twice here:
