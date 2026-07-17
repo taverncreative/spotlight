@@ -36,3 +36,22 @@ revoke truncate, references, trigger on all tables in schema public
 -- KEEP IN SYNC WITH migration 0001_core_spine.sql (the users carve-out).
 revoke update on public.users from authenticated;
 grant update (full_name) on public.users to authenticated;
+
+-- 3. Re-apply 0042's revoke on the inbound insert function, AFTER the blanket
+-- routine grant above (which re-grants anon EXECUTE on every routine and would
+-- otherwise silently reopen this on every reset).
+--
+-- Why this one function is different: 0035's content-API functions WANT anon
+-- EXECUTE (reading published posts is public), which is why the blanket grant
+-- suits them and 0035 says so. create_client_request is the opposite. The
+-- publishable key is public, so anon EXECUTE lets anyone insert straight through
+-- /rest/v1/rpc and skip the endpoint's shared secret. Without these two lines
+-- local would be wide open while prod is closed, so the bypass would never show
+-- up in local testing, which is the worst place for a security gap to hide.
+-- KEEP IN SYNC WITH migration 0042_client_requests_intake_revoke.sql.
+revoke all on function public.create_client_request(
+  text, text, text, text, text, text, text, text
+) from anon, authenticated;
+grant execute on function public.create_client_request(
+  text, text, text, text, text, text, text, text
+) to service_role;
