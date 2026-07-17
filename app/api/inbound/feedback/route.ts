@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inboundFeedbackSchema } from "@/lib/inbound/feedback-schema";
 
 // Inbound client requests from other apps (GEM CRM first), pooled into one
 // triage list. Fire-and-forget: the sender never blocks on us, so every failure
@@ -45,20 +46,11 @@ function rateLimited(sourceApp: string): boolean {
   return false;
 }
 
-// source_app is absent on purpose: the matched inbound_sources row is
-// authoritative. Zod strips unknown keys, so a sender that sends one anyway is
-// quietly ignored rather than rejected, which keeps fire-and-forget forgiving.
-const BodySchema = z.object({
-  client_name: z.string().trim().min(1).max(200),
-  message: z.string().trim().min(1).max(5000),
-  type: z
-    .enum(["feature", "change", "bug", "question", "other"])
-    .optional(),
-  client_slug: z.string().trim().max(64).optional(),
-  submitter: z.string().trim().max(200).optional(),
-  link: z.string().trim().max(500).optional(),
-  request_id: z.string().trim().max(128).optional(),
-});
+// The body contract lives in its own module (lib/inbound/feedback-schema.ts), so
+// external input is validated to what a sender may send, never to the
+// database-insert shape. source_app is not in it on purpose: the matched
+// inbound_sources row is authoritative, and zod strips unknown keys, so a sender
+// that sends one anyway is quietly ignored rather than rejected.
 
 type MatchedSource = { id: string; source_app: string };
 
@@ -131,10 +123,10 @@ export async function POST(request: Request) {
   // not limited here: they are cheap to reject and the platform is the backstop.
   if (rateLimited(source.source_app)) return fail(429, "Too many requests");
 
-  // 5. Body.
-  let parsed: z.infer<typeof BodySchema>;
+  // 5. Body — validated against the external contract, not the DB shape.
+  let parsed: ReturnType<typeof inboundFeedbackSchema.parse>;
   try {
-    parsed = BodySchema.parse(JSON.parse(raw));
+    parsed = inboundFeedbackSchema.parse(JSON.parse(raw));
   } catch (error) {
     // Name the field so the sender can fix its integration, but nothing beyond
     // it: no issue tree, no received values (which may carry someone's data).
@@ -145,15 +137,18 @@ export async function POST(request: Request) {
 
   // 6. Insert. source_app comes from the row, never the body. request_id makes a
   // retry idempotent: the function returns the original id and duplicate=true.
+  // client_name is optional on the wire but NOT NULL in the table, so an omitted
+  // one falls back to the source name (it reads as e.g. "gem-crm" in triage,
+  // rather than 400-ing a sender that had no client name to give).
   const { data, error } = await supabase.rpc("create_client_request", {
     p_source_app: source.source_app,
-    p_client_name: parsed.client_name,
+    p_client_name: parsed.client_name ?? source.source_app,
     p_message: parsed.message,
     p_type: parsed.type ?? "other",
     p_client_slug: parsed.client_slug ?? null,
     p_submitter: parsed.submitter ?? null,
     p_link: parsed.link ?? null,
-    p_request_id: parsed.request_id ?? null,
+    p_request_id: parsed.request_id,
   });
   if (error) {
     // Logged for us (code only, never the body or the token), opaque to them.
