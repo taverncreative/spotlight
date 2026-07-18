@@ -18,31 +18,30 @@ const admin = createClient(
   { auth: { persistSession: false, autoRefreshToken: false } }
 );
 
-// Seed a monitored domain + its known senders under some client (idempotent).
-const { data: client } = await admin
-  .from("clients")
-  .select("id")
-  .order("created_at")
-  .limit(1)
-  .maybeSingle();
-if (!client) {
-  console.error("FAIL: no client to attach the monitored domain to. Seed one first.");
+// Seed a monitored domain + its known senders under the operator (idempotent).
+// Domains are operator-scoped (0048), so this attaches to the first operator,
+// client_id null -- the same shape the /email view reads.
+const { data: users } = await admin.auth.admin.listUsers();
+const operator = users?.users[0];
+if (!operator) {
+  console.error("FAIL: no operator to attach the monitored domain to.");
   process.exit(1);
 }
 
 await admin.from("dmarc_domains").upsert(
   {
-    client_id: client.id,
+    operator_id: operator.id,
+    client_id: null,
     domain: "taverncreative.com",
     ingest_address: "taverncreative-com@inbound.example",
     dmarc_record: "v=DMARC1; p=none; rua=mailto:taverncreative-com@inbound.example; fo=1",
   },
-  { onConflict: "client_id,domain", ignoreDuplicates: true }
+  { onConflict: "operator_id,domain", ignoreDuplicates: true }
 );
 const { data: domain } = await admin
   .from("dmarc_domains")
   .select("id")
-  .eq("client_id", client.id)
+  .eq("operator_id", operator.id)
   .eq("domain", "taverncreative.com")
   .single();
 if (!domain) {

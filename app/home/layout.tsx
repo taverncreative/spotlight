@@ -56,6 +56,9 @@ export default async function HomeLayout({
               </span>
             ) : null}
           </Button>
+          <Button variant="ghost" size="sm" render={<Link href="/email" />}>
+            Email
+          </Button>
           <Button
             variant="ghost"
             size="sm"

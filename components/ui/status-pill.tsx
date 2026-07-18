@@ -30,7 +30,10 @@ type Status =
   | "failed"
   | "new"
   | "in_progress"
-  | "done";
+  | "done"
+  | "ok"
+  | "warn"
+  | "danger";
 
 const STATUS: Record<Status, { label: string; tone: StatusTone }> = {
   draft: { label: "Draft", tone: "muted" },
@@ -45,13 +48,23 @@ const STATUS: Record<Status, { label: string; tone: StatusTone }> = {
   new: { label: "New", tone: "info" },
   in_progress: { label: "In progress", tone: "warn" },
   done: { label: "Done", tone: "ok" },
+  // The email-health three states. Default labels are placeholders: the Email
+  // view passes a dynamic `label` (e.g. "142 emails · all expected senders").
+  ok: { label: "OK", tone: "ok" },
+  warn: { label: "Warning", tone: "warn" },
+  danger: { label: "Failing", tone: "danger" },
 };
 
+// `label` overrides the status's default text, for chips whose label is dynamic
+// (a count, a sentence) rather than fixed to the status. The tone still comes
+// from the status, so the colour stays consistent with every other chip.
 export function StatusPill({
   status,
+  label,
   className,
 }: {
   status: string;
+  label?: string;
   className?: string;
 }) {
   const s = STATUS[status as Status] ?? STATUS.draft;
@@ -63,7 +76,7 @@ export function StatusPill({
         className
       )}
     >
-      {s.label}
+      {label ?? s.label}
     </span>
   );
 }
