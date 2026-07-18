@@ -26,11 +26,29 @@ export type OffenderRow = {
 
 export type StripDay = { day: string; tone: PanelTone };
 
+// The DNS-setup strings for a domain, all derived from its stored ingest_address
+// and dmarc_record so what the operator copies is byte-identical to what routes.
+export type DomainSetup = {
+  ingestAddress: string;
+  ruaMailto: string; // mailto:<address>, to merge into an existing rua= tag
+  ruaFragment: string; // rua=mailto:<address>, the whole tag to add
+  fullRecord: string; // the full v=DMARC1 record, fallback for no existing DMARC
+  reportAuthHost: string; // <domain>._report._dmarc.<ingest domain>
+  reportAuthValue: string; // v=DMARC1;
+};
+
 export type DomainPanel = {
   id: string;
   domain: string;
+  // true until dmarc_daily has a row: added but awaiting the first report.
+  pending: boolean;
+  setup: DomainSetup;
   // null when the domain has no reports yet -> the empty ("waiting") state.
-  latest: { state: "ok" | "warn" | "danger"; tone: PanelTone; label: string } | null;
+  latest: {
+    state: "ok" | "warn" | "danger";
+    tone: PanelTone;
+    label: string;
+  } | null;
   strip: StripDay[];
   offenders: {
     sourceIp: string;
@@ -38,6 +56,15 @@ export type DomainPanel = {
     count: number;
     classification: "unknown" | "broken";
   }[];
+};
+
+// The domain fields buildPanels needs: identity plus the stored routing address
+// and record the setup strings are built from.
+export type DomainInput = {
+  id: string;
+  domain: string;
+  ingest_address: string;
+  dmarc_record: string | null;
 };
 
 const MAX_OFFENDERS = 5;
@@ -61,10 +88,11 @@ function dayOffset(today: string, back: number): string {
 }
 
 export function buildPanels(
-  domains: { id: string; domain: string }[],
+  domains: DomainInput[],
   daily: DailyRow[],
   offenders: OffenderRow[],
-  today: string
+  today: string,
+  ingestDomain: string
 ): DomainPanel[] {
   return domains.map((domain) => {
     const rows = daily
@@ -92,18 +120,38 @@ export function buildPanels(
             .map((o) => ({
               sourceIp: o.source_ip ?? "unknown IP",
               selectors:
-                o.dkim.map((d) => `${d.selector || "(none)"}@${d.domain}`).join(", ") ||
-                "no DKIM signature",
+                o.dkim
+                  .map((d) => `${d.selector || "(none)"}@${d.domain}`)
+                  .join(", ") || "no DKIM signature",
               count: o.email_count,
               classification: o.classification,
             }))
         : [];
 
+    // Setup strings, all from the one stored address so the copyable value the
+    // operator pastes is byte-identical to the routing key the webhook matches.
+    const mailto = `mailto:${domain.ingest_address}`;
+    const setup: DomainSetup = {
+      ingestAddress: domain.ingest_address,
+      ruaMailto: mailto,
+      ruaFragment: `rua=${mailto}`,
+      fullRecord:
+        domain.dmarc_record ?? `v=DMARC1; p=none; rua=${mailto}; fo=1`,
+      reportAuthHost: `${domain.domain}._report._dmarc.${ingestDomain}`,
+      reportAuthValue: "v=DMARC1;",
+    };
+
     return {
       id: domain.id,
       domain: domain.domain,
+      pending: latestRow === null,
+      setup,
       latest: latestRow
-        ? { state: latestRow.state, tone: latestRow.state, label: labelFor(latestRow) }
+        ? {
+            state: latestRow.state,
+            tone: latestRow.state,
+            label: labelFor(latestRow),
+          }
         : null,
       strip,
       offenders: latestOffenders,

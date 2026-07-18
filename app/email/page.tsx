@@ -1,8 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { DmarcDomainPanel } from "@/components/email/dmarc-domain-panel";
+import { AddDomainForm } from "@/components/email/add-domain-form";
+import type { KnownSenderRow } from "@/components/email/known-senders-editor";
+import { INGEST_DOMAIN } from "@/lib/dmarc/setup";
 import {
   buildPanels,
   type DailyRow,
+  type DomainInput,
   type OffenderRow,
 } from "@/lib/dmarc/panel";
 
@@ -18,7 +22,6 @@ function dateWindow(): { today: string; since: string } {
   };
 }
 
-type DomainRow = { id: string; domain: string };
 type RecordRow = {
   dmarc_domain_id: string;
   source_ip: string | null;
@@ -40,8 +43,11 @@ export default async function EmailPage() {
   const supabase = await createClient();
   const { today, since } = dateWindow();
 
-  const [domainsRes, dailyRes, offendersRes] = await Promise.all([
-    supabase.from("dmarc_domains").select("id, domain").order("domain"),
+  const [domainsRes, dailyRes, offendersRes, sendersRes] = await Promise.all([
+    supabase
+      .from("dmarc_domains")
+      .select("id, domain, ingest_address, dmarc_record")
+      .order("domain"),
     supabase
       .from("dmarc_daily")
       .select(
@@ -56,9 +62,15 @@ export default async function EmailPage() {
         "dmarc_domain_id, source_ip, email_count, dkim, classification, dmarc_reports(window_begin)"
       )
       .neq("classification", "ok"),
+    supabase
+      .from("dmarc_known_senders")
+      .select(
+        "id, dmarc_domain_id, label, dkim_selector, dkim_domain, envelope_domain"
+      )
+      .order("label"),
   ]);
 
-  const domains = (domainsRes.data ?? []) as DomainRow[];
+  const domains = (domainsRes.data ?? []) as DomainInput[];
   const daily = (dailyRes.data ?? []) as DailyRow[];
   const offenders: OffenderRow[] = (
     (offendersRes.data ?? []) as unknown as RecordRow[]
@@ -73,7 +85,17 @@ export default async function EmailPage() {
     classification: r.classification === "broken" ? "broken" : "unknown",
   }));
 
-  const panels = buildPanels(domains, daily, offenders, today);
+  const panels = buildPanels(domains, daily, offenders, today, INGEST_DOMAIN);
+
+  // Known senders grouped by domain, for each panel's inline editor.
+  const sendersByDomain = new Map<string, KnownSenderRow[]>();
+  for (const row of (sendersRes.data ?? []) as (KnownSenderRow & {
+    dmarc_domain_id: string;
+  })[]) {
+    const list = sendersByDomain.get(row.dmarc_domain_id) ?? [];
+    list.push(row);
+    sendersByDomain.set(row.dmarc_domain_id, list);
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -84,6 +106,11 @@ export default async function EmailPage() {
         </p>
       </div>
 
+      <div className="space-y-2 rounded-card border bg-card p-4">
+        <p className="text-sm font-medium">Add a domain to monitor</p>
+        <AddDomainForm />
+      </div>
+
       {panels.length === 0 ? (
         <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No monitored domains yet.
@@ -91,7 +118,11 @@ export default async function EmailPage() {
       ) : (
         <ul className="grid gap-3">
           {panels.map((panel) => (
-            <DmarcDomainPanel key={panel.id} panel={panel} />
+            <DmarcDomainPanel
+              key={panel.id}
+              panel={panel}
+              senders={sendersByDomain.get(panel.id) ?? []}
+            />
           ))}
         </ul>
       )}
