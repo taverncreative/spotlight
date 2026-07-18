@@ -115,11 +115,37 @@ function SummaryCard({
   );
 }
 
+// The five newest untriaged requests, for the dashboard panel. Display-ready and
+// separate from BoardModel: buildBoard stays aggregation only, so these arrive as
+// their own prop rather than through it.
+export type NewRequestRow = {
+  id: string;
+  source_app: string;
+  client_name: string;
+  submitter: string | null;
+  message: string;
+  created_at: string;
+};
+
+function formatRequestDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 // The cross-client monitoring board: summary counts, a Needs attention zone
 // (one row per at-risk site, worst-first) and the All-projects comparison table
 // (one row per client, worst-first, with monitoring, social and SEO/GA4
 // connection columns). Open goes to that client's Sites tab.
-export function MonitoringBoard({ board }: { board: BoardModel }) {
+export function MonitoringBoard({
+  board,
+  newRequests,
+}: {
+  board: BoardModel;
+  newRequests: NewRequestRow[];
+}) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
   const [dialogKey, setDialogKey] = useState(0);
@@ -157,6 +183,44 @@ export function MonitoringBoard({ board }: { board: BoardModel }) {
         <SummaryCard label="At risk" count={summary.atRisk} tone="warn" />
         <SummaryCard label="Healthy" count={summary.healthy} tone="ok" />
       </div>
+
+      {newRequests.length > 0 ? (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-medium text-muted-foreground">
+              Requests needing attention
+            </h2>
+            <Link
+              href="/requests"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              View all
+            </Link>
+          </div>
+          <ul className="grid gap-2">
+            {newRequests.map((request) => (
+              <li
+                key={request.id}
+                className="space-y-1 rounded-card border bg-card px-4 py-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {request.source_app}
+                  </span>
+                  <span className="text-sm font-medium">
+                    {request.client_name}
+                  </span>
+                </div>
+                <p className="line-clamp-2 text-sm">{request.message}</p>
+                <p className="text-xs text-muted-foreground">
+                  {request.submitter ? `${request.submitter} · ` : ""}
+                  {formatRequestDate(request.created_at)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">

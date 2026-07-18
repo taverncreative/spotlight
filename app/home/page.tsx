@@ -5,6 +5,7 @@ import {
   type BoardModel,
   type ClientComparisonRow,
   type FailedPostAttention,
+  type NewRequestRow,
 } from "@/components/monitoring-board";
 import type { ChipTone } from "@/lib/sites/monitoring";
 import { assessSite } from "@/lib/sites/monitoring";
@@ -240,8 +241,14 @@ function buildBoard(
 
 export default async function HomePage() {
   const supabase = await createClient();
-  const [clientsRes, sitesRes, failedRes, socialCountsRes, sitePropsRes] =
-    await Promise.all([
+  const [
+    clientsRes,
+    sitesRes,
+    failedRes,
+    socialCountsRes,
+    sitePropsRes,
+    newRequestsRes,
+  ] = await Promise.all([
       supabase
         .from("clients")
         .select("id, name, slug, status, blog_base_url")
@@ -270,6 +277,15 @@ export default async function HomePage() {
         .in("status", ["scheduled", "failed", "partial"]),
       // SEO/GA4 connection presence across all sites (property columns only).
       supabase.from("sites").select("client_id, gsc_property, ga4_property"),
+      // The five newest untriaged requests for the dashboard panel. Kept OUT of
+      // buildBoard (which is aggregation only): these rows are already
+      // display-ready, so they go straight to the board as a separate prop.
+      supabase
+        .from("client_requests")
+        .select("id, source_app, client_name, submitter, message, created_at")
+        .eq("status", "new")
+        .order("created_at", { ascending: false })
+        .limit(5),
     ]);
 
   const board = buildBoard(
@@ -280,5 +296,10 @@ export default async function HomePage() {
     (sitePropsRes.data ?? []) as SitePropRow[]
   );
 
-  return <MonitoringBoard board={board} />;
+  return (
+    <MonitoringBoard
+      board={board}
+      newRequests={(newRequestsRes.data ?? []) as NewRequestRow[]}
+    />
+  );
 }

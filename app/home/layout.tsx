@@ -23,12 +23,17 @@ export default async function HomeLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // The same alphabetical, RLS-scoped client list the workspace header uses, so
-  // the selector renders standalone here at the top level (no active client).
-  const { data: clientList } = await supabase
-    .from("clients")
-    .select("name, slug")
-    .order("name");
+  // The client list (for the selector) and the count of untriaged requests (for
+  // the header badge), in one round trip. The count is head:true, so it fetches
+  // no rows, and it is RLS-scoped and hits the status index, so it rides along
+  // essentially free.
+  const [{ data: clientList }, { count: newRequestCount }] = await Promise.all([
+    supabase.from("clients").select("name, slug").order("name"),
+    supabase
+      .from("client_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "new"),
+  ]);
   const clients = clientList ?? [];
 
   const theme = await getTheme();
@@ -45,6 +50,11 @@ export default async function HomeLayout({
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" render={<Link href="/requests" />}>
             Requests
+            {newRequestCount ? (
+              <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-pill bg-brand px-1.5 text-xs font-medium text-brand-foreground">
+                {newRequestCount}
+              </span>
+            ) : null}
           </Button>
           <Button
             variant="ghost"
