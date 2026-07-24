@@ -59,6 +59,9 @@ export default async function HomeLayout({
           <Button variant="ghost" size="sm" render={<Link href="/due" />}>
             Due
           </Button>
+          <Button variant="ghost" size="sm" render={<Link href="/time" />}>
+            Time
+          </Button>
           <Button variant="ghost" size="sm" render={<Link href="/email" />}>
             Email
           </Button>
