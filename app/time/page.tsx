@@ -1,9 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  TimeBoard,
-  type TimeCard,
-  type TimeTotal,
-} from "@/components/time-board";
+import { TimeBoard, type TimeCardInput } from "@/components/time-board";
 
 // The operator-level retainer-time board. RLS on time_entries (owns_client) and
 // clients scopes every row to the operator, so no client filter is needed. Usage
@@ -11,6 +7,11 @@ import {
 // started_at and summed here. The month window is UTC, matching the DB's
 // date_trunc('month', now()); a session that straddles the BST/UTC boundary at
 // the 1st can land in the neighbouring month, which a manual adjust corrects.
+//
+// This page passes settled seconds plus, for a running client, the server
+// started_at; the client board ticks the live elapsed off that timestamp. Card
+// order is computed here once from a settled+live snapshot and kept stable while
+// the board ticks; it refreshes on the next render (a timer start/stop).
 export const dynamic = "force-dynamic";
 
 type EntryRow = {
@@ -30,8 +31,8 @@ type ClientRow = {
 
 // Settled seconds a single entry contributes this month. A finished timer counts
 // its wall time; a manual entry counts its signed adjustment. A RUNNING timer
-// (kind='timer', ended_at null) contributes 0 here — it is deliberately excluded
-// from settled and only surfaces as a live tick in a later slice.
+// (kind='timer', ended_at null) contributes 0 to settled — its elapsed is ticked
+// live on the client instead.
 function settledSeconds(entry: EntryRow): number {
   if (entry.kind === "manual") return entry.adjust_seconds ?? 0;
   if (entry.ended_at === null) return 0;
@@ -66,104 +67,55 @@ export default async function TimePage() {
   const clients = (clientsResult.data ?? []) as ClientRow[];
   const entries = (entriesResult.data ?? []) as EntryRow[];
 
-  // Settled seconds per client this month.
+  // Per client: settled seconds this month, and the running timer's started_at.
+  // A running timer is kind='timer' with ended_at null; if more than one is
+  // somehow open (double-click, crash), we surface the EARLIEST as the single
+  // visible stopwatch — stopTimer closes all of them.
   const usedByClient = new Map<string, number>();
+  const runningByClient = new Map<string, string>();
   for (const entry of entries) {
     usedByClient.set(
       entry.client_id,
       (usedByClient.get(entry.client_id) ?? 0) + settledSeconds(entry)
     );
+    if (entry.kind === "timer" && entry.ended_at === null) {
+      const current = runningByClient.get(entry.client_id);
+      if (current === undefined || entry.started_at < current) {
+        runningByClient.set(entry.client_id, entry.started_at);
+      }
+    }
   }
 
-  const cards: TimeCard[] = clients.map((client) => {
-    const usedSeconds = usedByClient.get(client.id) ?? 0;
-    const allocatedSeconds =
-      client.retainer_minutes === null ? null : client.retainer_minutes * 60;
+  const cards: TimeCardInput[] = clients.map((client) => ({
+    id: client.id,
+    name: client.name,
+    slug: client.slug,
+    retainerMinutes: client.retainer_minutes,
+    settledSeconds: usedByClient.get(client.id) ?? 0,
+    runningSince: runningByClient.get(client.id) ?? null,
+  }));
 
-    if (allocatedSeconds === null) {
-      return {
-        id: client.id,
-        name: client.name,
-        slug: client.slug,
-        retainerMinutes: null,
-        allocatedSeconds: null,
-        usedSeconds,
-        remainingSeconds: null,
-        percent: null,
-        tier: "unset",
-      };
-    }
-
-    const remainingSeconds = allocatedSeconds - usedSeconds;
-    const percent =
-      allocatedSeconds > 0 ? (usedSeconds / allocatedSeconds) * 100 : null;
-    const tier =
-      percent === null
-        ? usedSeconds > 0
-          ? "danger"
-          : "ok"
-        : percent < 75
-          ? "ok"
-          : percent <= 100
-            ? "warn"
-            : "danger";
-
-    return {
-      id: client.id,
-      name: client.name,
-      slug: client.slug,
-      retainerMinutes: client.retainer_minutes,
-      allocatedSeconds,
-      usedSeconds,
-      remainingSeconds,
-      percent,
-      tier,
-    };
-  });
-
-  // Most-depleted first (lowest remaining, so over-allocated float to the top);
-  // clients with no allocation set sink to the end. Ties break by name.
+  // Stable order: most-depleted first (lowest remaining, so over-allocated float
+  // up), clients with no allocation last, ties by name. The snapshot folds in a
+  // running timer's live elapsed so a card mid-session sorts by its true burn.
+  const serverNow = now.getTime();
+  function remainingSnapshot(card: TimeCardInput): number | null {
+    if (card.retainerMinutes === null) return null;
+    const live =
+      card.runningSince === null
+        ? 0
+        : Math.max(0, (serverNow - Date.parse(card.runningSince)) / 1000);
+    return card.retainerMinutes * 60 - (card.settledSeconds + live);
+  }
   cards.sort((a, b) => {
-    const aUnset = a.tier === "unset";
-    const bUnset = b.tier === "unset";
+    const ar = remainingSnapshot(a);
+    const br = remainingSnapshot(b);
+    const aUnset = ar === null;
+    const bUnset = br === null;
     if (aUnset !== bUnset) return aUnset ? 1 : -1;
-    if (!aUnset && !bUnset) {
-      const diff = (a.remainingSeconds ?? 0) - (b.remainingSeconds ?? 0);
-      if (diff !== 0) return diff;
-    }
+    if (ar !== null && br !== null && ar !== br) return ar - br;
     return a.name.localeCompare(b.name);
   });
-
-  // The total bar sums only clients with an allocation set, so the ratio stays
-  // honest; not-set clients are shown as cards but excluded here.
-  let totalAllocatedSeconds = 0;
-  let totalUsedSeconds = 0;
-  for (const card of cards) {
-    if (card.allocatedSeconds === null) continue;
-    totalAllocatedSeconds += card.allocatedSeconds;
-    totalUsedSeconds += card.usedSeconds;
-  }
-  const totalRemainingSeconds = totalAllocatedSeconds - totalUsedSeconds;
-  const totalPercent =
-    totalAllocatedSeconds > 0
-      ? (totalUsedSeconds / totalAllocatedSeconds) * 100
-      : null;
-  const totalTier =
-    totalPercent === null
-      ? "unset"
-      : totalPercent < 75
-        ? "ok"
-        : totalPercent <= 100
-          ? "warn"
-          : "danger";
-
-  const total: TimeTotal = {
-    allocatedSeconds: totalAllocatedSeconds,
-    usedSeconds: totalUsedSeconds,
-    remainingSeconds: totalRemainingSeconds,
-    percent: totalPercent,
-    tier: totalTier,
-  };
 
   const monthLabel = monthStart.toLocaleDateString("en-GB", {
     month: "long",
@@ -176,12 +128,13 @@ export default async function TimePage() {
       <div className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight">Time</h1>
         <p className="text-sm text-muted-foreground">
-          Retainer hours used this month across every client. Resets on the 1st;
-          unused hours do not roll over.
+          Retainer hours used this month across every client. Start or stop each
+          client&apos;s timer from its card; several clients can run at once.
+          Resets on the 1st; unused hours do not roll over.
         </p>
       </div>
 
-      <TimeBoard total={total} cards={cards} monthLabel={monthLabel} />
+      <TimeBoard cards={cards} monthLabel={monthLabel} />
     </div>
   );
 }

@@ -28,6 +28,12 @@ export type AllocationFormState = {
   fieldErrors?: Record<string, string[]>;
 } | null;
 
+// Start/stop stopwatch actions: no field validation, just a success/error flag.
+export type TimerActionState = {
+  ok: boolean;
+  error?: string;
+} | null;
+
 // Field -> messages map from a Zod error, the same helper shape the tasks and
 // sites forms use; kept local so lib/time stays self-contained.
 export function fieldErrorsFromZod(
