@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import {
   allocationFormSchema,
+  adjustmentFormSchema,
   fieldErrorsFromZod,
   type AllocationFormState,
+  type AdjustmentFormState,
   type TimerActionState,
 } from "@/lib/time/schemas";
 
@@ -110,6 +112,58 @@ export async function stopTimer(
     .eq("kind", "timer")
     .is("ended_at", null);
   if (error) return { ok: false, error: "Could not stop the timer." };
+
+  revalidatePath("/time");
+  return { ok: true };
+}
+
+// A manual correction for a forgotten start/stop: a signed adjust_seconds on a
+// chosen day. Add is positive, subtract negative. The day is anchored to noon UTC
+// so it buckets into the month of that calendar date (matching the board); a
+// future day is rejected. kind='manual', no ended_at (per the shape constraint).
+export async function addAdjustment(
+  _previous: AdjustmentFormState,
+  formData: FormData
+): Promise<AdjustmentFormState> {
+  const clientId = String(formData.get("client_id") ?? "");
+  if (!clientId) return { ok: false, error: "Missing client." };
+
+  const parsed = adjustmentFormSchema.safeParse({
+    direction: String(formData.get("direction") ?? "add"),
+    hours: String(formData.get("hours") ?? ""),
+    minutes: String(formData.get("minutes") ?? ""),
+    date: String(formData.get("date") ?? ""),
+    note: String(formData.get("note") ?? ""),
+  });
+  if (!parsed.success) {
+    return { ok: false, fieldErrors: fieldErrorsFromZod(parsed.error) };
+  }
+
+  // No corrections dated in the future; compare calendar days in UTC, the same
+  // basis the board buckets months on.
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  if (parsed.data.date > todayUtc) {
+    return {
+      ok: false,
+      fieldErrors: { date: ["The date cannot be in the future."] },
+    };
+  }
+
+  const { supabase, user } = await requireUser();
+  if (!user) return { ok: false, error: "Not signed in." };
+
+  const magnitude = parsed.data.hours * 3600 + parsed.data.minutes * 60;
+  const adjustSeconds =
+    parsed.data.direction === "subtract" ? -magnitude : magnitude;
+
+  const { error } = await supabase.from("time_entries").insert({
+    client_id: clientId,
+    kind: "manual",
+    started_at: `${parsed.data.date}T12:00:00.000Z`,
+    adjust_seconds: adjustSeconds,
+    note: parsed.data.note || null,
+  });
+  if (error) return { ok: false, error: "Could not save the adjustment." };
 
   revalidatePath("/time");
   return { ok: true };

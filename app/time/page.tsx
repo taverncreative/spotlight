@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { TimeBoard, type TimeCardInput } from "@/components/time-board";
+import {
+  TimeBoard,
+  type TimeCardInput,
+  type AdjustmentItem,
+} from "@/components/time-board";
 
 // The operator-level retainer-time board. RLS on time_entries (owns_client) and
 // clients scopes every row to the operator, so no client filter is needed. Usage
@@ -15,11 +19,13 @@ import { TimeBoard, type TimeCardInput } from "@/components/time-board";
 export const dynamic = "force-dynamic";
 
 type EntryRow = {
+  id: string;
   client_id: string;
   kind: "timer" | "manual";
   started_at: string;
   ended_at: string | null;
   adjust_seconds: number | null;
+  note: string | null;
 };
 
 type ClientRow = {
@@ -59,9 +65,10 @@ export default async function TimePage() {
       .order("name"),
     supabase
       .from("time_entries")
-      .select("client_id, kind, started_at, ended_at, adjust_seconds")
+      .select("id, client_id, kind, started_at, ended_at, adjust_seconds, note")
       .gte("started_at", monthStart.toISOString())
-      .lt("started_at", nextMonthStart.toISOString()),
+      .lt("started_at", nextMonthStart.toISOString())
+      .order("started_at", { ascending: false }),
   ]);
 
   const clients = (clientsResult.data ?? []) as ClientRow[];
@@ -73,6 +80,8 @@ export default async function TimePage() {
   // visible stopwatch — stopTimer closes all of them.
   const usedByClient = new Map<string, number>();
   const runningByClient = new Map<string, string>();
+  // Entries arrive newest-first, so pushing preserves that order per client.
+  const adjustmentsByClient = new Map<string, AdjustmentItem[]>();
   for (const entry of entries) {
     usedByClient.set(
       entry.client_id,
@@ -84,6 +93,16 @@ export default async function TimePage() {
         runningByClient.set(entry.client_id, entry.started_at);
       }
     }
+    if (entry.kind === "manual") {
+      const list = adjustmentsByClient.get(entry.client_id) ?? [];
+      list.push({
+        id: entry.id,
+        startedAt: entry.started_at,
+        adjustSeconds: entry.adjust_seconds ?? 0,
+        note: entry.note,
+      });
+      adjustmentsByClient.set(entry.client_id, list);
+    }
   }
 
   const cards: TimeCardInput[] = clients.map((client) => ({
@@ -93,6 +112,7 @@ export default async function TimePage() {
     retainerMinutes: client.retainer_minutes,
     settledSeconds: usedByClient.get(client.id) ?? 0,
     runningSince: runningByClient.get(client.id) ?? null,
+    adjustments: adjustmentsByClient.get(client.id) ?? [],
   }));
 
   // Stable order: most-depleted first (lowest remaining, so over-allocated float

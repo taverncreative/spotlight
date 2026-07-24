@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AllocationEditor } from "@/components/allocation-editor";
+import { AdjustmentDialog } from "@/components/adjustment-dialog";
 import { startTimer, stopTimer } from "@/lib/time/actions";
 import { type TimerActionState } from "@/lib/time/schemas";
 
@@ -17,6 +18,14 @@ import { type TimerActionState } from "@/lib/time/schemas";
 
 export type Tier = "ok" | "warn" | "danger" | "unset";
 
+// A manual adjustment this month, for the readable per-card list.
+export type AdjustmentItem = {
+  id: string;
+  startedAt: string;
+  adjustSeconds: number;
+  note: string | null;
+};
+
 // One card's raw inputs from the server (all serialisable).
 export type TimeCardInput = {
   id: string;
@@ -26,6 +35,8 @@ export type TimeCardInput = {
   settledSeconds: number;
   // ISO started_at of the running timer for this client, or null if stopped.
   runningSince: string | null;
+  // This month's manual adjustments, newest first.
+  adjustments: AdjustmentItem[];
 };
 
 const TIER_BAR: Record<Tier, string> = {
@@ -180,6 +191,58 @@ function StartStopButton({
   );
 }
 
+// A manual adjustment as a signed h/m label: +30m, −1h 15m.
+function signedAmount(seconds: number): string {
+  const sign = seconds < 0 ? "−" : "+";
+  const abs = Math.abs(seconds);
+  const h = Math.floor(abs / 3600);
+  const m = Math.round((abs % 3600) / 60);
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0 || h === 0) parts.push(`${m}m`);
+  return `${sign}${parts.join(" ")}`;
+}
+
+function adjustmentDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+// This month's adjustments, collapsed by default so the card stays glanceable;
+// expanding shows each correction's date, signed amount and note so a change can
+// be understood later. Renders nothing when there are none.
+function AdjustmentsList({ adjustments }: { adjustments: AdjustmentItem[] }) {
+  if (adjustments.length === 0) return null;
+  return (
+    <details className="group">
+      <summary className="cursor-pointer list-none text-xs text-muted-foreground marker:content-none hover:text-foreground">
+        <span className="underline-offset-4 group-open:underline">
+          Adjustments ({adjustments.length})
+        </span>
+      </summary>
+      <ul className="mt-1.5 space-y-1.5">
+        {adjustments.map((item) => (
+          <li key={item.id} className="text-xs">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-muted-foreground">
+                {adjustmentDate(item.startedAt)}
+              </span>
+              <span className="tabular-nums font-medium">
+                {signedAmount(item.adjustSeconds)}
+              </span>
+            </div>
+            {item.note ? (
+              <p className="text-muted-foreground">{item.note}</p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function ClientCard({
   card,
   now,
@@ -187,6 +250,7 @@ function ClientCard({
   card: TimeCardInput;
   now: number | null;
 }) {
+  const [adjustOpen, setAdjustOpen] = useState(false);
   const { usedSeconds, allocatedSeconds, remainingSeconds, percent, tier } =
     derive(card, now);
   const unset = tier === "unset";
@@ -222,13 +286,33 @@ function ClientCard({
           : `${hours(usedSeconds)}h of ${hours(allocatedSeconds ?? 0)}h`}
       </span>
 
+      <AdjustmentsList adjustments={card.adjustments} />
+
       <div className="mt-0.5 flex flex-wrap items-center justify-between gap-2 border-t pt-2.5">
-        <StartStopButton clientId={card.id} running={running} />
+        <div className="flex items-center gap-1.5">
+          <StartStopButton clientId={card.id} running={running} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setAdjustOpen(true)}
+          >
+            Adjust
+          </Button>
+        </div>
         <AllocationEditor
           clientId={card.id}
           retainerMinutes={card.retainerMinutes}
         />
       </div>
+
+      <AdjustmentDialog
+        key={String(adjustOpen)}
+        open={adjustOpen}
+        onOpenChange={setAdjustOpen}
+        clientId={card.id}
+        clientName={card.name}
+      />
     </li>
   );
 }
