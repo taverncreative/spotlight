@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { Button } from "@/components/ui/button";
 import { PostForm } from "@/components/post-form";
+import { ageDaysSince, seoContextForClient } from "@/lib/posts/seo-context";
 
 export default async function EditPostPage({
   params,
@@ -17,13 +18,18 @@ export default async function EditPostPage({
   const { data: post } = await supabase
     .from("posts")
     .select(
-      "id, title, meta_title, excerpt, focus_keyword, slug, body, meta_description, featured_image, featured_image_alt, client_id"
+      "id, title, meta_title, excerpt, focus_keyword, slug, body, meta_description, featured_image, featured_image_alt, published_at, client_id"
     )
     .eq("id", postId)
     .maybeSingle();
   // RLS already limits to the operator's posts; also ensure it belongs to the
   // client in the URL, not another of the operator's clients.
   if (!post || post.client_id !== client.id) notFound();
+
+  const seoContext = await seoContextForClient(client.id);
+  // Null while it is a draft. Only decides whether the checklist asks whether an
+  // older post is still accurate.
+  const ageDays = ageDaysSince(post.published_at as string | null);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -52,6 +58,8 @@ export default async function EditPostPage({
           featured_image: post.featured_image,
           featured_image_alt: post.featured_image_alt,
         }}
+        seoContext={seoContext}
+        ageDays={ageDays}
       />
     </div>
   );

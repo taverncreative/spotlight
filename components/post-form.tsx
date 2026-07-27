@@ -9,6 +9,11 @@ import { slugify } from "@/lib/clients/schemas";
 import { CharCounter } from "@/components/char-counter";
 import { SeoChecklist } from "@/components/seo-checklist";
 import { createPost, updatePost } from "@/lib/posts/actions";
+// TYPE-ONLY on purpose. seo-context.ts imports the server Supabase client, and
+// importing a value from it here would pull server code into the client bundle
+// -- the same boundary mistake that once turned a shared constant into an empty
+// object at runtime. A type import is erased, so nothing crosses.
+import type { SeoContext } from "@/lib/posts/seo-context";
 import { SEO_LIMITS, type PostFormState } from "@/lib/posts/schemas";
 
 export type PostFormData = {
@@ -32,10 +37,20 @@ export function PostForm({
   clientId,
   clientSlug,
   post,
+  // Which hosts count as the client's own, for the internal-link check. Fetched
+  // server-side and REQUIRED, so a page cannot quietly omit it and leave the
+  // link check permanently failing.
+  seoContext,
+  // Days since publication, or null for a draft. Passed in rather than read from
+  // a clock here so the scorer stays pure and a post scores the same every time
+  // it renders. Only decides whether the "is this still accurate" prompt shows.
+  ageDays = null,
 }: {
   clientId: string;
   clientSlug: string;
   post: PostFormData | null;
+  seoContext: SeoContext;
+  ageDays?: number | null;
 }) {
   const isEdit = post !== null;
   const action = isEdit ? updatePost : createPost;
@@ -300,6 +315,12 @@ export function PostForm({
           body,
           featuredImage: featured.url,
           featuredImageAlt: featured.alt,
+          siteUrls: seoContext.siteUrls,
+          blogBaseUrl: seoContext.blogBaseUrl,
+          // null, not [], while structured data does not exist: the Article
+          // check reads pending rather than failing every post in the system.
+          schemas: null,
+          ageDays,
         }}
       />
 

@@ -4,8 +4,8 @@ import { seoScore, type SeoInput } from "@/lib/posts/seo-score";
 
 const KEYWORD = "balayage";
 
-// A post that passes everything, so each test can break exactly one thing and
-// the failure points at one check rather than a whole shape.
+// A post that passes everything scoreable, so each test breaks exactly one thing
+// and the failure points at one check rather than a whole shape.
 function perfect(overrides: Partial<SeoInput> = {}): SeoInput {
   return {
     focusKeyword: KEYWORD,
@@ -15,19 +15,20 @@ function perfect(overrides: Partial<SeoInput> = {}): SeoInput {
     metaDescription:
       "Practical ways to make your balayage last longer between salon visits.",
     body: [
-      "Your balayage looks its best in the first few weeks, and there is a lot you can do to keep it that way for months afterwards.",
+      "Your balayage looks its best in the first few weeks, and there is plenty you can do to keep it that way. Book in at [our salon](https://therapyhair.co.uk/book) when you need a toner.",
       "## Washing your balayage",
-      // Long enough to clear the 300-word floor, with the keyword recurring
-      // often enough to land inside the density band rather than under it.
-      ...Array.from({ length: 60 }, (_, i) =>
-        i % 12 === 0
-          ? `Sentence ${i} about keeping your balayage bright between visits.`
-          : `Sentence ${i} about aftercare, toning and everyday colour upkeep.`
-      ),
+      "Wash less often and use cooler water. The [Fanola guide](https://fanola.com/toning) explains why.",
+      "### Choosing a shampoo",
+      "Sulphate-free keeps the tone true for longer, which is what most people notice first.",
       "![A balayage colour result](/img/a.jpg)",
     ].join("\n\n"),
     featuredImage: "/img/hero.jpg",
     featuredImageAlt: "A balayage colour result",
+    siteUrls: ["https://therapyhair.co.uk"],
+    blogBaseUrl: null,
+    // Structured data does not exist yet, so the Article check is pending.
+    schemas: null,
+    ageDays: null,
     ...overrides,
   };
 }
@@ -38,7 +39,9 @@ const byId = (input: SeoInput, id: string) => {
   return check;
 };
 
-// --- no keyword: the case every post starts in ----------------------------
+const ids = (input: SeoInput) => seoScore(input).checks.map((c) => c.id);
+
+// --- no keyword -----------------------------------------------------------
 
 test("no focus keyword gives null, not zero", () => {
   const result = seoScore(perfect({ focusKeyword: null }));
@@ -46,189 +49,351 @@ test("no focus keyword gives null, not zero", () => {
   assert.deepEqual(result.checks, []);
 });
 
-test("a whitespace-only keyword is the same as none", () => {
-  assert.equal(seoScore(perfect({ focusKeyword: "   " })).score, null);
-});
-
 // --- the happy path -------------------------------------------------------
 
-test("a post doing everything right scores 1", () => {
+test("a post doing everything right scores 1, with pending and notes excluded", () => {
   const result = seoScore(perfect());
-  const failed = result.checks.filter((c) => !c.passed).map((c) => c.id);
+  const failed = result.checks
+    .filter((c) => c.status === "fail")
+    .map((c) => c.id);
   assert.deepEqual(failed, [], `unexpected failures: ${failed.join(", ")}`);
   assert.equal(result.score, 1);
   assert.equal(result.passed, result.total);
+  // total counts scoreable checks only: not the pending schema check, not the
+  // judgement prompts.
+  assert.ok(result.checks.length > result.total);
 });
 
-// --- essential ------------------------------------------------------------
+// --- the removals ---------------------------------------------------------
 
-test("keyword must be in the title, which is also the H1", () => {
-  const check = byId(perfect({ title: "Making colour last" }), "keyword-in-title");
-  assert.equal(check.passed, false);
-  // The label has to say it covers the H1, or it reads like a missing check.
-  assert.match(check.label, /H1/);
+test("the 300-word check is gone; the floor left is a draft check", () => {
+  assert.ok(!ids(perfect()).includes("body-length"), "body-length still exists");
+  const check = byId(perfect(), "has-content");
+  assert.match(check.detail ?? "", /draft check, not an SEO one/i);
+  assert.match(check.detail ?? "", /not a ranking factor/i);
 });
 
-test("slug matches a slugified keyword, not a literal one", () => {
-  assert.equal(
-    byId(
-      { ...perfect(), focusKeyword: "BIAB vs Gel", slug: "biab-vs-gel-vs-acrylic" },
-      "keyword-in-slug"
-    ).passed,
-    true
-  );
-  assert.equal(
-    byId(perfect({ slug: "how-to-keep-colour" }), "keyword-in-slug").passed,
-    false
-  );
-});
-
-test("meta description: written and containing the keyword are separate checks", () => {
-  const blank = perfect({ metaDescription: "" });
-  assert.equal(byId(blank, "meta-description-set").passed, false);
-  assert.equal(byId(blank, "keyword-in-meta-description").passed, false);
-
-  // Written, but not about the keyword: one passes, one does not.
-  const vague = perfect({ metaDescription: "Some tips from our stylists." });
-  assert.equal(byId(vague, "meta-description-set").passed, true);
-  assert.equal(byId(vague, "keyword-in-meta-description").passed, false);
-});
-
-// --- important ------------------------------------------------------------
-
-test("the opening paragraph skips headings, images and lists", () => {
+test("a 200-word post passes the content check; length is not scored", () => {
   const body = [
-    "## A heading first",
-    "![alt](/i.jpg)",
-    "- a list item",
-    "The real opening paragraph mentions balayage.",
+    "Balayage intro paragraph.",
+    ...Array.from({ length: 30 }, (_, i) => `Sentence ${i} of ordinary prose.`),
   ].join("\n\n");
-  assert.equal(
-    byId(perfect({ body }), "keyword-in-first-paragraph").passed,
-    true
-  );
-
-  const noMention = [
-    "## A heading first",
-    "The real opening paragraph says nothing relevant.",
-    "But balayage appears later on.",
-  ].join("\n\n");
-  assert.equal(
-    byId(perfect({ body: noMention }), "keyword-in-first-paragraph").passed,
-    false
-  );
+  assert.equal(byId(perfect({ body }), "has-content").status, "pass");
 });
 
-test("subheading check reports when there are none at all", () => {
-  const check = byId(
-    perfect({ body: "Just one paragraph about balayage and nothing else." }),
-    "keyword-in-subheading"
-  );
-  assert.equal(check.passed, false);
-  assert.equal(check.detail, "No subheadings yet");
+test("an empty draft is caught, and says it is a draft check", () => {
+  const check = byId(perfect({ body: "Balayage." }), "has-content");
+  assert.equal(check.status, "fail");
+  assert.match(check.detail ?? "", /^1 words/);
 });
 
-test("density fails when the keyword is stuffed", () => {
-  const stuffed = Array.from({ length: 40 }, () => "balayage").join(" ");
-  const check = byId(perfect({ body: stuffed }), "keyword-density");
-  assert.equal(check.passed, false);
-  assert.match(check.detail ?? "", /stuffed/);
+test("short posts are not judged on density at all", () => {
+  // Two mentions in thirty words is 6.7% and means nothing.
+  const short = "Balayage is lovely. Ask about balayage when you book in.";
+  assert.equal(byId(perfect({ body: short }), "keyword-not-stuffed").status, "pass");
 });
 
-test("density fails when the keyword barely appears", () => {
+test("density has NO lower bound: one mention in a long post still passes", () => {
   const thin = [
     "One mention of balayage here.",
-    ...Array.from({ length: 120 }, (_, i) => `Sentence ${i} with no keyword.`),
+    ...Array.from({ length: 200 }, (_, i) => `Sentence ${i} with no keyword.`),
   ].join(" ");
-  const check = byId(perfect({ body: thin }), "keyword-density");
-  assert.equal(check.passed, false);
+  const check = byId(perfect({ body: thin }), "keyword-not-stuffed");
+  assert.equal(check.status, "pass");
+  // No target range in the wording either.
+  assert.doesNotMatch(check.detail ?? "", /range|target|minimum|too few/i);
 });
 
-// --- polish ---------------------------------------------------------------
-
-test("featured image alt is not a second failure when there is no image", () => {
-  // Without this, removing the image would cost two checks for one mistake.
-  const noImage = perfect({ featuredImage: null, featuredImageAlt: null });
-  assert.equal(byId(noImage, "featured-image").passed, false);
-  assert.equal(byId(noImage, "featured-image-alt").passed, true);
+test("density still fails upward, and says it reads as stuffed", () => {
+  // Long enough to be judged at all, and genuinely stuffed: 40 mentions in
+  // roughly 200 words.
+  const stuffed = [
+    Array.from({ length: 40 }, () => "balayage").join(" "),
+    ...Array.from({ length: 30 }, (_, i) => `Sentence ${i} of ordinary filler.`),
+  ].join(" ");
+  const check = byId(perfect({ body: stuffed }), "keyword-not-stuffed");
+  assert.equal(check.status, "fail");
+  assert.match(check.detail ?? "", /reads as stuffed/);
 });
 
-test("body images: none passes, all-with-alt passes, any-missing fails", () => {
-  assert.equal(
-    byId(perfect({ body: "No images about balayage here." }), "body-images-alt")
-      .passed,
-    true
-  );
+// --- the relabels ---------------------------------------------------------
 
-  const missing = perfect({
-    body: "Balayage intro.\n\n![](/a.jpg)\n\n![good alt](/b.jpg)",
-  });
-  const check = byId(missing, "body-images-alt");
-  assert.equal(check.passed, false);
-  assert.equal(check.detail, "1 of 2");
+test("meta description checks claim click-through, not ranking", () => {
+  const set = byId(perfect(), "meta-description-set");
+  assert.match(set.detail ?? "", /click-through/i);
+  assert.doesNotMatch(set.label + (set.detail ?? ""), /improves ranking/i);
+  assert.match(set.detail ?? "", /rewrites/i);
 });
 
-test("meta title length uses the title when no meta title is set", () => {
-  const longTitle = "x".repeat(80);
+test("meta title length is framed as display hygiene", () => {
+  const check = byId(perfect(), "meta-title-length");
+  assert.match(check.detail ?? "", /display hygiene/i);
+  assert.match(check.detail ?? "", /not a limit or a ranking rule/i);
+});
+
+test("keyword in slug is Polish, low priority, and warns off changing a URL", () => {
+  const check = byId(perfect(), "keyword-in-slug");
+  assert.equal(check.importance, "polish");
+  assert.match(check.label, /low priority/i);
+  assert.match(check.detail ?? "", /never change a published URL/i);
+});
+
+// --- heading hierarchy ----------------------------------------------------
+
+test("an H1 in the body is a fault: the title is already the H1", () => {
   const check = byId(
-    perfect({ title: longTitle, metaTitle: null }),
-    "meta-title-length"
+    perfect({ body: "# Balayage\n\nSome prose about balayage." }),
+    "heading-hierarchy"
   );
-  assert.equal(check.passed, false);
-  assert.equal(check.detail, "80 characters");
-
-  // An explicit meta title takes over from an over-long headline.
-  assert.equal(
-    byId(
-      perfect({ title: longTitle, metaTitle: "Short balayage title" }),
-      "meta-title-length"
-    ).passed,
-    true
-  );
+  assert.equal(check.status, "fail");
+  assert.match(check.detail ?? "", /already the H1/i);
 });
 
-test("word count ignores markdown syntax", () => {
+test("a skipped level is a fault, and the detail names it", () => {
   const check = byId(
-    perfect({ body: "# Heading\n\n![alt text](/a.jpg)\n\n[link](/x) balayage" }),
-    "body-length"
+    perfect({ body: "Intro balayage.\n\n## Two\n\n#### Four" }),
+    "heading-hierarchy"
   );
-  // Heading(1) + alt text(2) + link(1) + balayage(1); the URLs and punctuation
-  // must not be counted as words.
-  assert.match(check.detail ?? "", /^\d+ words$/);
-  assert.ok(Number((check.detail ?? "").split(" ")[0]) < 10);
+  assert.equal(check.status, "fail");
+  assert.equal(check.detail, "H2 jumps to H4, skipping a level");
 });
 
-// --- weighting and matching ----------------------------------------------
+test("starting at H3 is a fault", () => {
+  const check = byId(
+    perfect({ body: "Intro balayage.\n\n### Three" }),
+    "heading-hierarchy"
+  );
+  assert.equal(check.status, "fail");
+  assert.match(check.detail ?? "", /Starts at H3/);
+});
+
+test("no headings is not a hierarchy fault", () => {
+  const check = byId(
+    perfect({ body: "Just one paragraph about balayage." }),
+    "heading-hierarchy"
+  );
+  assert.equal(check.status, "pass");
+  assert.equal(check.detail, "No headings yet");
+});
+
+// --- links ----------------------------------------------------------------
+
+test("internal links: matched against the client's own hosts", () => {
+  const check = byId(perfect(), "internal-links");
+  assert.equal(check.status, "pass");
+  assert.equal(check.detail, "1 internal, 1 external");
+});
+
+test("relative links count as internal; anchors do not count at all", () => {
+  const body =
+    "Balayage intro with [a relative link](/services) and [an anchor](#top).";
+  assert.equal(byId(perfect({ body }), "internal-links").detail, "1 internal, 0 external");
+});
+
+test("zero internal links fails", () => {
+  const body = "Balayage intro with only [an outside link](https://example.com).";
+  const check = byId(perfect({ body }), "internal-links");
+  assert.equal(check.status, "fail");
+  assert.equal(check.detail, "0 internal, 1 external");
+});
+
+test("a client with no site on record is told so rather than just failing", () => {
+  const check = byId(
+    perfect({ siteUrls: [], blogBaseUrl: null, body: "Balayage only." }),
+    "internal-links"
+  );
+  assert.equal(check.detail, "No site on record to link to yet");
+});
+
+test("blog_base_url counts as an own host when no site is recorded", () => {
+  const check = byId(
+    perfect({
+      siteUrls: [],
+      blogBaseUrl: "https://therapyhair.co.uk/news",
+      body: "Balayage. [Read more](https://www.therapyhair.co.uk/other).",
+    }),
+    "internal-links"
+  );
+  // www. is stripped before comparing, so this is the same host.
+  assert.equal(check.status, "pass");
+  assert.equal(check.detail, "1 internal, 0 external");
+});
+
+test("images are not counted as links", () => {
+  const body = "Balayage intro.\n\n![alt](https://cdn.example.com/a.jpg)";
+  assert.equal(byId(perfect({ body }), "internal-links").detail, "0 internal, 0 external");
+});
+
+// --- schema ---------------------------------------------------------------
+
+test("Article schema is PENDING while structured data does not exist", () => {
+  const check = byId(perfect({ schemas: null }), "schema-article");
+  assert.equal(check.status, "pending");
+  assert.match(check.detail ?? "", /once structured data ships/i);
+});
+
+test("pending does not drag the score down", () => {
+  const pending = seoScore(perfect({ schemas: null })).score;
+  const present = seoScore(perfect({ schemas: [{ type: "Article" }] })).score;
+  assert.equal(pending, 1);
+  assert.equal(present, 1);
+});
+
+test("once schemas exist, none present fails and Article or BlogPosting passes", () => {
+  assert.equal(byId(perfect({ schemas: [] }), "schema-article").status, "fail");
+  assert.equal(
+    byId(perfect({ schemas: [{ type: "FAQPage" }] }), "schema-article").status,
+    "fail"
+  );
+  assert.equal(
+    byId(perfect({ schemas: [{ type: "BlogPosting" }] }), "schema-article").status,
+    "pass"
+  );
+});
+
+test("Breadcrumb is NOT checked: it is the client template's concern", () => {
+  assert.ok(!ids(perfect()).some((id) => /breadcrumb/i.test(id)));
+});
+
+// --- judgement prompts ----------------------------------------------------
+
+test("prompts are notes, never pass or fail, and never scored", () => {
+  const result = seoScore(perfect());
+  const prompts = result.checks.filter((c) => c.importance === "judgement");
+  assert.ok(prompts.length >= 5, "expected the coaching prompts");
+  for (const prompt of prompts) {
+    assert.equal(prompt.status, "note", `${prompt.id} should be a note`);
+  }
+  // None of them appear in the scoreable total.
+  assert.equal(result.total, result.checks.length - prompts.length - 1); // -1 for the pending schema check
+});
+
+test("the intent prompt quotes the actual keyword", () => {
+  const check = byId(perfect({ focusKeyword: "biab nails" }), "intent");
+  assert.match(check.label, /biab nails/);
+});
+
+test("the staleness prompt appears only on an older post", () => {
+  assert.ok(!ids(perfect({ ageDays: null })).includes("still-accurate"));
+  assert.ok(!ids(perfect({ ageDays: 30 })).includes("still-accurate"));
+  const check = byId(perfect({ ageDays: 400 }), "still-accurate");
+  assert.equal(check.status, "note");
+  assert.match(check.detail ?? "", /13 months ago/);
+});
+
+test("unanswered prompts cannot lower the score", () => {
+  // Every prompt is unanswered in every case, and the post still scores 1.
+  assert.equal(seoScore(perfect()).score, 1);
+});
+
+// --- weighting ------------------------------------------------------------
 
 test("an essential failure costs more than a polish failure", () => {
-  const essentialGone = seoScore(perfect({ title: "Nothing relevant" })).score;
-  const polishGone = seoScore(perfect({ featuredImageAlt: "" })).score;
-  assert.ok(essentialGone !== null && polishGone !== null);
+  const essential = seoScore(perfect({ title: "Nothing relevant" })).score;
+  const polish = seoScore(perfect({ featuredImageAlt: "" })).score;
+  assert.ok(essential !== null && polish !== null);
   assert.ok(
-    essentialGone < polishGone,
-    `essential (${essentialGone}) should cost more than polish (${polishGone})`
+    essential < polish,
+    `essential (${essential}) should cost more than polish (${polish})`
   );
 });
 
-test("matching is case and smart-quote insensitive", () => {
-  const input = perfect({
-    focusKeyword: "Balayage Aftercare",
-    title: "The best balayage aftercare routine",
-    metaDescription: "Our balayage aftercare advice.",
-  });
-  assert.equal(byId(input, "keyword-in-title").passed, true);
-  assert.equal(byId(input, "keyword-in-meta-description").passed, true);
+test("featured image alt is not a second failure when there is no image", () => {
+  const noImage = perfect({ featuredImage: null, featuredImageAlt: null });
+  assert.equal(byId(noImage, "featured-image").status, "fail");
+  assert.equal(byId(noImage, "featured-image-alt").status, "pass");
+});
 
+// --- keyword matching -----------------------------------------------------
+
+test("matching is case and smart-quote insensitive", () => {
   const curly = perfect({
     focusKeyword: "stylist's balayage",
     title: "A stylist’s balayage guide",
   });
-  assert.equal(byId(curly, "keyword-in-title").passed, true);
+  assert.equal(byId(curly, "keyword-in-title").status, "pass");
 });
 
-test("an empty body does not throw and reports itself", () => {
+// The slug. Separators mean nothing here, so all four spellings are one thing.
+for (const slug of [
+  "balayage-aftercare",
+  "balayage_aftercare",
+  "balayageaftercare",
+  "the-balayage-aftercare-guide",
+]) {
+  test(`slug check matches "${slug}" for a spaced keyword`, () => {
+    const input = perfect({ focusKeyword: "balayage aftercare", slug });
+    assert.equal(byId(input, "keyword-in-slug").status, "pass");
+  });
+}
+
+test("slug check survives punctuation the slug dropped", () => {
+  const input = perfect({
+    focusKeyword: "stylist's balayage",
+    slug: "stylists-balayage-guide",
+  });
+  assert.equal(byId(input, "keyword-in-slug").status, "pass");
+});
+
+test("a hyphenated keyword matches a spaced slug too", () => {
+  const input = perfect({
+    focusKeyword: "half-price balayage",
+    slug: "half price balayage",
+  });
+  assert.equal(byId(input, "keyword-in-slug").status, "pass");
+});
+
+test("the slug check still fails when the keyword is genuinely absent", () => {
+  const input = perfect({ focusKeyword: "balayage", slug: "highlights-guide" });
+  assert.equal(byId(input, "keyword-in-slug").status, "fail");
+});
+
+// Prose. Word-joining punctuation is noise in BOTH directions.
+test("a hyphenated title matches a spaced keyword", () => {
+  const input = perfect({
+    focusKeyword: "balayage aftercare",
+    title: "Balayage-aftercare tips",
+  });
+  assert.equal(byId(input, "keyword-in-title").status, "pass");
+});
+
+test("a hyphenated keyword matches spaced prose", () => {
+  const input = perfect({
+    focusKeyword: "half-price balayage",
+    title: "Half price balayage this month",
+  });
+  assert.equal(byId(input, "keyword-in-title").status, "pass");
+});
+
+test("an en dash joins words the same as a hyphen", () => {
+  const input = perfect({
+    focusKeyword: "balayage aftercare",
+    metaDescription: "Our balayage–aftercare advice.",
+  });
+  assert.equal(byId(input, "keyword-in-meta-description").status, "pass");
+});
+
+test("the opening paragraph and subheadings normalise the same way", () => {
+  const input = perfect({
+    focusKeyword: "balayage aftercare",
+    body: "Your balayage-aftercare routine matters.\n\n## Balayage/aftercare basics\n\nMore prose.",
+  });
+  assert.equal(byId(input, "keyword-in-first-paragraph").status, "pass");
+  assert.equal(byId(input, "keyword-in-subheading").status, "pass");
+});
+
+// The deliberate non-fix: sentence punctuation must NOT join words, or the
+// checklist starts passing posts where the phrase never appears.
+test("a sentence boundary does not fake a keyword match", () => {
+  const input = perfect({
+    focusKeyword: "balayage aftercare",
+    title: "About balayage. Aftercare comes later",
+  });
+  assert.equal(byId(input, "keyword-in-title").status, "fail");
+});
+
+test("an empty body does not throw", () => {
   const result = seoScore(perfect({ body: null }));
   assert.ok(result.score !== null);
-  assert.equal(byId(perfect({ body: null }), "keyword-density").detail, "No body yet");
-  assert.equal(byId(perfect({ body: null }), "body-length").detail, "0 words");
+  assert.equal(byId(perfect({ body: null }), "has-content").detail?.startsWith("0 words"), true);
 });

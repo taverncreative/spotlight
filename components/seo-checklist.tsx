@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Minus, X } from "lucide-react";
+import { Check, Clock, Minus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   IMPORTANCE_LABELS,
   IMPORTANCE_ORDER,
   seoScore,
+  type SeoCheck,
   type SeoInput,
 } from "@/lib/posts/seo-score";
 
@@ -15,14 +16,61 @@ import {
 // meta description and a missing image alt are both failures, and treating them
 // the same trains you to ignore the list. The groups say which to fix first.
 //
+// FOUR STATES, not two. "Worth checking" prompts are coaching and are drawn as
+// questions with no tick, no cross and no count, because a question nobody has
+// answered is not a failure. "Pending" checks are for features that do not exist
+// yet, and say so rather than reading as something the writer got wrong.
+//
 // The scoring itself lives in lib/posts/seo-score.ts as a pure function, so this
 // component only decides how to draw the result. That split is why the rules
 // have tests and this does not need them.
+
+function StatusIcon({ check }: { check: SeoCheck }) {
+  if (check.status === "pass") {
+    return (
+      <Check
+        aria-hidden="true"
+        className="mt-0.5 size-3.5 shrink-0 text-counter-ok"
+      />
+    );
+  }
+  if (check.status === "pending") {
+    return (
+      <Clock
+        aria-hidden="true"
+        className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
+      />
+    );
+  }
+  // A polish failure is a nudge, not a problem, so it is never a red cross.
+  if (check.importance === "polish") {
+    return (
+      <Minus
+        aria-hidden="true"
+        className="mt-0.5 size-3.5 shrink-0 text-status-warn"
+      />
+    );
+  }
+  return (
+    <X
+      aria-hidden="true"
+      className="mt-0.5 size-3.5 shrink-0 text-status-danger"
+    />
+  );
+}
+
+const SR_STATUS: Record<SeoCheck["status"], string> = {
+  pass: " passed",
+  fail: " not done",
+  pending: " not available yet",
+  note: "",
+};
+
 export function SeoChecklist({ input }: { input: SeoInput }) {
   const result = seoScore(input);
 
   // No focus keyword: nothing to check against, so the panel asks for one rather
-  // than showing twelve failures for a post that has done nothing wrong.
+  // than showing a dozen failures for a post that has done nothing wrong.
   if (result.score === null) {
     return (
       <div className="rounded-card border border-dashed bg-card/50 p-4">
@@ -60,7 +108,11 @@ export function SeoChecklist({ input }: { input: SeoInput }) {
           (check) => check.importance === importance
         );
         if (group.length === 0) return null;
-        const failed = group.filter((check) => !check.passed).length;
+
+        // Prompts are not scored, so they get no "to fix" count. Neither do
+        // pending checks, which are not the writer's to fix.
+        const failed = group.filter((check) => check.status === "fail").length;
+        const coaching = importance === "judgement";
 
         return (
           <section key={importance} className="space-y-1">
@@ -70,29 +122,27 @@ export function SeoChecklist({ input }: { input: SeoInput }) {
                 <span className="tabular-nums">{failed} to fix</span>
               ) : null}
             </h3>
-            <ul className="space-y-1">
+            <ul className={cn("space-y-1", coaching && "space-y-1.5")}>
               {group.map((check) => (
                 <li key={check.id} className="flex items-baseline gap-2">
-                  {check.passed ? (
-                    <Check
+                  {coaching ? (
+                    // A small dash instead of a verdict icon: these are things
+                    // to think about, and a tick box would invite ticking them.
+                    <span
                       aria-hidden="true"
-                      className="mt-0.5 size-3.5 shrink-0 text-counter-ok"
-                    />
-                  ) : importance === "polish" ? (
-                    <Minus
-                      aria-hidden="true"
-                      className="mt-0.5 size-3.5 shrink-0 text-status-warn"
+                      className="mt-1.5 size-1 shrink-0 rounded-full bg-muted-foreground/50"
                     />
                   ) : (
-                    <X
-                      aria-hidden="true"
-                      className="mt-0.5 size-3.5 shrink-0 text-status-danger"
-                    />
+                    <StatusIcon check={check} />
                   )}
                   <span className="min-w-0 flex-1 text-xs">
                     <span
                       className={
-                        check.passed ? "text-muted-foreground" : undefined
+                        coaching || check.status === "pass"
+                          ? "text-muted-foreground"
+                          : check.status === "pending"
+                            ? "text-muted-foreground"
+                            : undefined
                       }
                     >
                       {check.label}
@@ -102,9 +152,7 @@ export function SeoChecklist({ input }: { input: SeoInput }) {
                         — {check.detail}
                       </span>
                     ) : null}
-                    <span className="sr-only">
-                      {check.passed ? " passed" : " not done"}
-                    </span>
+                    <span className="sr-only">{SR_STATUS[check.status]}</span>
                   </span>
                 </li>
               ))}
