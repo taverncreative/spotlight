@@ -2,6 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import {
+  CalendarClock,
+  FileText,
+  Inbox,
+  ListTodo,
+  Printer,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   ClientFormDialog,
@@ -32,11 +39,72 @@ export function initialsFrom(name: string): string {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
+// The five per-client counts. Tallied in one pass over five lean queries (see
+// app/home/page.tsx), never one query per client.
+export type ClientCounts = {
+  requests: number;
+  tasks: number;
+  printOrders: number;
+  social: number;
+  blog: number;
+};
+
+export const ZERO_COUNTS: ClientCounts = {
+  requests: 0,
+  tasks: 0,
+  printOrders: 0,
+  social: 0,
+  blog: 0,
+};
+
+// Icon, label and accessor per counter. The label is what a screen reader and a
+// hover tooltip get; the icon alone carries it visually, because five words on a
+// card is a paragraph and this has to be readable at a glance.
+const COUNTERS: {
+  key: keyof ClientCounts;
+  label: string;
+  Icon: typeof Inbox;
+}[] = [
+  { key: "requests", label: "open requests", Icon: Inbox },
+  { key: "tasks", label: "open tasks", Icon: ListTodo },
+  { key: "printOrders", label: "new print orders", Icon: Printer },
+  { key: "social", label: "scheduled social posts", Icon: CalendarClock },
+  { key: "blog", label: "published blog posts", Icon: FileText },
+];
+
+// Zeros are omitted rather than rendered, so a card shows only what is actually
+// there. A client with nothing open shows no counter row at all, which is the
+// point: a row of noughts reads as busywork and hides the cards that matter.
+function CounterRow({ counts }: { counts: ClientCounts }) {
+  const shown = COUNTERS.filter((counter) => counts[counter.key] > 0);
+  if (shown.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      {shown.map(({ key, label, Icon }) => (
+        <span
+          key={key}
+          title={`${counts[key]} ${label}`}
+          className="inline-flex items-center gap-1 text-muted-foreground"
+        >
+          <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+          <span className="text-xs font-medium tabular-nums text-foreground">
+            {counts[key]}
+          </span>
+          <span className="sr-only">{label}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function ClientCard({
   client,
+  counts,
   onEdit,
 }: {
   client: ClientRow;
+  counts: ClientCounts;
   onEdit: (client: ClientRow) => void;
 }) {
   return (
@@ -54,6 +122,8 @@ function ClientCard({
           {client.name}
         </p>
       </div>
+
+      <CounterRow counts={counts} />
 
       <div className="mt-auto flex items-center justify-between gap-2">
         <Button
@@ -76,7 +146,15 @@ function ClientCard({
   );
 }
 
-export function ClientGrid({ clients }: { clients: ClientRow[] }) {
+export function ClientGrid({
+  clients,
+  counts,
+}: {
+  clients: ClientRow[];
+  // Keyed by client id. A client with no rows anywhere is simply absent from the
+  // map, so the lookup falls back to zeros rather than needing an entry each.
+  counts: Record<string, ClientCounts>;
+}) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
   // The dialog is remounted under a changing key so each open starts fresh,
@@ -113,7 +191,12 @@ export function ClientGrid({ clients }: { clients: ClientRow[] }) {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {clients.map((client) => (
-            <ClientCard key={client.id} client={client} onEdit={openEdit} />
+            <ClientCard
+              key={client.id}
+              client={client}
+              counts={counts[client.id] ?? ZERO_COUNTS}
+              onEdit={openEdit}
+            />
           ))}
         </ul>
       )}
