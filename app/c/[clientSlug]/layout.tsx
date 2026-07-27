@@ -28,6 +28,7 @@ export default async function ClientLayout({
   const { data: clientList } = await supabase
     .from("clients")
     .select("name, slug")
+    .neq("status", "archived")
     .order("name");
   const clients = clientList ?? [];
 

@@ -28,10 +28,15 @@ export const requireClient = cache(
     } = await supabase.auth.getUser();
     if (!user) redirect("/login");
 
+    // Archived clients 404 here, so every one of their module pages goes with
+    // them: an archived client is out of the working app, not merely hidden from
+    // the grid. Restoring and deleting therefore live on the grid's Archived
+    // section, which is the one surface that still knows they exist.
     const { data: client } = await supabase
       .from("clients")
       .select("id, name, slug")
       .eq("slug", slug)
+      .neq("status", "archived")
       .maybeSingle();
     if (!client) notFound();
 

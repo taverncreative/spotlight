@@ -106,6 +106,7 @@ export default async function PrintOrdersPage({
   const { data: clientList } = await supabase
     .from("clients")
     .select("id, name")
+    .neq("status", "archived")
     .order("name");
   const clients = (clientList ?? []) as AssignableClient[];
   // Items come back embedded rather than in a second query. The child rows are

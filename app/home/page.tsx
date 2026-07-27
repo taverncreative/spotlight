@@ -37,6 +37,34 @@ import { healthScore, type HealthInput } from "@/lib/clients/health";
 // at all any more, because nothing on this page needs to know it exists.
 type ClientConfigRow = ClientRow & { services: string[] | null };
 
+// What deleting an archived client would destroy, counted from live data so the
+// confirmation names real numbers rather than a generic warning. Only the
+// CASCADE tables are counted; requests, print orders and Meta accounts survive
+// the delete and are described separately in the dialog.
+export type DeletionImpact = {
+  posts: number;
+  social: number;
+  sites: number;
+  tasks: number;
+  timeEntries: number;
+  apiKeys: number;
+  dmarcDomains: number;
+};
+
+export type ArchivedClient = ClientRow & { impact: DeletionImpact };
+
+function zeroImpact(): DeletionImpact {
+  return {
+    posts: 0,
+    social: 0,
+    sites: 0,
+    tasks: 0,
+    timeEntries: 0,
+    apiKeys: 0,
+    dmarcDomains: 0,
+  };
+}
+
 // overdue is not selected; it is derived below from due_date against today.
 type TaskRow = Omit<TaskItem, "overdue"> & { client_id: string | null };
 type RequestRow = RequestItem & { client_id: string | null };
@@ -245,7 +273,12 @@ export default async function HomePage() {
 
   // services is used below to score health and then left behind: ClientGrid is a
   // client component, and what it needs is the score, not the inputs.
-  const clientRows = (clientsRes.data ?? []) as ClientConfigRow[];
+  const allRows = (clientsRes.data ?? []) as ClientConfigRow[];
+  // Archived clients leave the grid entirely and reappear only in their own
+  // section below it. They are also excluded from the health scoring loop below,
+  // since a client we no longer work for cannot be neglected.
+  const clientRows = allRows.filter((row) => row.status !== "archived");
+  const archivedRows = allRows.filter((row) => row.status === "archived");
   const clients: ClientRow[] = clientRows.map(
     ({ services, ...client }) => client
   );
@@ -307,6 +340,45 @@ export default async function HomePage() {
     });
   }
 
+  // What deleting each archived client would take with it. Seven lean queries
+  // rather than seven per client, and skipped entirely when nothing is archived,
+  // which is the normal case.
+  const archived: ArchivedClient[] = archivedRows.map(
+    ({ services, ...client }) => ({ ...client, impact: zeroImpact() })
+  );
+  if (archived.length > 0) {
+    const ids = archived.map((client) => client.id);
+    const impactByClient = new Map<string, DeletionImpact>(
+      archived.map((client) => [client.id, client.impact])
+    );
+    const tally = (
+      rows: { client_id: string | null }[] | null,
+      key: keyof DeletionImpact
+    ) => {
+      for (const row of rows ?? []) {
+        if (!row.client_id) continue;
+        const impact = impactByClient.get(row.client_id);
+        if (impact) impact[key]++;
+      }
+    };
+    const [posts, social, sites, tasks, time, keys, dmarc] = await Promise.all([
+      supabase.from("posts").select("client_id").in("client_id", ids),
+      supabase.from("social_posts").select("client_id").in("client_id", ids),
+      supabase.from("sites").select("client_id").in("client_id", ids),
+      supabase.from("client_tasks").select("client_id").in("client_id", ids),
+      supabase.from("time_entries").select("client_id").in("client_id", ids),
+      supabase.from("client_api_keys").select("client_id").in("client_id", ids),
+      supabase.from("dmarc_domains").select("client_id").in("client_id", ids),
+    ]);
+    tally(posts.data, "posts");
+    tally(social.data, "social");
+    tally(sites.data, "sites");
+    tally(tasks.data, "tasks");
+    tally(time.data, "timeEntries");
+    tally(keys.data, "apiKeys");
+    tally(dmarc.data, "dmarcDomains");
+  }
+
   // The rows the grid cannot show, because they belong to no client.
   const unassigned: UnassignedCounts = {
     requests: requestRows.filter((row) => !row.client_id).length,
@@ -314,6 +386,11 @@ export default async function HomePage() {
   };
 
   return (
-    <ClientGrid clients={clients} cards={cards} unassigned={unassigned} />
+    <ClientGrid
+      clients={clients}
+      cards={cards}
+      unassigned={unassigned}
+      archived={archived}
+    />
   );
 }

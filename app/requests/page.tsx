@@ -112,7 +112,11 @@ export default async function RequestsPage({
       // nobody's tab until they are assigned below.
       .is("client_id", null)
       .order("created_at", { ascending: false }),
-    supabase.from("clients").select("id, name").order("name"),
+    supabase
+      .from("clients")
+      .select("id, name")
+      .neq("status", "archived")
+      .order("name"),
   ]);
   const requests = (data ?? []) as RequestRow[];
   const clients = (clientList ?? []) as AssignableClient[];

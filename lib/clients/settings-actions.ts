@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { encryptToken } from "@/lib/oauth/encryption";
 import {
@@ -118,4 +119,82 @@ export async function setClientLogo(
 
   revalidatePath("/home");
   return { ok: true };
+}
+
+// --- archive, restore, delete ---------------------------------------------
+//
+// Archive is the EXISTING status field finally doing something. The column has
+// carried active|paused|archived since 0008, but exactly one query in the whole
+// app read it (the /time board), so archiving a client changed nothing you could
+// see. It now drops them from the grid, the client selector, requireClient and
+// the assign dropdowns, which is what it always meant.
+
+export async function archiveClient(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.from("clients").update({ status: "archived" }).eq("id", id);
+  revalidatePath("/home");
+  // The client's own pages 404 from here, so there is nowhere to send them back
+  // to; the grid's Archived section is the only surface that still lists them.
+  redirect("/home");
+}
+
+export async function restoreClient(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  await supabase.from("clients").update({ status: "active" }).eq("id", id);
+  revalidatePath("/home");
+}
+
+// Permanent, and gated three ways.
+//
+// The cascade is why. Deleting a client takes their sites, posts, social posts,
+// API keys, DMARC domains, tasks AND time entries with it; time_entries is
+// billing history with no other record anywhere. Requests, print orders and Meta
+// accounts survive but are unlinked, so inbound work reappears in the unassigned
+// inbox with no client left to reassign it to.
+//
+// The three gates, all enforced HERE and not merely in the dialog:
+//
+//   1. The client must already be archived. Deletion is never one click from the
+//      roster; it takes a deliberate earlier step.
+//   2. The typed name must match exactly. A confirm button can be clicked
+//      through; a name has to be read first.
+//   3. RLS scopes the delete to the operator's own rows regardless.
+export async function deleteClient(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const typedName = String(formData.get("confirm_name") ?? "").trim();
+  if (!id || !typedName) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: client } = await supabase
+    .from("clients")
+    .select("id, name, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (!client) return;
+  if (client.status !== "archived") return;
+  if (typedName !== client.name) return;
+
+  await supabase.from("clients").delete().eq("id", id);
+  revalidatePath("/home");
 }

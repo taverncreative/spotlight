@@ -8,6 +8,7 @@ import { initialsFrom } from "@/components/client-grid";
 import { SERVICES, SERVICE_LABELS } from "@/lib/clients/health";
 import { uploadClientLogo } from "@/lib/clients/logo-upload";
 import {
+  archiveClient,
   setClientLogo,
   updateClientSettings,
 } from "@/lib/clients/settings-actions";
@@ -277,6 +278,20 @@ export function ClientSettingsForm({
           ) : null}
         </div>
       </form>
+
+      {/* Outside the form above: a form inside a form is invalid HTML, and this
+          is a different kind of action from saving a field. */}
+      <Section
+        title="Archive"
+        description="For a client you no longer work for but might again. They leave the client grid, the client selector and the assign dropdowns, and their module pages stop resolving. Nothing is deleted and you can restore them from the archived list on the home page, which is also the only place they can be deleted permanently."
+      >
+        <form action={archiveClient}>
+          <input type="hidden" name="id" value={clientId} />
+          <Button type="submit" variant="outline">
+            Archive {clientName}
+          </Button>
+        </form>
+      </Section>
     </div>
   );
 }

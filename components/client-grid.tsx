@@ -18,6 +18,8 @@ import {
   type ClientRow,
 } from "@/components/client-form-dialog";
 import { SERVICE_LABELS, type HealthResult } from "@/lib/clients/health";
+import { ArchivedClients } from "@/components/client-archived";
+import type { ArchivedClient } from "@/app/home/page";
 import {
   EMPTY_CARD_DATA,
   type ClientCardData,
@@ -560,12 +562,16 @@ export function ClientGrid({
   clients,
   cards,
   unassigned,
+  archived,
 }: {
   clients: ClientRow[];
   // Keyed by client id. A client with no rows anywhere is simply absent from the
   // map, so the lookup falls back to empty rather than needing an entry each.
   cards: Record<string, ClientCardData>;
   unassigned: UnassignedCounts;
+  // Clients that have left the working app. They render in their own collapsed
+  // section below the grid, which is the only place they still appear.
+  archived: ArchivedClient[];
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
@@ -623,6 +629,8 @@ export function ClientGrid({
           ))}
         </ul>
       )}
+
+      <ArchivedClients clients={archived} />
 
       <ClientFormDialog
         key={dialogKey}
