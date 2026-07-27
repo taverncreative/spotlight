@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createPublicClient, resolveClientId } from "@/lib/content-api/auth";
 import { composeSchemas, parseSchemas } from "@/lib/posts/structured-data";
+import { openGraph } from "@/lib/posts/open-graph";
 
 // Public content API -- a single PUBLISHED post by slug (full Markdown body).
 // Same keyed, anon, no-store, function-only read path as the list route. A draft
@@ -53,9 +54,10 @@ export async function GET(
   // datePublished honest: publishing from the blog list changes published_at
   // without going near the editor, and a stored copy would not notice.
   //
-  // client_name and updated_at are inputs to that composition, not part of the
-  // contract, so they are dropped from the response rather than added to it.
-  const { schemas, client_name, updated_at, ...rest } = post;
+  // client_name, updated_at and blog_base_url are inputs to that composition and
+  // to og below, not part of the contract, so they are dropped from the response
+  // rather than added to it.
+  const { schemas, client_name, updated_at, blog_base_url, ...rest } = post;
   const body = {
     ...rest,
     schemas: composeSchemas(
@@ -71,6 +73,20 @@ export async function GET(
       },
       parseSchemas(schemas)
     ),
+    // Open Graph, derived the same way and for the same reason: every value
+    // comes from a column the post already has, so there is nothing to store and
+    // nothing to go stale. Absent keys are deliberate -- a crawler falls back
+    // sensibly on a missing tag and asserts a wrong one.
+    og: openGraph({
+      title: post.title,
+      metaTitle: post.meta_title,
+      metaDescription: post.meta_description,
+      excerpt: post.excerpt,
+      featuredImage: post.featured_image,
+      featuredImageAlt: post.featured_image_alt,
+      slug: post.slug,
+      blogBaseUrl: blog_base_url,
+    }),
   };
 
   return NextResponse.json(body, { headers: NO_STORE });
