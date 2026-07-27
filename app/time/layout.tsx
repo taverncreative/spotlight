@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Wordmark } from "@/components/wordmark";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require-user";
 import { getTheme } from "@/lib/theme";
 import { signOut } from "@/lib/auth/actions";
 
@@ -15,12 +14,9 @@ export default async function TimeLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
+  // Memoised per request, so anything else in this render that needs the user
+  // shares the one auth round-trip rather than making its own.
+  const user = await requireUser();
   const theme = await getTheme();
 
   return (

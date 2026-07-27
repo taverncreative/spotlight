@@ -29,9 +29,14 @@ export type AllocationFormState = {
 } | null;
 
 // Start/stop stopwatch actions: no field validation, just a success/error flag.
+// runningSince is what the card needs to keep ticking without a page refetch:
+// the server's started_at on a successful start, null on a successful stop.
+// Starting a stopwatch changes one card, so it no longer revalidates the whole
+// board; the card carries this value locally instead.
 export type TimerActionState = {
   ok: boolean;
   error?: string;
+  runningSince?: string | null;
 } | null;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
