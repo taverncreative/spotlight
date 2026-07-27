@@ -9,9 +9,12 @@ import { cn } from "@/lib/utils";
 // advice arrives too late to act on. The amber band is the useful part, because
 // it says "you are close, start tightening" while there is still room to.
 //
-// Note the palette has no green: --status-ok is a deepened gold. "Comfortable"
-// therefore reads as gold here rather than green, which is deliberate rather
-// than a substitution.
+// Comfortable is GREEN, and it is the only green in the app. The palette is warm
+// throughout and --status-ok is a deepened gold, which sitting next to amber
+// reads as a milder warning rather than as "fine": the difference between the
+// two was saturation, not kind. A counter whose whole job is to distinguish
+// comfortable from approaching cannot afford that. --counter-ok exists for this
+// one use and nothing else was repainted.
 //
 // The limit is advice, not a constraint. Nothing stops you going over, because
 // sometimes the right title is 63 characters and a hard stop would just mean
@@ -39,7 +42,7 @@ export function CharCounter({
       ? "text-status-danger"
       : count >= amber
         ? "text-status-warn"
-        : "text-status-ok";
+        : "text-counter-ok";
 
   return (
     <div className="flex items-baseline justify-between gap-2">

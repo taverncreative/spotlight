@@ -149,18 +149,29 @@ export function PostForm({
           Meta title{" "}
           <span className="text-muted-foreground">(optional)</span>
         </label>
+        {/* The SUBMITTED value, separate from the visible one. Blank while the
+            field is still mirroring, so the column stays null and keeps
+            following the headline. */}
         <input
-          id="post-meta-title"
-          // Submits blank while it is still mirroring the title, so the column
-          // stays null and keeps following the headline.
+          type="hidden"
           name="meta_title"
           value={metaTitleEdited ? metaTitle : ""}
-          // The visible text is the mirror; the submitted value is above.
+        />
+        {/* The visible field carries the mirrored text as a real value, not a
+            placeholder. That is the difference between overwriting and editing:
+            with a placeholder the box is empty, so clicking in and typing starts
+            from nothing and the usual move -- keep the title, add "Therapy
+            Canterbury" on the end -- is impossible. With the text actually in
+            the field you can put the cursor anywhere in it. The first keystroke
+            detaches, carrying whatever is in the box at that moment. */}
+        <input
+          id="post-meta-title"
+          value={shownMetaTitle}
           onChange={(event) => {
             setMetaTitle(event.target.value);
             setMetaTitleEdited(true);
           }}
-          placeholder={title || "Follows the post title"}
+          placeholder="Follows the post title"
           className={fieldInputClass}
         />
         <CharCounter
