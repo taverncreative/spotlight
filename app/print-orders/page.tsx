@@ -3,7 +3,14 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
 import { createClient } from "@/lib/supabase/server";
-import { updatePrintOrderStatus } from "@/lib/print-orders/actions";
+import {
+  assignPrintOrderToClient,
+  updatePrintOrderStatus,
+} from "@/lib/print-orders/actions";
+import {
+  AssignClient,
+  type AssignableClient,
+} from "@/components/assign-client";
 
 type PrintOrderItem = {
   name: string;
@@ -95,6 +102,12 @@ export default async function PrintOrdersPage({
   const { status: statusParam, source: sourceParam } = await searchParams;
 
   const supabase = await createClient();
+  // The client list rides along for the assign control on unassigned rows.
+  const { data: clientList } = await supabase
+    .from("clients")
+    .select("id, name")
+    .order("name");
+  const clients = (clientList ?? []) as AssignableClient[];
   // Items come back embedded rather than in a second query. The child rows are
   // RLS-scoped through their parent (print_order_items_operator_select), so the
   // embed is subject to the same policy the header is.
@@ -224,7 +237,7 @@ export default async function PrintOrdersPage({
                   </span>
                   {order.client_id ? null : (
                     <span className="text-xs text-muted-foreground">
-                      (not a managed client)
+                      (not assigned)
                     </span>
                   )}
                 </div>
@@ -262,6 +275,16 @@ export default async function PrintOrdersPage({
                     {formatDate(order.ordered_at ?? order.created_at)}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
+                    {/* Only on unassigned rows, same reasoning as the requests
+                        inbox: until an order is attached to a client it shows
+                        on no client's card. */}
+                    {order.client_id ? null : (
+                      <AssignClient
+                        id={order.id}
+                        clients={clients}
+                        action={assignPrintOrderToClient}
+                      />
+                    )}
                     {order.status === "new" ? (
                       <MoveButton
                         id={order.id}

@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  AlertCircle,
   CalendarClock,
   ChevronDown,
   FileText,
@@ -20,6 +21,7 @@ import {
   EMPTY_CARD_DATA,
   type ClientCardData,
   type ClientCounts,
+  type UnassignedCounts,
 } from "@/lib/clients/counts";
 
 // The operator home: one warm tile per client, expanding in place to show what
@@ -82,10 +84,15 @@ const COUNTERS: {
 // point: a row of noughts reads as busywork and hides the cards that matter.
 function CounterRow({ counts }: { counts: ClientCounts }) {
   const shown = COUNTERS.filter((counter) => counts[counter.key] > 0);
-  if (shown.length === 0) return null;
 
+  // The container is rendered even when every counter is zero, and min-h-5
+  // reserves one line of it. That is what makes collapsed cards uniform without
+  // going back to items-stretch: the row's SPACE is constant, its CONTENTS are
+  // still hidden when zero. The avatar already fixes the header row at 44px
+  // whether the name runs to one line or two, so this was the only thing left
+  // making one card taller than its neighbour.
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+    <div className="flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1.5">
       {shown.map(({ key, label, Icon }) => (
         <span
           key={key}
@@ -133,14 +140,78 @@ function DetailSection({
 // One row: what it is on the left, when it is on the right. The date column is
 // fixed and tabular so the dates line up down the card rather than ragging along
 // after titles of different lengths.
-function DetailRow({ text, date }: { text: string; date: string | null }) {
+//
+// overdue tints the date rather than the whole row: the task is not a problem,
+// its date is. The flag is computed on the server (see app/home/page.tsx),
+// because reading the clock during a client render answers differently on each
+// side of hydration.
+function DetailRow({
+  text,
+  date,
+  overdue = false,
+}: {
+  text: string;
+  date: string | null;
+  overdue?: boolean;
+}) {
   return (
     <li className="flex items-baseline justify-between gap-3 text-xs">
       <span className="min-w-0 flex-1 truncate">{text}</span>
-      <span className="shrink-0 tabular-nums text-muted-foreground">
+      <span
+        title={overdue ? "Overdue" : undefined}
+        className={cn(
+          "shrink-0 tabular-nums",
+          overdue ? "font-medium text-status-danger" : "text-muted-foreground"
+        )}
+      >
         {formatDate(date)}
+        {overdue ? <span className="sr-only"> (overdue)</span> : null}
       </span>
     </li>
+  );
+}
+
+// Inbound rows that belong to no client. A per-client grid cannot show them at
+// all, and today that is every request and every print order, so without this
+// strip they are invisible rather than merely unassigned. It renders only when
+// there is something to say.
+function UnassignedStrip({ unassigned }: { unassigned: UnassignedCounts }) {
+  const parts: { href: string; label: string }[] = [];
+  if (unassigned.requests > 0) {
+    parts.push({
+      href: "/requests",
+      label: `${unassigned.requests} request${unassigned.requests === 1 ? "" : "s"}`,
+    });
+  }
+  if (unassigned.printOrders > 0) {
+    parts.push({
+      href: "/print-orders",
+      label: `${unassigned.printOrders} print order${unassigned.printOrders === 1 ? "" : "s"}`,
+    });
+  }
+  if (parts.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-card border border-dashed bg-card/50 px-4 py-3 text-sm">
+      <AlertCircle
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+      />
+      <span className="text-muted-foreground">
+        Not assigned to a client yet:
+      </span>
+      {parts.map((part, index) => (
+        <span key={part.href} className="text-muted-foreground">
+          <Link
+            href={part.href}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {part.label}
+          </Link>
+          {index < parts.length - 1 ? "," : ""}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -200,7 +271,10 @@ function ClientCard({
           >
             {initialsFrom(client.name)}
           </span>
-          <p className="min-w-0 flex-1 pt-1 text-sm font-medium leading-snug">
+          {/* Clamped to two lines so a long name cannot push past the avatar's
+              44px and make one card taller than the rest. "Safe Lee Inspection
+              & Consultancy Ltd" is the one that wraps today. */}
+          <p className="line-clamp-2 min-w-0 flex-1 pt-1 text-sm font-medium leading-snug">
             {client.name}
           </p>
           {/* The real control: this is what a keyboard reaches and what an
@@ -257,6 +331,7 @@ function ClientCard({
                       key={task.id}
                       text={task.title}
                       date={task.due_date}
+                      overdue={task.overdue}
                     />
                   ))}
                 </DetailSection>
@@ -330,11 +405,13 @@ function ClientCard({
 export function ClientGrid({
   clients,
   cards,
+  unassigned,
 }: {
   clients: ClientRow[];
   // Keyed by client id. A client with no rows anywhere is simply absent from the
   // map, so the lookup falls back to empty rather than needing an entry each.
   cards: Record<string, ClientCardData>;
+  unassigned: UnassignedCounts;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
@@ -369,6 +446,8 @@ export function ClientGrid({
         </div>
         <Button onClick={openAdd}>Add client</Button>
       </div>
+
+      <UnassignedStrip unassigned={unassigned} />
 
       {clients.length === 0 ? (
         <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">

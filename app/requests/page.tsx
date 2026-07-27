@@ -5,7 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/ui/status-pill";
 import { createClient } from "@/lib/supabase/server";
-import { updateRequestStatus } from "@/lib/requests/actions";
+import {
+  assignRequestToClient,
+  updateRequestStatus,
+} from "@/lib/requests/actions";
+import {
+  AssignClient,
+  type AssignableClient,
+} from "@/components/assign-client";
 
 type RequestRow = {
   id: string;
@@ -92,13 +99,18 @@ export default async function RequestsPage({
   const { status: statusParam, source: sourceParam } = await searchParams;
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("client_requests")
-    .select(
-      "id, source_app, client_id, client_name, submitter, message, type, status, link, created_at"
-    )
-    .order("created_at", { ascending: false });
+  // The client list rides along for the assign control on unassigned rows.
+  const [{ data }, { data: clientList }] = await Promise.all([
+    supabase
+      .from("client_requests")
+      .select(
+        "id, source_app, client_id, client_name, submitter, message, type, status, link, created_at"
+      )
+      .order("created_at", { ascending: false }),
+    supabase.from("clients").select("id, name").order("name"),
+  ]);
   const requests = (data ?? []) as RequestRow[];
+  const clients = (clientList ?? []) as AssignableClient[];
 
   const activeTab =
     STATUS_TABS.find((tab) => tab.key !== null && tab.key === statusParam) ??
@@ -211,7 +223,7 @@ export default async function RequestsPage({
                 </span>
                 {request.client_id ? null : (
                   <span className="text-xs text-muted-foreground">
-                    (not a managed client)
+                    (not assigned)
                   </span>
                 )}
               </div>
@@ -224,6 +236,16 @@ export default async function RequestsPage({
                   {formatDate(request.created_at)}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
+                  {/* Only on unassigned rows: inbound requests arrive with a
+                      free-text client name, so until one is attached here it
+                      shows on no client's card. */}
+                  {request.client_id ? null : (
+                    <AssignClient
+                      id={request.id}
+                      clients={clients}
+                      action={assignRequestToClient}
+                    />
+                  )}
                   {request.link ? (
                     <Button
                       variant="ghost"

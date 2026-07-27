@@ -33,7 +33,17 @@ export const ZERO_COUNTS: ClientCounts = {
 // The rows behind three of the five counters. Requests and print orders have no
 // detail here on purpose: every one of them is currently unlinked, so there is
 // nothing to show under a client. They get their own view in the orphan slice.
-export type TaskItem = { id: string; title: string; due_date: string | null };
+// overdue is computed on the SERVER, not derived in the component. "Is this past
+// due" needs today's date, and a client component that reads the clock during
+// render gives a different answer on the server than on the client, which is a
+// hydration mismatch waiting to happen. The server decides once and sends a
+// boolean.
+export type TaskItem = {
+  id: string;
+  title: string;
+  due_date: string | null;
+  overdue: boolean;
+};
 export type SocialItem = {
   id: string;
   caption: string | null;
@@ -59,6 +69,11 @@ export type ClientCardData = {
 // object would mean every card that fell back to this fallback aliased the same
 // counts, so one stray mutation anywhere would rewrite the constant for all of
 // them. Nothing mutates it today; this makes that impossible rather than lucky.
+// Inbound rows that belong to no client, counted for the home strip. They are
+// invisible on a per-client grid by definition, and today that is every request
+// and every print order, so without this they would simply not exist in the UI.
+export type UnassignedCounts = { requests: number; printOrders: number };
+
 export const EMPTY_CARD_DATA: ClientCardData = {
   counts: { requests: 0, tasks: 0, printOrders: 0, social: 0, blog: 0 },
   tasks: [],

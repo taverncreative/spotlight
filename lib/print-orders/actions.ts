@@ -38,3 +38,36 @@ export async function updatePrintOrderStatus(
   await supabase.from("print_orders").update({ status }).eq("id", id);
   revalidatePath("/print-orders");
 }
+
+// Attach an unassigned print order to a client. Same reasoning as
+// assignRequestToClient: the client is read through RLS first, so a crafted id
+// cannot file an order under another operator's client. RLS on print_orders
+// governs which order may be written, not which client_id goes into it.
+export async function assignPrintOrderToClient(
+  formData: FormData
+): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const clientId = String(formData.get("client_id") ?? "");
+  if (!id || !clientId) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: client } = await supabase
+    .from("clients")
+    .select("id")
+    .eq("id", clientId)
+    .maybeSingle();
+  if (!client) return;
+
+  await supabase
+    .from("print_orders")
+    .update({ client_id: clientId })
+    .eq("id", id);
+
+  revalidatePath("/print-orders");
+  revalidatePath("/home");
+}

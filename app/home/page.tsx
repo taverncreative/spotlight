@@ -5,6 +5,7 @@ import type {
   ClientCardData,
   SocialItem,
   TaskItem,
+  UnassignedCounts,
 } from "@/lib/clients/counts";
 import type { ClientRow } from "@/components/client-form-dialog";
 
@@ -33,7 +34,8 @@ type ClientCipherRow = Omit<ClientRow, "has_deploy_hook"> & {
 };
 
 type CountRow = { client_id: string | null };
-type TaskRow = TaskItem & { client_id: string | null };
+// overdue is not selected; it is derived below from due_date against today.
+type TaskRow = Omit<TaskItem, "overdue"> & { client_id: string | null };
 type SocialRow = SocialItem & { client_id: string | null };
 type BlogRow = BlogItem & { client_id: string | null };
 
@@ -64,7 +66,8 @@ function buildCards(
   printOrders: CountRow[],
   tasks: TaskRow[],
   social: SocialRow[],
-  blog: BlogRow[]
+  blog: BlogRow[],
+  today: string
 ): Record<string, ClientCardData> {
   const cards: Record<string, ClientCardData> = {};
   const at = (clientId: string) => (cards[clientId] ??= emptyCard());
@@ -79,7 +82,13 @@ function buildCards(
   }
   for (const { client_id, ...task } of tasks) {
     if (!client_id) continue;
-    at(client_id).tasks.push(task);
+    // due_date is a DATE column, so it arrives as 'YYYY-MM-DD' and compares
+    // correctly as a string against today in the same format. No Date parsing,
+    // so no timezone can shift the answer by a day.
+    at(client_id).tasks.push({
+      ...task,
+      overdue: task.due_date !== null && task.due_date < today,
+    });
   }
   for (const { client_id, ...post } of social) {
     if (!client_id) continue;
@@ -146,13 +155,30 @@ export default async function HomePage() {
     has_deploy_hook: deploy_hook_url !== null,
   }));
 
+  const requestRows = (requestsRes.data ?? []) as CountRow[];
+  const printOrderRows = (printOrdersRes.data ?? []) as CountRow[];
+
+  // Today in the same 'YYYY-MM-DD' shape due_date arrives in. Read once here so
+  // every card judges overdue against the same instant, and so the clock is
+  // never read during a client render.
+  const today = new Date().toISOString().slice(0, 10);
+
   const cards = buildCards(
-    (requestsRes.data ?? []) as CountRow[],
-    (printOrdersRes.data ?? []) as CountRow[],
+    requestRows,
+    printOrderRows,
     (tasksRes.data ?? []) as TaskRow[],
     (socialRes.data ?? []) as SocialRow[],
-    (blogRes.data ?? []) as BlogRow[]
+    (blogRes.data ?? []) as BlogRow[],
+    today
   );
 
-  return <ClientGrid clients={clients} cards={cards} />;
+  // The rows the grid cannot show, because they belong to no client.
+  const unassigned: UnassignedCounts = {
+    requests: requestRows.filter((row) => !row.client_id).length,
+    printOrders: printOrderRows.filter((row) => !row.client_id).length,
+  };
+
+  return (
+    <ClientGrid clients={clients} cards={cards} unassigned={unassigned} />
+  );
 }
