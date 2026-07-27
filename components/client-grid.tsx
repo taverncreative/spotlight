@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CalendarClock,
@@ -161,17 +161,36 @@ function ClientCard({
   const hasDetail =
     data.tasks.length > 0 || data.social.length > 0 || data.blog.length > 0;
 
+  // The panel's open height, measured from the content rather than guessed. A
+  // ResizeObserver keeps it right if the content reflows (a long client name
+  // wrapping, a window resize changing the column width), so the panel does not
+  // end up clipped or padded after the first measurement.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState(0);
+  useEffect(() => {
+    const element = contentRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      setContentHeight(element.offsetHeight);
+    });
+    observer.observe(element);
+    setContentHeight(element.offsetHeight);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <li className="flex flex-col rounded-card border bg-card shadow-soft transition-shadow hover:shadow-md">
-      {/* The whole head toggles. Open and Edit sit OUTSIDE it, because a button
-          inside a button is invalid and unreachable by keyboard. */}
-      <button
-        type="button"
-        onClick={() => onToggle(client.id)}
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        className="flex flex-col gap-3 rounded-t-card p-5 pb-3 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      >
+    // The WHOLE card toggles, because the whole card looks like it should. The
+    // click lives on the li rather than on a role="button" wrapper: putting a
+    // link and a button inside an element that claims to be a button is the
+    // thing screen readers cannot make sense of. So the li stays a plain
+    // container with a mouse affordance, and the chevron below is a real button
+    // carrying the accessible name, the expanded state and the keyboard path.
+    // Nested controls stop propagation so they act instead of toggling.
+    <li
+      onClick={() => onToggle(client.id)}
+      className="flex cursor-pointer flex-col rounded-card border bg-card shadow-soft transition-shadow hover:shadow-md"
+    >
+      <div className="flex flex-col gap-3 p-5 pb-3">
         <div className="flex items-start gap-3">
           {/* Initials stand in for a logo. Logo storage is a later slice; the
               avatar box is sized so swapping an <img> in changes nothing else. */}
@@ -184,30 +203,47 @@ function ClientCard({
           <p className="min-w-0 flex-1 pt-1 text-sm font-medium leading-snug">
             {client.name}
           </p>
-          <ChevronDown
-            aria-hidden="true"
-            className={cn(
-              "mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
-              expanded && "rotate-180"
-            )}
-          />
+          {/* The real control: this is what a keyboard reaches and what an
+              assistive technology reads, even though a mouse can hit anywhere. */}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle(client.id);
+            }}
+            aria-expanded={expanded}
+            aria-controls={panelId}
+            aria-label={`${expanded ? "Hide" : "Show"} detail for ${client.name}`}
+            className="-m-1 rounded-control p-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                "size-4 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none",
+                expanded && "rotate-180"
+              )}
+            />
+          </button>
         </div>
         <CounterRow counts={data.counts} />
-      </button>
+      </div>
 
-      {/* 0fr -> 1fr on a grid row animates to the content's natural height, which
-          a plain max-height cannot do without guessing a number. The child owns
-          overflow-hidden so the rows clip while collapsed rather than bleeding
-          through. This is what keeps the grid from jumping: the row grows over
-          200ms instead of snapping. */}
+      {/* MEASURED height, not a grid 0fr -> 1fr trick.
+          That trick is what shipped in slice 3 and it never worked here: the
+          class switched correctly and aria-expanded flipped, but
+          grid-template-rows: 1fr resolved to 0px every time, so the panel stayed
+          shut and clicking looked like it did nothing. 1fr needs definite free
+          space to resolve against; this panel has none, being a content-sized
+          box inside a content-sized card inside an items-start grid.
+          A measured pixel height has nothing to resolve against and cannot fail
+          that way. It animates just as smoothly, and unlike a max-height guess
+          it eases over the real distance rather than a made-up one. */}
       <div
         id={panelId}
-        className={cn(
-          "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
-          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-        )}
+        style={{ height: expanded ? contentHeight : 0 }}
+        className="overflow-hidden transition-[height] duration-200 ease-out motion-reduce:transition-none"
       >
-        <div className="overflow-hidden">
+        <div ref={contentRef}>
           <div className="space-y-3 border-t px-5 py-4">
             {hasDetail ? (
               <>
@@ -260,7 +296,14 @@ function ClientCard({
             )}
 
             <div className="flex justify-end pt-1">
-              <Button variant="ghost" size="sm" onClick={() => onEdit(client)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onEdit(client);
+                }}
+              >
                 Edit client
               </Button>
             </div>
@@ -269,9 +312,12 @@ function ClientCard({
       </div>
 
       <div className="mt-auto flex items-center px-5 pb-5 pt-3">
+        {/* Stops propagation so following the link does not also toggle the card
+            open behind the navigation. */}
         <Button
           size="sm"
           variant="outline"
+          onClick={(event) => event.stopPropagation()}
           render={<Link href={`/c/${client.slug}/overview`} />}
         >
           Open
