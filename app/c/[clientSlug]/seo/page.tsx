@@ -81,9 +81,9 @@ export default async function SeoPage({
   if (properties.length === 0) {
     return (
       <Notice title="Map a Search Console property">
-        Map a site to a Search Console property on the{" "}
-        <Link href={`/c/${clientSlug}/overview`} className={linkClass}>
-          Overview
+        Map a site to a Search Console property on{" "}
+        <Link href={`/c/${clientSlug}/sites`} className={linkClass}>
+          Sites
         </Link>{" "}
         to see its performance here.
       </Notice>

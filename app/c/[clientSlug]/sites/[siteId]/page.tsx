@@ -93,10 +93,10 @@ export default async function SiteDetailPage({
         <p className="text-sm text-muted-foreground">
           {site.label ? `${site.label} · ` : ""}Last {HISTORY_LIMIT} checks.{" "}
           <Link
-            href={`/c/${clientSlug}/overview`}
+            href={`/c/${clientSlug}/sites`}
             className="font-medium text-primary underline-offset-4 hover:underline"
           >
-            Back to overview
+            Back to sites
           </Link>
         </p>
       </div>
