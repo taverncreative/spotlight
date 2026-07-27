@@ -24,6 +24,10 @@ export type ClientRow = {
   slug: string;
   status: string;
   blog_base_url: string | null;
+  // Presence only. The deploy hook is stored encrypted and this row reaches the
+  // browser, so the value itself is narrowed to a boolean server-side (see
+  // app/home/page.tsx) and never travels.
+  has_deploy_hook: boolean;
 };
 
 // The add/edit client modal. client === null is the add case; otherwise it is
@@ -40,6 +44,7 @@ export function ClientFormDialog({
 }) {
   const router = useRouter();
   const isEdit = client !== null;
+  const hasDeployHook = client?.has_deploy_hook ?? false;
   const action = isEdit ? updateClientAction : createClientAction;
   const [state, formAction, pending] = useActionState<
     ClientFormState,
@@ -50,6 +55,8 @@ export function ClientFormDialog({
   const [slug, setSlug] = useState(client?.slug ?? "");
   const [status, setStatus] = useState(client?.status ?? "active");
   const [blogBaseUrl, setBlogBaseUrl] = useState(client?.blog_base_url ?? "");
+  const [deployHookUrl, setDeployHookUrl] = useState("");
+  const [removeDeployHook, setRemoveDeployHook] = useState(false);
   // In edit mode the slug is treated as operator-set so it does not auto-rewrite.
   const [slugEdited, setSlugEdited] = useState(isEdit);
 
@@ -168,6 +175,61 @@ export function ClientFormDialog({
             {state?.fieldErrors?.blog_base_url ? (
               <p className="text-sm text-destructive">
                 {state.fieldErrors.blog_base_url[0]}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="client-deploy-hook"
+              className="text-sm font-medium"
+            >
+              Deploy hook{" "}
+              <span className="text-muted-foreground">(optional)</span>
+            </label>
+            <input
+              id="client-deploy-hook"
+              name="deploy_hook_url"
+              type="url"
+              inputMode="url"
+              value={deployHookUrl}
+              onChange={(event) => setDeployHookUrl(event.target.value)}
+              disabled={removeDeployHook}
+              placeholder={
+                hasDeployHook
+                  ? "Paste a new URL to replace the saved one"
+                  : "https://api.vercel.com/v1/integrations/deploy/..."
+              }
+              className={`${fieldInputClass} disabled:opacity-50`}
+            />
+            <p className="text-xs text-muted-foreground">
+              Only needed for static sites that rebuild to pick up new posts.
+              Leave blank if the site fetches posts live.
+            </p>
+            {hasDeployHook ? (
+              <div className="space-y-1.5 pt-0.5">
+                <p className="text-xs text-muted-foreground">
+                  A hook is saved. It is stored encrypted, so it is not shown
+                  here. Leave this blank to keep it.
+                </p>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="deploy_hook_remove"
+                    checked={removeDeployHook}
+                    onChange={(event) => {
+                      setRemoveDeployHook(event.target.checked);
+                      if (event.target.checked) setDeployHookUrl("");
+                    }}
+                    className="size-4 rounded border-input accent-brand"
+                  />
+                  Remove the saved hook
+                </label>
+              </div>
+            ) : null}
+            {state?.fieldErrors?.deploy_hook_url ? (
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.deploy_hook_url[0]}
               </p>
             ) : null}
           </div>

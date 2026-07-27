@@ -44,6 +44,11 @@ type SitePropRow = {
   gsc_property: string | null;
   ga4_property: string | null;
 };
+// The clients row as selected, before the deploy hook ciphertext is narrowed to
+// the has_deploy_hook boolean that ClientRow carries.
+type ClientCipherRow = Omit<ClientRow, "has_deploy_hook"> & {
+  deploy_hook_url: string | null;
+};
 
 // Assemble the board model outside the component so the render stays pure
 // (Date.now() lives here, per request, not in the component body).
@@ -249,9 +254,11 @@ export default async function HomePage() {
     sitePropsRes,
     newRequestsRes,
   ] = await Promise.all([
+      // deploy_hook_url is selected but never passed on: it is narrowed to a
+      // boolean below, before the row reaches a client component.
       supabase
         .from("clients")
-        .select("id, name, slug, status, blog_base_url")
+        .select("id, name, slug, status, blog_base_url, deploy_hook_url")
         .order("name"),
       supabase
         .from("sites")
@@ -288,8 +295,18 @@ export default async function HomePage() {
         .limit(5),
     ]);
 
+  // Drop the deploy hook ciphertext here. The board model is serialised into a
+  // client component, so the column is replaced by presence-only before it can
+  // travel; nothing downstream needs the value.
+  const clients: ClientRow[] = (
+    (clientsRes.data ?? []) as ClientCipherRow[]
+  ).map(({ deploy_hook_url, ...client }) => ({
+    ...client,
+    has_deploy_hook: deploy_hook_url !== null,
+  }));
+
   const board = buildBoard(
-    (clientsRes.data ?? []) as ClientRow[],
+    clients,
     (sitesRes.data ?? []) as BoardSite[],
     (failedRes.data ?? []) as unknown as FailedPostRow[],
     (socialCountsRes.data ?? []) as SocialCountRow[],
