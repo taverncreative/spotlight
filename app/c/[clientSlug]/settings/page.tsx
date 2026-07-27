@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { ClientSettingsForm } from "@/components/client-settings-form";
 import { decryptToken } from "@/lib/oauth/encryption";
+import { ContentApiKeys, type ApiKeyRow } from "@/components/content-api-keys";
 
 // The per-client Settings module: how we work for this client, as opposed to who
 // they are.
@@ -46,11 +47,20 @@ export default async function ClientSettingsPage({
   const { client } = await requireClient(clientSlug);
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("clients")
-    .select("blog_base_url, deploy_hook_url, services, logo_url")
-    .eq("id", client.id)
-    .maybeSingle();
+  // Content API keys moved here from Overview: a key is configuration for how
+  // this client's site reads from Spotlight, not a fact about their week.
+  const [{ data }, keysRes] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("blog_base_url, deploy_hook_url, services, logo_url")
+      .eq("id", client.id)
+      .maybeSingle(),
+    supabase
+      .from("client_api_keys")
+      .select("id, key_prefix, label, created_at, revoked_at")
+      .eq("client_id", client.id)
+      .order("created_at", { ascending: false }),
+  ]);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -72,6 +82,11 @@ export default async function ClientSettingsPage({
         )}
         services={(data?.services as string[] | null) ?? []}
         logoUrl={(data?.logo_url as string | null) ?? null}
+      />
+
+      <ContentApiKeys
+        clientSlug={clientSlug}
+        keys={(keysRes.data ?? []) as ApiKeyRow[]}
       />
     </div>
   );

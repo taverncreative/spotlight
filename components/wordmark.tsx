@@ -1,9 +1,15 @@
 import { cn } from "@/lib/utils";
+import { SpotlightLogo } from "@/components/spotlight-mark";
 
-// The Spotlight wordmark (Design Pass 1): a small brand-coloured mark beside the
-// product name. The mark is one of the few places the accent is used, so it
-// re-themes with the brand colour. Used on the login screen and in the app
-// shell header.
+// The Spotlight wordmark: the mark beside the product name.
+//
+// The mark used to be a brand-filled square with an "S" in it, which is a
+// placeholder rather than a logo. It is now three concentric circles reading as
+// focus narrowing to a point, inline so it re-themes with --brand instead of
+// shipping a raster per theme (see components/spotlight-mark.tsx).
+//
+// Used in the app header, where it links home, and on the login screen, where it
+// does not.
 export function Wordmark({
   className,
   textClassName,
@@ -13,12 +19,7 @@ export function Wordmark({
 }) {
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      <span
-        aria-hidden="true"
-        className="grid size-6 shrink-0 place-items-center rounded-md bg-brand text-[0.7rem] font-medium text-brand-foreground"
-      >
-        S
-      </span>
+      <SpotlightLogo />
       <span className={cn("font-medium tracking-tight", textClassName)}>
         Spotlight
       </span>

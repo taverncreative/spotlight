@@ -5,18 +5,16 @@ export type ClientModule = { segment: string; label: string };
 
 export const CLIENT_MODULES: ClientModule[] = [
   { segment: "overview", label: "Overview" },
-  // Requests and Print used to be operator-level pages. They are per-client
-  // work: an inbound request is FOR someone. Requests sits before Tasks because
-  // it is what the client asked for, and Tasks is what we decided to do.
-  { segment: "requests", label: "Requests" },
   { segment: "tasks", label: "Tasks" },
-  { segment: "print-orders", label: "Print" },
   { segment: "seo", label: "SEO" },
   { segment: "analytics", label: "Analytics" },
   { segment: "business", label: "Business" },
   { segment: "blog", label: "Blog" },
   { segment: "social", label: "Social" },
-  // Last in the bar: configuration you set once and rarely revisit, unlike the
-  // modules above it which are daily work.
+  // Requests carries print orders as a section rather than Print having its own
+  // tab: both are inbound work the client asked for, and one of them arrives
+  // rarely enough that a permanent tab mostly showed an empty state.
+  { segment: "requests", label: "Requests" },
+  // Last: configuration you set once, unlike the modules above it.
   { segment: "settings", label: "Settings" },
 ];

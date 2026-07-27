@@ -1,19 +1,19 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Wordmark } from "@/components/wordmark";
+import { AppHeader } from "@/components/app-header";
 import { ClientSelector } from "@/components/client-selector";
-import { AllProjectsButton } from "@/components/all-projects-button";
 import { ModuleBar } from "@/components/module-bar";
 import { createClient } from "@/lib/supabase/server";
-import { getTheme } from "@/lib/theme";
 import { requireClient } from "@/lib/clients/require-client";
-import { signOut } from "@/lib/auth/actions";
 
 // The per-client app shell: auth gate, resolve the client by slug (RLS scopes to
-// operator_id = auth.uid(), so a foreign or unknown slug returns no row and 404s),
-// then the branded top bar (with client selector) and the bottom module bar
-// around the active module page.
+// operator_id = auth.uid(), so a foreign, unknown or archived slug returns no row
+// and 404s), then the shared app header with a client selector beside the mark,
+// and the module bar around the active module page.
+//
+// The header is now the same component every other shell uses. It used to carry
+// an All projects button, an Integrations link, a theme toggle, the operator's
+// email and a sign-out button, none of which appeared on /home, so moving into a
+// client rearranged the furniture around you. Integrations is operator-level and
+// lives on /settings; theme, email and sign-out are content there too.
 export default async function ClientLayout({
   children,
   params,
@@ -22,7 +22,7 @@ export default async function ClientLayout({
   params: Promise<{ clientSlug: string }>;
 }) {
   const { clientSlug } = await params;
-  const { user } = await requireClient(clientSlug);
+  await requireClient(clientSlug);
 
   const supabase = await createClient();
   const { data: clientList } = await supabase
@@ -30,38 +30,12 @@ export default async function ClientLayout({
     .select("name, slug")
     .neq("status", "archived")
     .order("name");
-  const clients = clientList ?? [];
-
-  const theme = await getTheme();
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex h-14 items-center justify-between gap-3 border-b px-6">
-        <div className="flex items-center gap-3">
-          <Wordmark textClassName="text-sm" />
-          <span className="h-5 w-px bg-border" aria-hidden="true" />
-          <ClientSelector clients={clients} />
-          <AllProjectsButton />
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            render={<Link href="/settings/integrations" />}
-          >
-            Integrations
-          </Button>
-          <ThemeToggle initialTheme={theme} />
-          <span className="truncate text-sm text-muted-foreground">
-            {user.email}
-          </span>
-          <form action={signOut}>
-            <Button type="submit" variant="outline" size="sm">
-              Sign out
-            </Button>
-          </form>
-        </div>
-      </header>
+      <AppHeader>
+        <ClientSelector clients={clientList ?? []} />
+      </AppHeader>
       <main className="flex-1 p-6 lg:p-8">{children}</main>
       <ModuleBar clientSlug={clientSlug} />
     </div>

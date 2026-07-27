@@ -1,6 +1,5 @@
-import Link from "next/link";
+import { AppHeader } from "@/components/app-header";
 import { redirect } from "next/navigation";
-import { Wordmark } from "@/components/wordmark";
 import { createClient } from "@/lib/supabase/server";
 
 // Operator-level settings shell: auth gate, then a thin top bar. The theme
@@ -20,11 +19,7 @@ export default async function SettingsLayout({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex h-14 items-center gap-3 border-b px-6">
-        <Link href="/home" className="transition-opacity hover:opacity-80">
-          <Wordmark textClassName="text-sm" />
-        </Link>
-      </header>
+      <AppHeader />
       <main className="flex-1 p-6 lg:p-8">{children}</main>
     </div>
   );

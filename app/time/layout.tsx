@@ -1,10 +1,5 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Wordmark } from "@/components/wordmark";
+import { AppHeader } from "@/components/app-header";
 import { requireUser } from "@/lib/auth/require-user";
-import { getTheme } from "@/lib/theme";
-import { signOut } from "@/lib/auth/actions";
 
 // Operator-level retainer-time shell: auth gate, then the standard top bar,
 // mirroring the due and email shells. Not client-scoped: this view spans every
@@ -16,27 +11,11 @@ export default async function TimeLayout({
 }) {
   // Memoised per request, so anything else in this render that needs the user
   // shares the one auth round-trip rather than making its own.
-  const user = await requireUser();
-  const theme = await getTheme();
+  await requireUser();
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex h-14 items-center justify-between gap-3 border-b px-6">
-        <Link href="/home" className="transition-opacity hover:opacity-80">
-          <Wordmark textClassName="text-sm" />
-        </Link>
-        <div className="flex items-center gap-3">
-          <ThemeToggle initialTheme={theme} />
-          <span className="truncate text-sm text-muted-foreground">
-            {user.email}
-          </span>
-          <form action={signOut}>
-            <Button type="submit" variant="outline" size="sm">
-              Sign out
-            </Button>
-          </form>
-        </div>
-      </header>
+      <AppHeader />
       <main className="flex-1 p-6 lg:p-8">{children}</main>
     </div>
   );
