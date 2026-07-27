@@ -14,6 +14,8 @@
 // server component and a client component belongs in a module like this rather
 // than being re-exported from whichever component happened to define it first.
 
+import type { HealthResult } from "@/lib/clients/health";
+
 export type ClientCounts = {
   requests: number;
   tasks: number;
@@ -76,6 +78,10 @@ export type PrintOrderItem = {
 // and printOrders come from separate count-only queries.
 export type ClientCardData = {
   counts: ClientCounts;
+  // The neglect score, computed server-side from the client's applicable
+  // services. score is null when no service applies, which is not zero and must
+  // not render as a bar.
+  health: HealthResult;
   requests: RequestItem[];
   tasks: TaskItem[];
   printOrders: PrintOrderItem[];
@@ -94,6 +100,7 @@ export type UnassignedCounts = { requests: number; printOrders: number };
 
 export const EMPTY_CARD_DATA: ClientCardData = {
   counts: { requests: 0, tasks: 0, printOrders: 0, social: 0, blog: 0 },
+  health: { score: null, parts: [] },
   requests: [],
   tasks: [],
   printOrders: [],

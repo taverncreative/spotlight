@@ -17,6 +17,7 @@ import {
   ClientFormDialog,
   type ClientRow,
 } from "@/components/client-form-dialog";
+import { SERVICE_LABELS, type HealthResult } from "@/lib/clients/health";
 import {
   EMPTY_CARD_DATA,
   type ClientCardData,
@@ -108,6 +109,91 @@ function CounterRow({ counts }: { counts: ClientCounts }) {
           <span className="sr-only">{label}</span>
         </span>
       ))}
+    </div>
+  );
+}
+
+// Score to colour, continuously. Two segments through the palette's existing
+// warm ramp: danger at 0, warn at the midpoint, ok at 1. No bands, so a client
+// at 0.62 and one at 0.64 differ by a shade rather than jumping a category.
+//
+// color-mix(in oklch, ...) is already the house technique for the status
+// surfaces, and interpolating in oklch keeps lightness even across the ramp
+// rather than dipping through mud the way sRGB does. It also means the bar
+// adapts to light and dark for free, because the tokens themselves differ.
+function healthColour(score: number): string {
+  if (score >= 0.5) {
+    const mix = Math.round((score - 0.5) * 200);
+    return `color-mix(in oklch, var(--color-status-ok) ${mix}%, var(--color-status-warn))`;
+  }
+  const mix = Math.round(score * 200);
+  return `color-mix(in oklch, var(--color-status-warn) ${mix}%, var(--color-status-danger))`;
+}
+
+// The health bar, with the score in words beside it.
+//
+// COLOUR IS NOT THE ONLY CARRIER, deliberately. A gold-to-red ramp is precisely
+// the axis red-green colour blindness flattens, so the percentage sits next to
+// the bar and the per-service breakdown is in the tooltip and the accessible
+// name. Someone who cannot separate the hues loses nothing.
+function HealthBar({
+  health,
+  onEdit,
+}: {
+  health: HealthResult;
+  onEdit: () => void;
+}) {
+  // No applicable service. Absence must LOOK like absence: a grey bar at zero
+  // reads as a judgement, and this client has not been judged.
+  if (health.score === null) {
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onEdit();
+        }}
+        className="flex min-h-5 items-center text-left text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+      >
+        No services set
+      </button>
+    );
+  }
+
+  const percent = Math.round(health.score * 100);
+  const breakdown = health.parts
+    .map((part) => `${SERVICE_LABELS[part.service]} ${Math.round(part.value * 100)}%`)
+    .join(", ");
+
+  return (
+    <div
+      className="flex min-h-5 items-center gap-2"
+      title={breakdown ? `Health ${percent}% — ${breakdown}` : undefined}
+    >
+      <div
+        role="meter"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={
+          breakdown ? `Health ${percent}%. ${breakdown}` : `Health ${percent}%`
+        }
+        className="h-1.5 flex-1 overflow-hidden rounded-pill bg-secondary"
+      >
+        <div
+          className="h-full rounded-pill transition-[width] duration-300 motion-reduce:transition-none"
+          style={{
+            width: `${percent}%`,
+            backgroundColor: healthColour(health.score),
+          }}
+        />
+      </div>
+      <span
+        aria-hidden="true"
+        className="shrink-0 text-xs tabular-nums text-muted-foreground"
+      >
+        {percent}%
+      </span>
     </div>
   );
 }
@@ -316,6 +402,10 @@ function ClientCard({
           </button>
         </div>
         <CounterRow counts={data.counts} />
+        {/* Below the counters: the counters say what is waiting, the bar says
+            how that adds up. Both are one line, so cards stay uniform whichever
+            state they are in. */}
+        <HealthBar health={data.health} onEdit={() => onEdit(client)} />
       </div>
 
       {/* MEASURED height, not a grid 0fr -> 1fr trick.

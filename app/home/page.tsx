@@ -9,6 +9,8 @@ import type {
   UnassignedCounts,
 } from "@/lib/clients/counts";
 import type { ClientRow } from "@/components/client-form-dialog";
+import { assessSite } from "@/lib/sites/monitoring";
+import { healthScore, type HealthInput } from "@/lib/clients/health";
 
 // The operator home: a card per client, showing what is waiting, and expanding
 // in place to show what that actually is.
@@ -52,9 +54,49 @@ type BlogRow = BlogItem & { client_id: string | null };
 // the counters: EMPTY_CARD_DATA's ancestor lived in the client component, so on
 // the server it was a client reference, the spread produced {} and every ++
 // produced NaN. A literal has nothing to substitute.
+// The worst state across a client's monitored sites, in the shape the scorer
+// takes. "unknown" means never checked, which is excluded rather than scored:
+// a site we have not looked at yet is not a site we are neglecting.
+type SiteRow = {
+  client_id: string;
+  site_checks: {
+    status: string;
+    ssl_expiry: string | null;
+    domain_expiry: string | null;
+    checked_at: string;
+  }[];
+};
+
+function worstSiteState(
+  sites: SiteRow[],
+  now: number
+): HealthInput["siteState"] {
+  let worst: HealthInput["siteState"] = null;
+  for (const site of sites) {
+    const risk = assessSite(site.site_checks?.[0] ?? null, now);
+    if (risk.level === "down") return "down";
+    if (risk.level === "expired" || risk.level === "at-risk") worst = "at-risk";
+    else if (risk.level === "healthy" && worst === null) worst = "healthy";
+  }
+  return worst;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// The clock, read ONCE per request and outside the component body so the render
+// stays pure (the repo's convention, matching dateWindow in the email page).
+// Every card judges overdue and every score judges staleness against the same
+// instant, and nothing reads the clock during a client render, where it would
+// answer differently on each side of hydration.
+function clockNow(): { nowMs: number; today: string } {
+  const now = new Date();
+  return { nowMs: now.getTime(), today: now.toISOString().slice(0, 10) };
+}
+
 function emptyCard(): ClientCardData {
   return {
     counts: { requests: 0, tasks: 0, printOrders: 0, social: 0, blog: 0 },
+    health: { score: null, parts: [] },
     requests: [],
     tasks: [],
     printOrders: [],
@@ -143,6 +185,7 @@ export default async function HomePage() {
     tasksRes,
     socialRes,
     blogRes,
+    sitesRes,
   ] = await Promise.all([
     supabase
       .from("clients")
@@ -183,6 +226,20 @@ export default async function HomePage() {
       .select("id, client_id, title, published_at")
       .eq("status", "published")
       .order("published_at", { ascending: false, nullsFirst: false }),
+    // Latest check per monitored site, for the health score's monitoring input.
+    // The old board read this; the card grid dropped it and the score needs it
+    // back. No live call to anyone, just the stored check rows.
+    supabase
+      .from("sites")
+      .select(
+        "client_id, site_checks(status, ssl_expiry, domain_expiry, checked_at)"
+      )
+      .eq("monitoring_enabled", true)
+      .order("checked_at", {
+        referencedTable: "site_checks",
+        ascending: false,
+      })
+      .limit(1, { referencedTable: "site_checks" }),
   ]);
 
   // Drop the deploy hook ciphertext here. ClientGrid is a client component, so
@@ -197,10 +254,7 @@ export default async function HomePage() {
   const requestRows = (requestsRes.data ?? []) as RequestRow[];
   const printOrderRows = (printOrdersRes.data ?? []) as PrintOrderRow[];
 
-  // Today in the same 'YYYY-MM-DD' shape due_date arrives in. Read once here so
-  // every card judges overdue against the same instant, and so the clock is
-  // never read during a client render.
-  const today = new Date().toISOString().slice(0, 10);
+  const { nowMs, today } = clockNow();
 
   const cards = buildCards(
     requestRows,
@@ -210,6 +264,49 @@ export default async function HomePage() {
     (blogRes.data ?? []) as BlogRow[],
     today
   );
+
+  // --- health score ------------------------------------------------------
+  // Computed here, not in the component: it needs the clock, and reading the
+  // clock during a client render answers differently on each side of hydration.
+  // Everything below is derived from rows already fetched, apart from the sites.
+  const sitesByClient = new Map<string, SiteRow[]>();
+  for (const site of (sitesRes.data ?? []) as unknown as SiteRow[]) {
+    const list = sitesByClient.get(site.client_id) ?? [];
+    list.push(site);
+    sitesByClient.set(site.client_id, list);
+  }
+
+  for (const client of clients) {
+    const card = (cards[client.id] ??= emptyCard());
+
+    // Oldest open request: the requests array is newest-first, so the last is
+    // the oldest. null when nothing is open, which scores as fine.
+    const oldest = card.requests.at(-1);
+    const oldestOpenRequestDays = oldest
+      ? (nowMs - Date.parse(oldest.created_at)) / DAY_MS
+      : null;
+
+    // Runway is how far the SCHEDULED queue reaches, so it is the latest
+    // scheduled post, not the next one. The array is soonest-first.
+    const furthest = card.social.at(-1)?.scheduled_at ?? null;
+    const socialRunwayDays = furthest
+      ? Math.max(0, (Date.parse(furthest) - nowMs) / DAY_MS)
+      : null;
+
+    // Blog is newest-first, so the first entry is the most recent post.
+    const latestPost = card.blog[0]?.published_at ?? null;
+    const daysSinceLastPost = latestPost
+      ? Math.max(0, (nowMs - Date.parse(latestPost)) / DAY_MS)
+      : null;
+
+    card.health = healthScore({
+      services: client.services,
+      oldestOpenRequestDays,
+      socialRunwayDays,
+      daysSinceLastPost,
+      siteState: worstSiteState(sitesByClient.get(client.id) ?? [], nowMs),
+    });
+  }
 
   // The rows the grid cannot show, because they belong to no client.
   const unassigned: UnassignedCounts = {
