@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
   clientRosterSchema,
@@ -56,7 +57,15 @@ export async function createClientAction(
   }
 
   revalidatePath("/home");
-  return { ok: true };
+  // Straight to the new client's settings rather than back to the grid. The
+  // dialog only collects the three fields needed to exist; the decisions that
+  // matter (services, logo, blog URL, deploy hook) are all on the next page, and
+  // telling someone where those live without taking them there is an instruction
+  // to go and find it.
+  //
+  // redirect() throws, so nothing below it runs and the dialog's own
+  // close-and-refresh effect never fires. That is fine: the page is replaced.
+  redirect(`/c/${parsed.data.slug}/settings`);
 }
 
 // Update a client's roster details. RLS limits the update to the operator's own

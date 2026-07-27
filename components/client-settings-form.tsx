@@ -48,7 +48,7 @@ export function ClientSettingsForm({
   clientSlug,
   clientName,
   blogBaseUrl: initialBlogBaseUrl,
-  hasDeployHook,
+  deployHookHint,
   services: initialServices,
   logoUrl: initialLogoUrl,
 }: {
@@ -56,7 +56,10 @@ export function ClientSettingsForm({
   clientSlug: string;
   clientName: string;
   blogBaseUrl: string | null;
-  hasDeployHook: boolean;
+  // A masked fragment of the stored hook (host plus the last four characters of
+  // the path), or null when none is saved. Computed on the server; the URL
+  // itself never reaches the browser.
+  deployHookHint: string | null;
   services: string[];
   logoUrl: string | null;
 }) {
@@ -210,6 +213,14 @@ export function ClientSettingsForm({
           title="Deploy hook"
           description="Only needed for static sites that rebuild to pick up new posts. Publishing, editing or unpublishing a post triggers a rebuild. Leave blank if the site fetches posts live."
         >
+          {deployHookHint ? (
+            <p className="flex flex-wrap items-baseline gap-2 text-xs">
+              <span className="text-muted-foreground">Saved:</span>
+              <span className="rounded-control bg-secondary px-2 py-1 font-mono text-foreground">
+                {deployHookHint}
+              </span>
+            </p>
+          ) : null}
           <input
             name="deploy_hook_url"
             type="url"
@@ -218,17 +229,17 @@ export function ClientSettingsForm({
             onChange={(event) => setDeployHookUrl(event.target.value)}
             disabled={removeDeployHook}
             placeholder={
-              hasDeployHook
+              deployHookHint
                 ? "Paste a new URL to replace the saved one"
                 : "https://api.vercel.com/v1/integrations/deploy/..."
             }
             className={`${fieldInputClass} disabled:opacity-50`}
           />
-          {hasDeployHook ? (
+          {deployHookHint ? (
             <div className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                A hook is saved. It is stored encrypted, so it is not shown
-                here. Leave this blank to keep it.
+                A hook is saved. It is stored encrypted, so only enough of it is
+                shown to recognise. Leave the field blank to keep it.
               </p>
               <label className="flex items-center gap-2 text-sm">
                 <input
