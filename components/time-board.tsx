@@ -54,9 +54,37 @@ const TIER_BAR: Record<Tier, string> = {
   unset: "",
 };
 
-// Hours to one decimal; seconds stay the integer source of truth.
+// Hours to one decimal; seconds stay the integer source of truth. Used for
+// ALLOCATIONS, which are set in hours and should read back in the unit they were
+// entered in.
 function hours(seconds: number): string {
   return (seconds / 3600).toFixed(1);
+}
+
+// A duration in the unit that can actually express it.
+//
+// Everything used to render as hours to one decimal, so anything under three
+// minutes read as "0.0h" and a real session looked like nothing had been
+// recorded. A 27-second timer is not zero; it just is not hours yet. Under an
+// hour this switches to minutes, and under a minute it says "<1m" rather than
+// rounding a genuine session down to "0m".
+//
+// Value and unit come back separately because the headline styles the number
+// large and the unit small, so it cannot take a single joined string.
+function durationParts(seconds: number): { value: string; unit: "h" | "m" } {
+  const s = Math.max(0, Math.round(seconds));
+  if (s === 0) return { value: "0", unit: "m" };
+  if (s < 60) return { value: "<1", unit: "m" };
+  // Minutes are rounded first, then checked against the hour: 3599s rounds to
+  // 60 minutes, and "60m" sitting directly below "1.0h" reads as a bug.
+  const minutes = Math.round(s / 60);
+  if (minutes < 60) return { value: String(minutes), unit: "m" };
+  return { value: (s / 3600).toFixed(1), unit: "h" };
+}
+
+function durationLabel(seconds: number): string {
+  const { value, unit } = durationParts(seconds);
+  return `${value}${unit}`;
 }
 
 // Live session elapsed, in whole seconds, from a server started_at. Zero before
@@ -165,6 +193,9 @@ function RemainingHeadline({
   large?: boolean;
 }) {
   const over = remainingSeconds < 0;
+  // Near exhaustion the remaining figure is the one that most needs minutes:
+  // "12m left" is actionable where "0.2h left" is arithmetic.
+  const { value, unit } = durationParts(Math.abs(remainingSeconds));
   return (
     <div className="flex items-baseline gap-1.5">
       <span
@@ -174,10 +205,10 @@ function RemainingHeadline({
           over ? "text-status-danger" : "text-foreground"
         )}
       >
-        {hours(Math.abs(remainingSeconds))}
+        {value}
       </span>
       <span className="text-sm text-muted-foreground">
-        {over ? "h over" : "h left"}
+        {unit} {over ? "over" : "left"}
       </span>
     </div>
   );
@@ -372,8 +403,8 @@ const ClientCard = memo(function ClientCard({
 
       <span className="text-xs text-muted-foreground tabular-nums">
         {unset
-          ? `${hours(usedSeconds)}h logged this month`
-          : `${hours(usedSeconds)}h of ${hours(allocatedSeconds ?? 0)}h`}
+          ? `${durationLabel(usedSeconds)} logged this month`
+          : `${durationLabel(usedSeconds)} of ${hours(allocatedSeconds ?? 0)}h`}
       </span>
 
       <AdjustmentsList adjustments={card.adjustments} />
@@ -464,7 +495,7 @@ function TotalBar({
         </div>
         {noAllocations ? null : (
           <p className="text-sm text-muted-foreground tabular-nums">
-            {hours(usedSeconds)}h of {hours(allocatedSeconds)}h used
+            {durationLabel(usedSeconds)} of {hours(allocatedSeconds)}h used
           </p>
         )}
       </div>
