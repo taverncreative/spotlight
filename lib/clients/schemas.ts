@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SERVICES } from "@/lib/clients/health";
 
 // The client status set, shared by the Zod schema, the management UI and the DB
 // check constraint. KEEP IN SYNC with migration 0008_clients_status_paused.sql.
@@ -113,6 +114,11 @@ export const clientFormSchema = z.object({
     ),
   // Edit-only: tick to clear the stored hook.
   deploy_hook_remove: z.boolean(),
+  // Which services this client is actually on. Not derived: a connected Meta
+  // account is a capability, not a commitment, and the neglect score has to know
+  // the difference (see migration 0061). Empty is valid and is where every
+  // client starts.
+  services: z.array(z.enum(SERVICES)),
 });
 
 export type ClientFormValues = z.infer<typeof clientFormSchema>;

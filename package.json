@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:dmarc": "node --import ./scripts/test-resolve.mjs --test lib/dmarc/*.test.mts",
+    "test:health": "node --import ./scripts/test-resolve.mjs --test lib/clients/*.test.mts",
     "verify": "tsc --noEmit && eslint . && prettier --check .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

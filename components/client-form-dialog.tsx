@@ -17,6 +17,7 @@ import {
   slugify,
   type ClientFormState,
 } from "@/lib/clients/schemas";
+import { SERVICES, SERVICE_LABELS } from "@/lib/clients/health";
 
 export type ClientRow = {
   id: string;
@@ -28,6 +29,10 @@ export type ClientRow = {
   // browser, so the value itself is narrowed to a boolean server-side (see
   // app/home/page.tsx) and never travels.
   has_deploy_hook: boolean;
+  // Which services this client is on. Drives which signals the neglect score
+  // treats as applicable, so an empty list means the score stays silent rather
+  // than reading zero.
+  services: string[];
 };
 
 // The add/edit client modal. client === null is the add case; otherwise it is
@@ -55,6 +60,7 @@ export function ClientFormDialog({
   const [slug, setSlug] = useState(client?.slug ?? "");
   const [status, setStatus] = useState(client?.status ?? "active");
   const [blogBaseUrl, setBlogBaseUrl] = useState(client?.blog_base_url ?? "");
+  const [services, setServices] = useState<string[]>(client?.services ?? []);
   const [deployHookUrl, setDeployHookUrl] = useState("");
   const [removeDeployHook, setRemoveDeployHook] = useState(false);
   // In edit mode the slug is treated as operator-set so it does not auto-rewrite.
@@ -151,6 +157,47 @@ export function ClientFormDialog({
               ))}
             </select>
           </div>
+
+          <fieldset className="space-y-1.5">
+            <legend className="text-sm font-medium">
+              Services{" "}
+              <span className="text-muted-foreground">(optional)</span>
+            </legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 pt-0.5">
+              {SERVICES.map((service) => (
+                <label
+                  key={service}
+                  className="flex items-center gap-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    name="services"
+                    value={service}
+                    checked={services.includes(service)}
+                    onChange={(event) =>
+                      setServices((current) =>
+                        event.target.checked
+                          ? [...current, service]
+                          : current.filter((s) => s !== service)
+                      )
+                    }
+                    className="size-4 rounded border-input accent-brand"
+                  />
+                  {SERVICE_LABELS[service]}
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              What you actually do for this client. Only these count towards
+              their health score, so a client you have never done social for is
+              not marked down for having no posts scheduled.
+            </p>
+            {state?.fieldErrors?.services ? (
+              <p className="text-sm text-destructive">
+                {state.fieldErrors.services[0]}
+              </p>
+            ) : null}
+          </fieldset>
 
           <div className="space-y-1.5">
             <label htmlFor="client-blog-base-url" className="text-sm font-medium">
