@@ -6,12 +6,15 @@ import { fieldInputClass } from "@/components/form-field";
 import { PostEditor } from "@/components/post-editor";
 import { FeaturedImageInput } from "@/components/featured-image-input";
 import { slugify } from "@/lib/clients/schemas";
+import { CharCounter } from "@/components/char-counter";
 import { createPost, updatePost } from "@/lib/posts/actions";
-import type { PostFormState } from "@/lib/posts/schemas";
+import { SEO_LIMITS, type PostFormState } from "@/lib/posts/schemas";
 
 export type PostFormData = {
   id: string;
   title: string;
+  meta_title: string | null;
+  excerpt: string | null;
   slug: string;
   body: string | null;
   meta_description: string | null;
@@ -43,6 +46,25 @@ export function PostForm({
   const [slug, setSlug] = useState(post?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(isEdit);
   const [body, setBody] = useState(post?.body ?? "");
+  const [metaDescription, setMetaDescription] = useState(
+    post?.meta_description ?? ""
+  );
+  const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
+
+  // The meta title mirrors the title until it is edited, then detaches and keeps
+  // its own value. Same shape as the slug above it, and for the same reason: a
+  // sensible default you never have to think about, which stops being a default
+  // the moment you disagree with it.
+  //
+  // The DETACHED flag is what gets stored, not the text. While attached the
+  // field submits blank, so the column stays null and a later title change is
+  // still followed. Storing the mirrored text instead would silently freeze the
+  // meta title at whatever the headline said the day the post was written.
+  const [metaTitle, setMetaTitle] = useState(post?.meta_title ?? "");
+  const [metaTitleEdited, setMetaTitleEdited] = useState(
+    (post?.meta_title ?? "") !== ""
+  );
+  const shownMetaTitle = metaTitleEdited ? metaTitle : title;
 
   function handleTitleChange(value: string) {
     setTitle(value);
@@ -123,6 +145,54 @@ export function PostForm({
       </div>
 
       <div className="space-y-1.5">
+        <label htmlFor="post-meta-title" className="text-sm font-medium">
+          Meta title{" "}
+          <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <input
+          id="post-meta-title"
+          // Submits blank while it is still mirroring the title, so the column
+          // stays null and keeps following the headline.
+          name="meta_title"
+          value={metaTitleEdited ? metaTitle : ""}
+          // The visible text is the mirror; the submitted value is above.
+          onChange={(event) => {
+            setMetaTitle(event.target.value);
+            setMetaTitleEdited(true);
+          }}
+          placeholder={title || "Follows the post title"}
+          className={fieldInputClass}
+        />
+        <CharCounter
+          value={shownMetaTitle}
+          limit={SEO_LIMITS.metaTitle}
+          warnAt={SEO_LIMITS.metaTitleWarnAt}
+          hint={
+            metaTitleEdited
+              ? "What search results show."
+              : "Following the post title. Type to set your own."
+          }
+        />
+        {metaTitleEdited ? (
+          <button
+            type="button"
+            onClick={() => {
+              setMetaTitleEdited(false);
+              setMetaTitle("");
+            }}
+            className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Follow the post title again
+          </button>
+        ) : null}
+        {state?.fieldErrors?.meta_title ? (
+          <p className="text-sm text-destructive">
+            {state.fieldErrors.meta_title[0]}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="space-y-1.5">
         <label htmlFor="post-meta" className="text-sm font-medium">
           Meta description{" "}
           <span className="text-muted-foreground">(optional)</span>
@@ -130,13 +200,45 @@ export function PostForm({
         <textarea
           id="post-meta"
           name="meta_description"
-          defaultValue={post?.meta_description ?? ""}
+          value={metaDescription}
+          onChange={(event) => setMetaDescription(event.target.value)}
           rows={2}
           className={fieldInputClass}
+        />
+        <CharCounter
+          value={metaDescription}
+          limit={SEO_LIMITS.metaDescription}
+          warnAt={SEO_LIMITS.metaDescriptionWarnAt}
+          hint="What search results show under the title."
         />
         {state?.fieldErrors?.meta_description ? (
           <p className="text-sm text-destructive">
             {state.fieldErrors.meta_description[0]}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="space-y-1.5">
+        <label htmlFor="post-excerpt" className="text-sm font-medium">
+          Excerpt <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <textarea
+          id="post-excerpt"
+          name="excerpt"
+          value={excerpt}
+          onChange={(event) => setExcerpt(event.target.value)}
+          rows={3}
+          className={fieldInputClass}
+        />
+        <CharCounter
+          value={excerpt}
+          limit={SEO_LIMITS.excerpt}
+          warnAt={SEO_LIMITS.excerptWarnAt}
+          hint="The summary a blog index or card shows. Not the meta description."
+        />
+        {state?.fieldErrors?.excerpt ? (
+          <p className="text-sm text-destructive">
+            {state.fieldErrors.excerpt[0]}
           </p>
         ) : null}
       </div>
