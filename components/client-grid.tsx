@@ -14,6 +14,7 @@ import {
   ClientFormDialog,
   type ClientRow,
 } from "@/components/client-form-dialog";
+import { ZERO_COUNTS, type ClientCounts } from "@/lib/clients/counts";
 
 // The operator home: one warm tile per client, nothing else. This replaces the
 // cross-client monitoring board (summary counts, attention zone, all-projects
@@ -39,23 +40,11 @@ export function initialsFrom(name: string): string {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-// The five per-client counts. Tallied in one pass over five lean queries (see
-// app/home/page.tsx), never one query per client.
-export type ClientCounts = {
-  requests: number;
-  tasks: number;
-  printOrders: number;
-  social: number;
-  blog: number;
-};
-
-export const ZERO_COUNTS: ClientCounts = {
-  requests: 0,
-  tasks: 0,
-  printOrders: 0,
-  social: 0,
-  blog: 0,
-};
+// ClientCounts and ZERO_COUNTS live in lib/clients/counts.ts, NOT here. They
+// were defined in this file once, and app/home/page.tsx imported ZERO_COUNTS
+// across the server/client boundary, where Next replaced it with a client
+// reference and every count silently became NaN. Shared values belong in a
+// plain module; keep them out of this one.
 
 // Icon, label and accessor per counter. The label is what a screen reader and a
 // hover tooltip get; the icon alone carries it visually, because five words on a

@@ -1,9 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  ClientGrid,
-  ZERO_COUNTS,
-  type ClientCounts,
-} from "@/components/client-grid";
+import { ClientGrid } from "@/components/client-grid";
+import type { ClientCounts } from "@/lib/clients/counts";
 import type { ClientRow } from "@/components/client-form-dialog";
 
 // The operator home: a card per client, with the five counts that say what is
@@ -34,6 +31,15 @@ type CountRow = { client_id: string | null };
 // may name a client we do not manage, and those belong to no card. Until the
 // orphan slice lands that is EVERY request and print order, so both of those
 // counters read zero everywhere by design, not by fault.
+// The zero object is built RIGHT HERE from a literal, not spread from an
+// imported constant. That is what broke: ZERO_COUNTS used to be exported from
+// the client component, so on the server it was a client reference, the spread
+// produced {}, every ++ produced NaN and NaN > 0 hid every chip. A literal has
+// nothing to substitute, so this cannot regress even if an import moves again.
+function zeroCounts(): ClientCounts {
+  return { requests: 0, tasks: 0, printOrders: 0, social: 0, blog: 0 };
+}
+
 function tally(
   sets: { key: keyof ClientCounts; rows: CountRow[] }[]
 ): Record<string, ClientCounts> {
@@ -41,7 +47,7 @@ function tally(
   for (const { key, rows } of sets) {
     for (const row of rows) {
       if (!row.client_id) continue;
-      counts[row.client_id] ??= { ...ZERO_COUNTS };
+      counts[row.client_id] ??= zeroCounts();
       counts[row.client_id][key]++;
     }
   }
