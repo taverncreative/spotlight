@@ -1,22 +1,30 @@
 import { createClient } from "@/lib/supabase/server";
 import { ClientGrid } from "@/components/client-grid";
-import type { ClientCounts } from "@/lib/clients/counts";
+import type {
+  BlogItem,
+  ClientCardData,
+  SocialItem,
+  TaskItem,
+} from "@/lib/clients/counts";
 import type { ClientRow } from "@/components/client-form-dialog";
 
-// The operator home: a card per client, with the five counts that say what is
-// actually waiting.
+// The operator home: a card per client, showing what is waiting, and expanding
+// in place to show what that actually is.
 //
-// COUNTING STRATEGY. Five lean queries, each selecting only client_id under a
-// status filter, tallied in one pass. Not one query per client: that would be
-// 5 x clients round trips to answer a question the database can serve in five.
-// Not a SQL view either, yet -- PostgREST cannot GROUP BY, so a view would be
-// real schema, and at current volumes (about 50 rows across every table
-// combined) folding in JS is free and needs no migration to undo.
+// COUNTING STRATEGY. Six queries total regardless of client count, never one per
+// client. Three of them (tasks, social, blog) select the few columns the
+// expanded view needs, so opening a card costs no request at all: the detail is
+// already on the page. The other two are count-only, because every request and
+// print order is currently unlinked and has no client to expand under.
+//
+// Not a SQL view: PostgREST cannot GROUP BY, so that would be real schema, and
+// at current volumes (about 50 rows across every table combined) folding in JS
+// is free and needs no migration to undo.
 //
 // The ceiling worth knowing: supabase/config.toml sets max_rows = 1000, so each
-// query silently truncates past a thousand matching rows and the counts would
-// quietly under-report. Nothing is near that. When any single filter approaches
-// it, this is the point to swap the fold for a grouped view.
+// query silently truncates past a thousand matching rows and both counts and
+// detail would quietly under-report. Nothing is near that. When any single
+// filter approaches it, this is the point to swap the fold for a grouped view.
 //
 // deploy_hook_url is selected but never passed on: it is narrowed to a boolean
 // below, before the row reaches a client component.
@@ -25,33 +33,70 @@ type ClientCipherRow = Omit<ClientRow, "has_deploy_hook"> & {
 };
 
 type CountRow = { client_id: string | null };
+type TaskRow = TaskItem & { client_id: string | null };
+type SocialRow = SocialItem & { client_id: string | null };
+type BlogRow = BlogItem & { client_id: string | null };
 
-// Fold the five result sets into one map keyed by client id. Rows with a null
-// client_id are skipped rather than bucketed: inbound requests and print orders
-// may name a client we do not manage, and those belong to no card. Until the
-// orphan slice lands that is EVERY request and print order, so both of those
-// counters read zero everywhere by design, not by fault.
-// The zero object is built RIGHT HERE from a literal, not spread from an
-// imported constant. That is what broke: ZERO_COUNTS used to be exported from
-// the client component, so on the server it was a client reference, the spread
-// produced {}, every ++ produced NaN and NaN > 0 hid every chip. A literal has
-// nothing to substitute, so this cannot regress even if an import moves again.
-function zeroCounts(): ClientCounts {
-  return { requests: 0, tasks: 0, printOrders: 0, social: 0, blog: 0 };
+// Built from a literal, not spread from an imported constant. That is what broke
+// the counters: EMPTY_CARD_DATA's ancestor lived in the client component, so on
+// the server it was a client reference, the spread produced {} and every ++
+// produced NaN. A literal has nothing to substitute.
+function emptyCard(): ClientCardData {
+  return {
+    counts: { requests: 0, tasks: 0, printOrders: 0, social: 0, blog: 0 },
+    tasks: [],
+    social: [],
+    blog: [],
+  };
 }
 
-function tally(
-  sets: { key: keyof ClientCounts; rows: CountRow[] }[]
-): Record<string, ClientCounts> {
-  const counts: Record<string, ClientCounts> = {};
-  for (const { key, rows } of sets) {
-    for (const row of rows) {
-      if (!row.client_id) continue;
-      counts[row.client_id] ??= zeroCounts();
-      counts[row.client_id][key]++;
-    }
+// One pass over all five result sets into one map keyed by client id.
+//
+// Rows with a null client_id are skipped rather than bucketed: inbound requests
+// and print orders may name a client we do not manage. Until the orphan slice
+// lands that is EVERY request and print order, so both of those counters read
+// zero for every client by design, not by fault.
+//
+// tasks/social/blog counts are the array lengths, so the number on the face and
+// the rows in the expansion cannot disagree.
+function buildCards(
+  requests: CountRow[],
+  printOrders: CountRow[],
+  tasks: TaskRow[],
+  social: SocialRow[],
+  blog: BlogRow[]
+): Record<string, ClientCardData> {
+  const cards: Record<string, ClientCardData> = {};
+  const at = (clientId: string) => (cards[clientId] ??= emptyCard());
+
+  for (const row of requests) {
+    if (!row.client_id) continue;
+    at(row.client_id).counts.requests++;
   }
-  return counts;
+  for (const row of printOrders) {
+    if (!row.client_id) continue;
+    at(row.client_id).counts.printOrders++;
+  }
+  for (const { client_id, ...task } of tasks) {
+    if (!client_id) continue;
+    at(client_id).tasks.push(task);
+  }
+  for (const { client_id, ...post } of social) {
+    if (!client_id) continue;
+    at(client_id).social.push(post);
+  }
+  for (const { client_id, ...post } of blog) {
+    if (!client_id) continue;
+    at(client_id).blog.push(post);
+  }
+
+  for (const card of Object.values(cards)) {
+    card.counts.tasks = card.tasks.length;
+    card.counts.social = card.social.length;
+    card.counts.blog = card.blog.length;
+  }
+
+  return cards;
 }
 
 export default async function HomePage() {
@@ -59,8 +104,8 @@ export default async function HomePage() {
   const [
     clientsRes,
     requestsRes,
-    tasksRes,
     printOrdersRes,
+    tasksRes,
     socialRes,
     blogRes,
   ] = await Promise.all([
@@ -69,12 +114,27 @@ export default async function HomePage() {
       .select("id, name, slug, status, blog_base_url, deploy_hook_url")
       .order("name"),
     supabase.from("client_requests").select("client_id").eq("status", "new"),
-    supabase.from("client_tasks").select("client_id").eq("status", "open"),
     supabase.from("print_orders").select("client_id").eq("status", "new"),
-    supabase.from("social_posts").select("client_id").eq("status", "scheduled"),
+    // Ordered here rather than in the component: soonest due first, soonest
+    // scheduled first, newest published first. Nulls last so an undated task
+    // does not head the list.
+    supabase
+      .from("client_tasks")
+      .select("id, client_id, title, due_date")
+      .eq("status", "open")
+      .order("due_date", { ascending: true, nullsFirst: false }),
+    supabase
+      .from("social_posts")
+      .select("id, client_id, caption, scheduled_at")
+      .eq("status", "scheduled")
+      .order("scheduled_at", { ascending: true, nullsFirst: false }),
     // Published only. posts.status is constrained to draft|published (0011);
     // there is no scheduled state for blog, so there is nothing else to count.
-    supabase.from("posts").select("client_id").eq("status", "published"),
+    supabase
+      .from("posts")
+      .select("id, client_id, title, published_at")
+      .eq("status", "published")
+      .order("published_at", { ascending: false, nullsFirst: false }),
   ]);
 
   // Drop the deploy hook ciphertext here. ClientGrid is a client component, so
@@ -86,13 +146,13 @@ export default async function HomePage() {
     has_deploy_hook: deploy_hook_url !== null,
   }));
 
-  const counts = tally([
-    { key: "requests", rows: (requestsRes.data ?? []) as CountRow[] },
-    { key: "tasks", rows: (tasksRes.data ?? []) as CountRow[] },
-    { key: "printOrders", rows: (printOrdersRes.data ?? []) as CountRow[] },
-    { key: "social", rows: (socialRes.data ?? []) as CountRow[] },
-    { key: "blog", rows: (blogRes.data ?? []) as CountRow[] },
-  ]);
+  const cards = buildCards(
+    (requestsRes.data ?? []) as CountRow[],
+    (printOrdersRes.data ?? []) as CountRow[],
+    (tasksRes.data ?? []) as TaskRow[],
+    (socialRes.data ?? []) as SocialRow[],
+    (blogRes.data ?? []) as BlogRow[]
+  );
 
-  return <ClientGrid clients={clients} counts={counts} />;
+  return <ClientGrid clients={clients} cards={cards} />;
 }
