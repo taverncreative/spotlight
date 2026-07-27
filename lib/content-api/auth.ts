@@ -34,5 +34,27 @@ export async function resolveClientId(
     p_key_hash: `\\x${hashHex}`,
   });
   if (error || !data) return null;
+
+  // Stamp the key as used. Best effort and deliberately NOT awaited for its
+  // result beyond swallowing a failure: a request that has already resolved must
+  // not fail because a timestamp did not save.
+  //
+  // Why a function rather than an update: this client is the ANON one, and 0032
+  // denies anon every direct table grant, so the definer function in 0069 is the
+  // only way to write this column without widening what the public routes can
+  // touch. It takes the hash, never the key.
+  //
+  // This was missing entirely until now. last_used_at existed and had never once
+  // been written, so all nine keys read "never used" while two client sites
+  // called these endpoints daily -- a column that looked like a usage signal and
+  // was actually noise, which is worse than not having one when you are deciding
+  // whether a key is safe to revoke.
+  const { error: touchError } = await supabase.rpc("touch_content_key", {
+    p_key_hash: `\\x${hashHex}`,
+  });
+  if (touchError) {
+    console.error("content-api: last_used stamp failed", touchError.code);
+  }
+
   return data as string;
 }

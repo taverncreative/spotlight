@@ -31,6 +31,7 @@ function parseForm(formData: FormData) {
     title: String(formData.get("title") ?? ""),
     meta_title: String(formData.get("meta_title") ?? ""),
     excerpt: String(formData.get("excerpt") ?? ""),
+    focus_keyword: String(formData.get("focus_keyword") ?? ""),
     slug: String(formData.get("slug") ?? ""),
     body: String(formData.get("body") ?? ""),
     meta_description: String(formData.get("meta_description") ?? ""),
@@ -64,6 +65,7 @@ export async function createPost(
     body: parsed.data.body || null,
     meta_description: parsed.data.meta_description || null,
     excerpt: parsed.data.excerpt || null,
+    focus_keyword: parsed.data.focus_keyword || null,
     featured_image: parsed.data.featured_image || null,
     // Alt without an image is meaningless; clear it when no image is set.
     featured_image_alt: parsed.data.featured_image
@@ -117,6 +119,7 @@ export async function updatePost(
     title: parsed.data.title,
     meta_title: parsed.data.meta_title || null,
     excerpt: parsed.data.excerpt || null,
+    focus_keyword: parsed.data.focus_keyword || null,
     slug: parsed.data.slug,
     body: parsed.data.body || null,
     meta_description: parsed.data.meta_description || null,

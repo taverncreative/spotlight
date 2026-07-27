@@ -28,6 +28,14 @@ export const postFormSchema = z.object({
     .trim()
     .max(120, "Keep the meta title under 120 characters.")
     .optional(),
+  // The keyword the post is written to rank for, and what the SEO checklist
+  // scores everything else against. Blank means "not set", which the checklist
+  // treats as "nothing to score" rather than as a failing post.
+  focus_keyword: z
+    .string()
+    .trim()
+    .max(120, "Keep the focus keyword under 120 characters.")
+    .optional(),
   excerpt: z
     .string()
     .trim()

@@ -9,17 +9,33 @@ import { uploadPostImage } from "@/lib/posts/image-upload";
 // an image is set. The resolved public URL and the alt are mirrored into hidden
 // inputs so they persist with the post on save. Remove clears both from the
 // post (the storage object is left in place).
+// onChange reports the current image and alt upward, so the SEO checklist can
+// score them live rather than from the values this component was mounted with.
+// The hidden inputs below are still what the form submits; this is a read-only
+// mirror for anything that needs to react.
 export function FeaturedImageInput({
   clientId,
   initialUrl,
   initialAlt,
+  onChange,
 }: {
   clientId: string;
   initialUrl: string | null;
   initialAlt: string | null;
+  onChange?: (state: { url: string | null; alt: string }) => void;
 }) {
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [alt, setAlt] = useState(initialAlt ?? "");
+
+  // Reported on every change rather than through an effect, so the parent never
+  // renders a frame behind and no effect fires on mount for a value the parent
+  // already has.
+  const report = (next: { url?: string | null; alt?: string }) => {
+    const merged = { url: next.url !== undefined ? next.url : url, alt: next.alt !== undefined ? next.alt : alt };
+    if (next.url !== undefined) setUrl(next.url);
+    if (next.alt !== undefined) setAlt(next.alt);
+    onChange?.(merged);
+  };
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -29,7 +45,7 @@ export function FeaturedImageInput({
     setError(null);
     try {
       const result = await uploadPostImage(file, clientId);
-      if (result.ok) setUrl(result.url);
+      if (result.ok) report({ url: result.url });
       else setError(result.error);
     } finally {
       setUploading(false);
@@ -65,7 +81,7 @@ export function FeaturedImageInput({
             <input
               id="featured-image-alt"
               value={alt}
-              onChange={(event) => setAlt(event.target.value)}
+              onChange={(event) => report({ alt: event.target.value })}
               placeholder="e.g. A plumber fitting a tap in a Kent kitchen"
               className={fieldInputClass}
             />
@@ -85,7 +101,7 @@ export function FeaturedImageInput({
               variant="ghost"
               size="sm"
               onClick={() => {
-                setUrl(null);
+                report({ url: null });
                 setAlt("");
               }}
             >

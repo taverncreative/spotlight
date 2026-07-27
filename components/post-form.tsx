@@ -7,6 +7,7 @@ import { PostEditor } from "@/components/post-editor";
 import { FeaturedImageInput } from "@/components/featured-image-input";
 import { slugify } from "@/lib/clients/schemas";
 import { CharCounter } from "@/components/char-counter";
+import { SeoChecklist } from "@/components/seo-checklist";
 import { createPost, updatePost } from "@/lib/posts/actions";
 import { SEO_LIMITS, type PostFormState } from "@/lib/posts/schemas";
 
@@ -15,6 +16,7 @@ export type PostFormData = {
   title: string;
   meta_title: string | null;
   excerpt: string | null;
+  focus_keyword: string | null;
   slug: string;
   body: string | null;
   meta_description: string | null;
@@ -50,6 +52,13 @@ export function PostForm({
     post?.meta_description ?? ""
   );
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
+  const [focusKeyword, setFocusKeyword] = useState(post?.focus_keyword ?? "");
+  // Mirrored from FeaturedImageInput so the checklist can score the image and
+  // its alt as they change, rather than as they were when the form mounted.
+  const [featured, setFeatured] = useState<{ url: string | null; alt: string }>({
+    url: post?.featured_image ?? null,
+    alt: post?.featured_image_alt ?? "",
+  });
 
   // The meta title mirrors the title until it is edited, then detaches and keeps
   // its own value. Same shape as the slug above it, and for the same reason: a
@@ -127,6 +136,7 @@ export function PostForm({
         clientId={clientId}
         initialUrl={post?.featured_image ?? null}
         initialAlt={post?.featured_image_alt ?? null}
+        onChange={setFeatured}
       />
 
       <div className="space-y-1.5">
@@ -253,6 +263,45 @@ export function PostForm({
           </p>
         ) : null}
       </div>
+
+      <div className="space-y-1.5">
+        <label htmlFor="post-focus-keyword" className="text-sm font-medium">
+          Focus keyword{" "}
+          <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <input
+          id="post-focus-keyword"
+          name="focus_keyword"
+          value={focusKeyword}
+          onChange={(event) => setFocusKeyword(event.target.value)}
+          placeholder="balayage aftercare"
+          className={fieldInputClass}
+        />
+        <p className="text-xs text-muted-foreground">
+          The phrase this post is written to rank for. Everything below is
+          scored against it.
+        </p>
+        {state?.fieldErrors?.focus_keyword ? (
+          <p className="text-sm text-destructive">
+            {state.fieldErrors.focus_keyword[0]}
+          </p>
+        ) : null}
+      </div>
+
+      {/* Scored live from the form's own state, so it moves as you write rather
+          than only after a save. */}
+      <SeoChecklist
+        input={{
+          focusKeyword: focusKeyword,
+          title,
+          metaTitle: metaTitleEdited ? metaTitle : null,
+          slug,
+          metaDescription,
+          body,
+          featuredImage: featured.url,
+          featuredImageAlt: featured.alt,
+        }}
+      />
 
       {state?.error ? (
         <p role="alert" className="text-sm text-destructive">
