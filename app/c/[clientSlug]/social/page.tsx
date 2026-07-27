@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
-import { londonParts } from "@/lib/social/london";
+import { londonMonth, parseMonth } from "@/lib/calendar/grid";
 import { StatusPill } from "@/components/ui/status-pill";
 import { SocialCalendar } from "@/components/social/social-calendar";
 import { SocialRunway } from "@/components/social/social-runway";
@@ -69,12 +69,14 @@ export default async function SocialPage({
     STATUS_TABS.find((tab) => tab.key !== null && tab.key === statusParam) ??
     STATUS_TABS[0];
 
-  // Calendar view state: an invalid or absent ?month falls back to the current
-  // Europe/London month (never the server's UTC month).
-  const isCalendar = view === "calendar";
-  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam ?? "")
-    ? (monthParam as string)
-    : londonParts(new Date().toISOString()).date.slice(0, 7);
+  // CALENDAR IS THE DEFAULT. ?view=list opts out, which also means a bare
+  // /social lands on the calendar and the old list URL still works.
+  //
+  // A status filter forces the list: filtering to Drafts and getting a calendar
+  // that by definition cannot show a draft would read as a broken page.
+  const isCalendar = view !== "list" && !statusParam;
+  const month =
+    parseMonth(monthParam) ?? londonMonth(new Date().toISOString());
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -135,22 +137,25 @@ export default async function SocialPage({
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {isCalendar ? (
-          <div />
-        ) : (
-          <nav className="flex flex-wrap gap-1" aria-label="Filter by status">
+        {/* Always shown, in both views. A dateless draft exists nowhere but
+            here, so the route to it must not disappear when the calendar is in
+            front. Picking one switches to the list, since that is the only view
+            that can honour it. */}
+        <nav className="flex flex-wrap gap-1" aria-label="Filter by status">
             {STATUS_TABS.map((tab) => (
               <Link
                 key={tab.label}
                 href={
                   tab.key === null
-                    ? `/c/${clientSlug}/social`
+                    ? `/c/${clientSlug}/social?view=list`
                     : `/c/${clientSlug}/social?status=${tab.key}`
                 }
-                aria-current={tab.key === activeTab.key ? "page" : undefined}
+                aria-current={
+                  !isCalendar && tab.key === activeTab.key ? "page" : undefined
+                }
                 className={cn(
                   "rounded-md px-2.5 py-1 text-sm transition-colors",
-                  tab.key === activeTab.key
+                  !isCalendar && tab.key === activeTab.key
                     ? "bg-accent font-medium text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
@@ -158,19 +163,18 @@ export default async function SocialPage({
                 {tab.label}
               </Link>
             ))}
-          </nav>
-        )}
+        </nav>
         <nav className="flex gap-1" aria-label="View">
           {[
             {
-              label: "List",
+              label: "Calendar",
               href: `/c/${clientSlug}/social`,
-              active: !isCalendar,
+              active: isCalendar,
             },
             {
-              label: "Calendar",
-              href: `/c/${clientSlug}/social?view=calendar`,
-              active: isCalendar,
+              label: "List",
+              href: `/c/${clientSlug}/social?view=list`,
+              active: !isCalendar,
             },
           ].map((viewTab) => (
             <Link
