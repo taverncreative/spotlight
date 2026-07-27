@@ -106,6 +106,11 @@ export default async function RequestsPage({
       .select(
         "id, source_app, client_id, client_name, submitter, message, type, status, link, created_at"
       )
+      // UNASSIGNED ONLY. Requests that belong to a client now live on that
+      // client's Requests tab; what is left here is the inbox for rows that
+      // named a client we do not manage, or named none, and so appear on
+      // nobody's tab until they are assigned below.
+      .is("client_id", null)
       .order("created_at", { ascending: false }),
     supabase.from("clients").select("id, name").order("name"),
   ]);
@@ -136,7 +141,9 @@ export default async function RequestsPage({
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight">Requests</h1>
+        <h1 className="text-xl font-semibold tracking-tight">
+          Unassigned requests
+        </h1>
         <p className="text-sm text-muted-foreground">
           {newCount > 0
             ? `${newCount} new ${newCount === 1 ? "request" : "requests"} waiting on you.`
@@ -221,11 +228,9 @@ export default async function RequestsPage({
                 <span className="text-sm font-medium">
                   {request.client_name}
                 </span>
-                {request.client_id ? null : (
-                  <span className="text-xs text-muted-foreground">
-                    (not assigned)
-                  </span>
-                )}
+                <span className="text-xs text-muted-foreground">
+                  (not assigned)
+                </span>
               </div>
 
               <p className="text-sm whitespace-pre-wrap">{request.message}</p>
@@ -236,16 +241,14 @@ export default async function RequestsPage({
                   {formatDate(request.created_at)}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* Only on unassigned rows: inbound requests arrive with a
-                      free-text client name, so until one is attached here it
-                      shows on no client's card. */}
-                  {request.client_id ? null : (
-                    <AssignClient
-                      id={request.id}
-                      clients={clients}
-                      action={assignRequestToClient}
-                    />
-                  )}
+                  {/* Every row on this page is unassigned by definition, so
+                      the control is unconditional. Assigning moves the request
+                      onto that client's Requests tab and off this page. */}
+                  <AssignClient
+                    id={request.id}
+                    clients={clients}
+                    action={assignRequestToClient}
+                  />
                   {request.link ? (
                     <Button
                       variant="ghost"

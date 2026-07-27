@@ -116,6 +116,10 @@ export default async function PrintOrdersPage({
     .select(
       "id, source_app, order_id, client_id, client_name, submitter, status, ordered_at, created_at, print_order_items(name, quantity, reference, position)"
     )
+    // UNASSIGNED ONLY. Orders that belong to a client now live on that
+    // client's Print tab; what is left here is the queue for rows that named a
+    // client we do not manage, or named none.
+    .is("client_id", null)
     .order("created_at", { ascending: false })
     .order("position", { referencedTable: "print_order_items" });
   const orders = (data ?? []) as PrintOrderRow[];
@@ -145,7 +149,9 @@ export default async function PrintOrdersPage({
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight">Print orders</h1>
+        <h1 className="text-xl font-semibold tracking-tight">
+          Unassigned print orders
+        </h1>
         <p className="text-sm text-muted-foreground">
           {newCount > 0
             ? `${newCount} new ${newCount === 1 ? "order" : "orders"} to print.`
@@ -235,11 +241,9 @@ export default async function PrintOrdersPage({
                   <span className="text-sm font-medium">
                     {order.client_name}
                   </span>
-                  {order.client_id ? null : (
-                    <span className="text-xs text-muted-foreground">
-                      (not assigned)
-                    </span>
-                  )}
+                  <span className="text-xs text-muted-foreground">
+                    (not assigned)
+                  </span>
                 </div>
 
                 {/* The job itself. A table rather than prose: John is reading
@@ -275,16 +279,12 @@ export default async function PrintOrdersPage({
                     {formatDate(order.ordered_at ?? order.created_at)}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    {/* Only on unassigned rows, same reasoning as the requests
-                        inbox: until an order is attached to a client it shows
-                        on no client's card. */}
-                    {order.client_id ? null : (
-                      <AssignClient
-                        id={order.id}
-                        clients={clients}
-                        action={assignPrintOrderToClient}
-                      />
-                    )}
+                    {/* Every row on this page is unassigned by definition. */}
+                    <AssignClient
+                      id={order.id}
+                      clients={clients}
+                      action={assignPrintOrderToClient}
+                    />
                     {order.status === "new" ? (
                       <MoveButton
                         id={order.id}

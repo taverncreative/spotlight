@@ -5,7 +5,12 @@ export type ClientModule = { segment: string; label: string };
 
 export const CLIENT_MODULES: ClientModule[] = [
   { segment: "overview", label: "Overview" },
+  // Requests and Print used to be operator-level pages. They are per-client
+  // work: an inbound request is FOR someone. Requests sits before Tasks because
+  // it is what the client asked for, and Tasks is what we decided to do.
+  { segment: "requests", label: "Requests" },
   { segment: "tasks", label: "Tasks" },
+  { segment: "print-orders", label: "Print" },
   { segment: "seo", label: "SEO" },
   { segment: "analytics", label: "Analytics" },
   { segment: "business", label: "Business" },

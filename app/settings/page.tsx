@@ -47,6 +47,26 @@ export default async function SettingsPage() {
           />
         </Link>
 
+        {/* Email health is operator-scoped, not per-client: DMARC domains
+            belong to the operator and dmarc_domains.client_id is null on every
+            row today. It did not move into the client bar for that reason, and
+            it needs an entry point now the header no longer carries one. */}
+        <Link
+          href="/email"
+          className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-accent"
+        >
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-medium">Email health</p>
+            <p className="text-xs text-muted-foreground">
+              DMARC domains, ingest addresses and sender reports.
+            </p>
+          </div>
+          <ChevronRight
+            aria-hidden="true"
+            className="size-4 shrink-0 text-muted-foreground"
+          />
+        </Link>
+
         <div className="flex items-center justify-between gap-3 p-4">
           <div className="min-w-0 space-y-0.5">
             <p className="text-sm font-medium">Appearance</p>

@@ -41,6 +41,9 @@ export default async function HomeLayout({
           <ClientSelector clients={clients} />
         </div>
         <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" render={<Link href="/due" />}>
+            Due
+          </Button>
           <Button variant="ghost" size="sm" render={<Link href="/time" />}>
             Time
           </Button>
