@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { FaqEntry } from "@/lib/posts/structured-data";
 
 export const POST_STATUSES = ["draft", "published"] as const;
 export type PostStatus = (typeof POST_STATUSES)[number];
@@ -61,6 +62,39 @@ export const postFormSchema = z.object({
     .trim()
     .max(300, "Keep the alt text under 300 characters.")
     .optional(),
+  // FAQ rows, carried as JSON because the row count is dynamic. Parsed rather
+  // than trusted: this is a hidden input, so a malformed value is either a bug
+  // or someone editing the DOM, and neither should reach a jsonb column that a
+  // client's live site renders.
+  //
+  // A bad value is treated as "no FAQ" rather than as a validation error. The
+  // operator never typed this string, so a message about it would be noise they
+  // could not act on, and dropping it loses only the FAQ.
+  faq: z
+    .string()
+    .optional()
+    .transform((value) => {
+      if (!value) return [] as FaqEntry[];
+      try {
+        const parsed: unknown = JSON.parse(value);
+        if (!Array.isArray(parsed)) return [] as FaqEntry[];
+        return parsed.flatMap((entry) => {
+          if (!entry || typeof entry !== "object") return [];
+          const question = String(
+            (entry as FaqEntry).question ?? ""
+          ).trim();
+          const answer = String((entry as FaqEntry).answer ?? "").trim();
+          if (!question || !answer) return [];
+          // Capped so one pasted essay cannot become the whole payload a
+          // client's site has to render.
+          return [
+            { question: question.slice(0, 300), answer: answer.slice(0, 2000) },
+          ];
+        });
+      } catch {
+        return [] as FaqEntry[];
+      }
+    }),
 });
 
 export type PostFormValues = z.infer<typeof postFormSchema>;

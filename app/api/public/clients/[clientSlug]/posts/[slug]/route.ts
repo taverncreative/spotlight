@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createPublicClient, resolveClientId } from "@/lib/content-api/auth";
+import { composeSchemas, parseSchemas } from "@/lib/posts/structured-data";
 
 // Public content API -- a single PUBLISHED post by slug (full Markdown body).
 // Same keyed, anon, no-store, function-only read path as the list route. A draft
@@ -44,5 +45,33 @@ export async function GET(
     );
   }
 
-  return NextResponse.json(post, { headers: NO_STORE });
+  // schemas is the one field the route SHAPES rather than passes through.
+  //
+  // The function returns only what the operator authored (migration 0070);
+  // Article is composed here from columns the function has already decided are
+  // public, so nothing is widened. Composing rather than storing is what keeps
+  // datePublished honest: publishing from the blog list changes published_at
+  // without going near the editor, and a stored copy would not notice.
+  //
+  // client_name and updated_at are inputs to that composition, not part of the
+  // contract, so they are dropped from the response rather than added to it.
+  const { schemas, client_name, updated_at, ...rest } = post;
+  const body = {
+    ...rest,
+    schemas: composeSchemas(
+      {
+        title: post.title,
+        metaTitle: post.meta_title,
+        metaDescription: post.meta_description,
+        excerpt: post.excerpt,
+        featuredImage: post.featured_image,
+        publishedAt: post.published_at,
+        updatedAt: updated_at,
+        clientName: client_name,
+      },
+      parseSchemas(schemas)
+    ),
+  };
+
+  return NextResponse.json(body, { headers: NO_STORE });
 }

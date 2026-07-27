@@ -10,6 +10,7 @@ import {
 } from "@/lib/posts/schemas";
 import { reapPostImages, inlineImageUrls } from "@/lib/posts/image-paths";
 import { triggerDeployHook } from "@/lib/posts/deploy-hook";
+import { schemasFromForm } from "@/lib/posts/structured-data";
 
 // All actions operate under RLS: the posts policy allows writes only when
 // owns_client(client_id) is true.
@@ -37,6 +38,7 @@ function parseForm(formData: FormData) {
     meta_description: String(formData.get("meta_description") ?? ""),
     featured_image: String(formData.get("featured_image") ?? ""),
     featured_image_alt: String(formData.get("featured_image_alt") ?? ""),
+    faq: String(formData.get("faq") ?? ""),
   });
 }
 
@@ -73,6 +75,9 @@ export async function createPost(
       : null,
     status: publish ? "published" : "draft",
     published_at: publish ? new Date().toISOString() : null,
+    // Only what the operator authored. Article is composed at read time from the
+    // columns above, so storing a copy here would just be one that goes stale.
+    schemas: schemasFromForm(parsed.data.faq),
   });
   if (error) {
     if (error.code === "23505") return SLUG_TAKEN;
@@ -115,7 +120,7 @@ export async function updatePost(
     .maybeSingle();
 
   const newFeatured = parsed.data.featured_image || null;
-  const update: Record<string, string | null> = {
+  const update: Record<string, unknown> = {
     title: parsed.data.title,
     meta_title: parsed.data.meta_title || null,
     excerpt: parsed.data.excerpt || null,
@@ -129,6 +134,7 @@ export async function updatePost(
       ? parsed.data.featured_image_alt || null
       : null,
     status: publish ? "published" : "draft",
+    schemas: schemasFromForm(parsed.data.faq),
   };
   if (publish) {
     update.published_at = current?.published_at ?? new Date().toISOString();

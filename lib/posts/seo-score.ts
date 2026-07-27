@@ -30,12 +30,15 @@
 
 export type Importance = "essential" | "important" | "polish" | "judgement";
 
-// Four states, because "cannot be scored yet" and "is not a score" are both
-// different from failing. Only pass and fail reach the arithmetic; pending and
-// note leave the divisor entirely, the same way health.ts excludes services a
-// client is not on. A prompt nobody has answered must not look like a failure,
-// and a check for a feature that does not exist yet must not either.
-export type CheckStatus = "pass" | "fail" | "pending" | "note";
+// Three states, because "is not a score" is different from failing. Only pass
+// and fail reach the arithmetic; note leaves the divisor entirely, the same way
+// health.ts excludes services a client is not on. A prompt nobody has answered
+// must not look like a failure.
+//
+// There was briefly a fourth, "pending", for the Article check while structured
+// data did not exist. Structured data shipped, Article became a note, and the
+// state went with it rather than sitting here unused.
+export type CheckStatus = "pass" | "fail" | "note";
 
 export type SeoCheck = {
   id: string;
@@ -50,7 +53,7 @@ export type SeoScoreResult = {
   checks: SeoCheck[];
   passed: number;
   // Scoreable checks only, so "8 of 11" never counts prompts the writer cannot
-  // tick or a schema check that is not buildable yet.
+  // tick.
   total: number;
 };
 
@@ -67,9 +70,10 @@ export type SeoInput = {
   // siteUrls carries the weight: blog_base_url is unset on every client today.
   siteUrls: string[];
   blogBaseUrl: string | null;
-  // null means structured data does not exist yet, so the Article check reads
-  // pending. An empty array after that ships means genuinely none, and fails.
-  schemas: { type: string }[] | null;
+  // The structured data the OPERATOR authored. Article is not in here and never
+  // will be: it is composed at read time from the post's own fields, so every
+  // published post has one by construction. See lib/posts/structured-data.ts.
+  schemas: { type: string }[];
   // Days since publication, or null for a draft. Passed in so the clock stays
   // out of a pure function; only decides whether the "still accurate" prompt
   // appears at all.
@@ -288,6 +292,9 @@ export function seoScore(input: SeoInput): SeoScoreResult {
   const list = headings(body);
   const fault = headingFault(list);
   const links = classifyLinks(input);
+  const faqCount = input.schemas.filter(
+    (entry) => (entry.type ?? "").toLowerCase() === "faqpage"
+  ).length;
 
   const yes = (condition: boolean): CheckStatus => (condition ? "pass" : "fail");
 
@@ -351,27 +358,6 @@ export function seoScore(input: SeoInput): SeoScoreResult {
       importance: "important",
       label: "Featured image set",
       status: yes((input.featuredImage ?? "").length > 0),
-    },
-    {
-      id: "schema-article",
-      importance: "important",
-      label: "Article schema",
-      // Pending, not failing, until structured data exists. A check for a
-      // feature nobody can satisfy yet is not a fault in the post.
-      status:
-        input.schemas === null
-          ? "pending"
-          : yes(
-              input.schemas.some((entry) =>
-                ["article", "blogposting"].includes(
-                  (entry.type ?? "").toLowerCase()
-                )
-              )
-            ),
-      detail:
-        input.schemas === null
-          ? "Available once structured data ships"
-          : undefined,
     },
 
     // --- polish -----------------------------------------------------------
@@ -454,6 +440,24 @@ export function seoScore(input: SeoInput): SeoScoreResult {
       status: "note",
     },
     {
+      id: "schema-article",
+      importance: "judgement",
+      label: "Article schema is emitted automatically",
+      // A NOTE, not a scored check, and this is deliberate.
+      //
+      // Article is composed from the post's own fields, so it is present on
+      // every published post and a pass/fail row could never fail -- a check
+      // that cannot fail is noise in a list that was just rewritten to remove
+      // noise. Scoring its COMPLETENESS instead was the obvious alternative and
+      // is worse: headline, image and date are each already checked above, so it
+      // would charge the same missing featured image three times.
+      status: "note",
+      detail:
+        faqCount > 0
+          ? `Plus an FAQ with ${faqCount} ${faqCount === 1 ? "question" : "questions"}.`
+          : "Built from the title, description, image and dates.",
+    },
+    {
       id: "external-links",
       importance: "judgement",
       label: "External links",
@@ -476,8 +480,8 @@ export function seoScore(input: SeoInput): SeoScoreResult {
     });
   }
 
-  // Pending and notes are excluded from BOTH sides, so neither can drag a score
-  // down for something the writer cannot act on.
+  // Notes are excluded from BOTH sides, so a prompt can never drag a score down
+  // for something the writer has not been asked to tick.
   const scoreable = checks.filter(
     (check) => check.status === "pass" || check.status === "fail"
   );

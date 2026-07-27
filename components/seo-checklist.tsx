@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clock, Minus, X } from "lucide-react";
+import { Check, Minus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   IMPORTANCE_LABELS,
@@ -16,10 +16,9 @@ import {
 // meta description and a missing image alt are both failures, and treating them
 // the same trains you to ignore the list. The groups say which to fix first.
 //
-// FOUR STATES, not two. "Worth checking" prompts are coaching and are drawn as
+// THREE STATES, not two. "Worth checking" prompts are coaching and are drawn as
 // questions with no tick, no cross and no count, because a question nobody has
-// answered is not a failure. "Pending" checks are for features that do not exist
-// yet, and say so rather than reading as something the writer got wrong.
+// answered is not a failure.
 //
 // The scoring itself lives in lib/posts/seo-score.ts as a pure function, so this
 // component only decides how to draw the result. That split is why the rules
@@ -31,14 +30,6 @@ function StatusIcon({ check }: { check: SeoCheck }) {
       <Check
         aria-hidden="true"
         className="mt-0.5 size-3.5 shrink-0 text-counter-ok"
-      />
-    );
-  }
-  if (check.status === "pending") {
-    return (
-      <Clock
-        aria-hidden="true"
-        className="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
       />
     );
   }
@@ -62,7 +53,6 @@ function StatusIcon({ check }: { check: SeoCheck }) {
 const SR_STATUS: Record<SeoCheck["status"], string> = {
   pass: " passed",
   fail: " not done",
-  pending: " not available yet",
   note: "",
 };
 
@@ -109,8 +99,7 @@ export function SeoChecklist({ input }: { input: SeoInput }) {
         );
         if (group.length === 0) return null;
 
-        // Prompts are not scored, so they get no "to fix" count. Neither do
-        // pending checks, which are not the writer's to fix.
+        // Prompts are not scored, so they get no "to fix" count.
         const failed = group.filter((check) => check.status === "fail").length;
         const coaching = importance === "judgement";
 
@@ -140,9 +129,7 @@ export function SeoChecklist({ input }: { input: SeoInput }) {
                       className={
                         coaching || check.status === "pass"
                           ? "text-muted-foreground"
-                          : check.status === "pending"
-                            ? "text-muted-foreground"
-                            : undefined
+                          : undefined
                       }
                     >
                       {check.label}

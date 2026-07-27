@@ -7,6 +7,7 @@ import { PostEditor } from "@/components/post-editor";
 import { FeaturedImageInput } from "@/components/featured-image-input";
 import { slugify } from "@/lib/clients/schemas";
 import { CharCounter } from "@/components/char-counter";
+import { StructuredDataEditor } from "@/components/structured-data-editor";
 import { SeoChecklist } from "@/components/seo-checklist";
 import { createPost, updatePost } from "@/lib/posts/actions";
 // TYPE-ONLY on purpose. seo-context.ts imports the server Supabase client, and
@@ -14,6 +15,12 @@ import { createPost, updatePost } from "@/lib/posts/actions";
 // -- the same boundary mistake that once turned a shared constant into an empty
 // object at runtime. A type import is erased, so nothing crosses.
 import type { SeoContext } from "@/lib/posts/seo-context";
+import {
+  faqEntries,
+  parseSchemas,
+  schemasFromForm,
+  type FaqEntry,
+} from "@/lib/posts/structured-data";
 import { SEO_LIMITS, type PostFormState } from "@/lib/posts/schemas";
 
 export type PostFormData = {
@@ -27,6 +34,8 @@ export type PostFormData = {
   meta_description: string | null;
   featured_image: string | null;
   featured_image_alt: string | null;
+  // Raw jsonb from the posts row; parsed into editor rows on mount.
+  schemas: unknown;
 };
 
 // Compose/edit form. post === null is the create case (uses clientId); otherwise
@@ -68,6 +77,9 @@ export function PostForm({
   );
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
   const [focusKeyword, setFocusKeyword] = useState(post?.focus_keyword ?? "");
+  const [faq, setFaq] = useState<FaqEntry[]>(() =>
+    faqEntries(parseSchemas(post?.schemas))
+  );
   // Mirrored from FeaturedImageInput so the checklist can score the image and
   // its alt as they change, rather than as they were when the form mounted.
   const [featured, setFeatured] = useState<{ url: string | null; alt: string }>({
@@ -305,6 +317,8 @@ export function PostForm({
 
       {/* Scored live from the form's own state, so it moves as you write rather
           than only after a save. */}
+      <StructuredDataEditor entries={faq} onChange={setFaq} />
+
       <SeoChecklist
         input={{
           focusKeyword: focusKeyword,
@@ -317,9 +331,10 @@ export function PostForm({
           featuredImageAlt: featured.alt,
           siteUrls: seoContext.siteUrls,
           blogBaseUrl: seoContext.blogBaseUrl,
-          // null, not [], while structured data does not exist: the Article
-          // check reads pending rather than failing every post in the system.
-          schemas: null,
+          // What the operator authored, rebuilt from the live rows so the
+          // checklist note tracks the panel above as it is edited. Article is
+          // never in here: it is composed at read time.
+          schemas: schemasFromForm(faq),
           ageDays,
         }}
       />

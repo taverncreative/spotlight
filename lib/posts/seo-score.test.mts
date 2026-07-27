@@ -26,8 +26,7 @@ function perfect(overrides: Partial<SeoInput> = {}): SeoInput {
     featuredImageAlt: "A balayage colour result",
     siteUrls: ["https://therapyhair.co.uk"],
     blogBaseUrl: null,
-    // Structured data does not exist yet, so the Article check is pending.
-    schemas: null,
+    schemas: [],
     ageDays: null,
     ...overrides,
   };
@@ -59,8 +58,7 @@ test("a post doing everything right scores 1, with pending and notes excluded", 
   assert.deepEqual(failed, [], `unexpected failures: ${failed.join(", ")}`);
   assert.equal(result.score, 1);
   assert.equal(result.passed, result.total);
-  // total counts scoreable checks only: not the pending schema check, not the
-  // judgement prompts.
+  // total counts scoreable checks only, never the judgement prompts.
   assert.ok(result.checks.length > result.total);
 });
 
@@ -226,29 +224,32 @@ test("images are not counted as links", () => {
 
 // --- schema ---------------------------------------------------------------
 
-test("Article schema is PENDING while structured data does not exist", () => {
-  const check = byId(perfect({ schemas: null }), "schema-article");
-  assert.equal(check.status, "pending");
-  assert.match(check.detail ?? "", /once structured data ships/i);
+test("Article is a NOTE, never scored: it is emitted automatically", () => {
+  // Scoring it would be a row that can never fail, because Article is composed
+  // from the post's own fields for every published post.
+  const check = byId(perfect(), "schema-article");
+  assert.equal(check.status, "note");
+  assert.equal(check.importance, "judgement");
 });
 
-test("pending does not drag the score down", () => {
-  const pending = seoScore(perfect({ schemas: null })).score;
-  const present = seoScore(perfect({ schemas: [{ type: "Article" }] })).score;
-  assert.equal(pending, 1);
-  assert.equal(present, 1);
+test("the Article note cannot move the score in either direction", () => {
+  assert.equal(seoScore(perfect({ schemas: [] })).score, 1);
+  assert.equal(seoScore(perfect({ schemas: [{ type: "FAQPage" }] })).score, 1);
 });
 
-test("once schemas exist, none present fails and Article or BlogPosting passes", () => {
-  assert.equal(byId(perfect({ schemas: [] }), "schema-article").status, "fail");
-  assert.equal(
-    byId(perfect({ schemas: [{ type: "FAQPage" }] }), "schema-article").status,
-    "fail"
+test("an FAQ is reported in the note rather than scored", () => {
+  const none = byId(perfect({ schemas: [] }), "schema-article");
+  assert.match(none.detail ?? "", /title, description, image and dates/i);
+
+  const one = byId(perfect({ schemas: [{ type: "FAQPage" }] }), "schema-article");
+  assert.match(one.detail ?? "", /1 question\b/);
+});
+
+test("nothing in the checklist can fail because of structured data", () => {
+  const scoreable = seoScore(perfect({ schemas: [] })).checks.filter(
+    (c) => c.status === "pass" || c.status === "fail"
   );
-  assert.equal(
-    byId(perfect({ schemas: [{ type: "BlogPosting" }] }), "schema-article").status,
-    "pass"
-  );
+  assert.ok(!scoreable.some((c) => /schema/i.test(c.id)));
 });
 
 test("Breadcrumb is NOT checked: it is the client template's concern", () => {
@@ -265,7 +266,7 @@ test("prompts are notes, never pass or fail, and never scored", () => {
     assert.equal(prompt.status, "note", `${prompt.id} should be a note`);
   }
   // None of them appear in the scoreable total.
-  assert.equal(result.total, result.checks.length - prompts.length - 1); // -1 for the pending schema check
+  assert.equal(result.total, result.checks.length - prompts.length);
 });
 
 test("the intent prompt quotes the actual keyword", () => {
