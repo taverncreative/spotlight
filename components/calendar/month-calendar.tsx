@@ -38,16 +38,39 @@ const CHIPS_WITH_OVERFLOW = 3;
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// Same warm-bento tokens as StatusPill, and the same fallback contract: an
-// unknown status gets neutral styling rather than throwing on a lifecycle a
-// module adds later.
+// CALENDAR EMPHASIS, deliberately not StatusPill's semantic tone.
+//
+// A pill labels what something IS. A dot on a forward-looking calendar answers
+// "what should I be looking at", and the answers differ: the palette's
+// --status-info is a warm neutral (#8A7D6F), the quietest thing on the page, so
+// inheriting it made SCHEDULED -- the only status that has not happened yet and
+// the whole reason to open a calendar -- the faintest mark, while published sat
+// in gold shouting about work already done.
+//
+// So the loud end is what is still coming or has gone wrong, and the quiet end
+// is what is finished. Same fallback contract as StatusPill: an unknown status
+// gets neutral styling rather than throwing on a lifecycle a module adds later.
 const DOT: Record<string, string> = {
-  draft: "bg-muted-foreground",
-  scheduled: "bg-status-info",
+  // Not yet happened, and still changeable: the loudest mark available.
+  //
+  // NOT the brand terracotta, which was the obvious first choice and wrong.
+  // Measured, bg-primary lands at lab(53, 41, 42) and status-danger at
+  // lab(60, 51, 39) -- eight degrees of hue apart, so "coming up" and "failed,
+  // fix today" became the same dot at 6px. Every accent in this warm palette
+  // sits in that same orange arc, so the only high-contrast colour genuinely
+  // clear of the alarm red is the neutral one.
+  scheduled: "bg-foreground",
+  // In flight and briefly worth watching.
   publishing: "bg-status-warn",
-  published: "bg-status-ok",
-  partial: "bg-status-warn",
+  // Wrong, and louder than everything: these need action today.
   failed: "bg-status-danger",
+  partial: "bg-status-warn",
+  // Done. Still legible, deliberately recessive -- history, not a task.
+  published: "bg-muted-foreground/50",
+  // Never reaches the calendar today: a draft has no date. It will once blog
+  // gets planned_for, and it needs a treatment distinct from published then,
+  // since "planned but not committed" and "already out" are opposite things.
+  draft: "bg-muted-foreground/50",
 };
 
 // An item plus the parts only the module can supply.
