@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { inboundFeedbackSchema } from "@/lib/inbound/feedback-schema";
+import { inboundPrintOrderSchema } from "@/lib/inbound/print-order-schema";
 import {
   bearerToken,
   fail,
@@ -10,37 +10,32 @@ import {
   stampLastUsed,
 } from "@/lib/inbound/auth";
 
-// Inbound client requests from other apps (GEM CRM first), pooled into one
-// triage list. Fire-and-forget: the sender never blocks on us, so every failure
-// is a plain status code with nothing in the body worth reading.
+// Inbound print orders from other apps (GEM's print library first), pooled into
+// one fulfilment queue. Fire-and-forget: the sender never blocks on us, so every
+// failure is a plain status code with nothing in the body worth reading.
 //
 // Auth is a per-sender secret, not a single shared one: the token hashes to a
-// row in inbound_sources, and THAT row's source_app is what gets recorded. Any
-// source_app in the body is ignored, so a sender cannot label its requests as
-// another app. The token match, rate limiter and failure shape now live in
-// lib/inbound/auth.ts, shared with /api/inbound/print-order so the two endpoints
-// cannot drift on security-critical code.
+// row in inbound_sources — the SAME registry /api/inbound/feedback uses, with no
+// per-endpoint scoping — and THAT row's source_app is what gets recorded. Any
+// source_app in the body is ignored, so a sender cannot label its orders as
+// another app.
 //
-// Service-role is deliberate and load-bearing here. create_client_request is a
-// SECURITY DEFINER function granted to service_role ONLY (0042): anon lost
-// EXECUTE because the publishable key ships in the browser bundle, and PostgREST
-// exposes public functions at /rest/v1/rpc, so an anon grant would let anyone
-// insert without ever passing this route and make the secret decorative. That is
-// also why this file is the one and only caller.
+// Service-role is deliberate and load-bearing here. create_print_order is a
+// SECURITY DEFINER function granted to service_role ONLY (0059): the publishable
+// key ships in the browser bundle, and PostgREST exposes public functions at
+// /rest/v1/rpc, so an anon grant would let anyone insert without ever passing
+// this route and make the secret decorative. That is also why this file is the
+// one and only caller.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Generous for a request body, mean for an attacker. The DB's length checks are
-// the real backstop; this only stops us parsing megabytes.
-const MAX_BODY_BYTES = 16 * 1024;
+// Larger than feedback's 16KB because the body carries an items array. Set
+// deliberately ABOVE what the schema permits (50 items at their maximum field
+// lengths) so that an oversized order is rejected by zod, which can name the
+// offending field, rather than by a byte count that tells the sender nothing.
+const MAX_BODY_BYTES = 64 * 1024;
 
-const ENDPOINT = "feedback";
-
-// The body contract lives in its own module (lib/inbound/feedback-schema.ts), so
-// external input is validated to what a sender may send, never to the
-// database-insert shape. source_app is not in it on purpose: the matched
-// inbound_sources row is authoritative, and zod strips unknown keys, so a sender
-// that sends one anyway is quietly ignored rather than rejected.
+const ENDPOINT = "print-order";
 
 export async function POST(request: Request) {
   // 1. Token present. Free, and rejects the commonest junk before any work.
@@ -56,8 +51,7 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
-  // 3. Resolve the token to a live source. revoked_at is null means active, the
-  // same convention client_api_keys uses.
+  // 3. Resolve the token to a live source.
   const { source, lookupFailed } = await resolveSource(supabase, token);
   if (lookupFailed) return fail(500, "Internal error");
   // Unknown, revoked and malformed tokens are one answer. Never say which.
@@ -70,35 +64,37 @@ export async function POST(request: Request) {
   }
 
   // 5. Body — validated against the external contract, not the DB shape.
-  let parsed: ReturnType<typeof inboundFeedbackSchema.parse>;
+  let parsed: ReturnType<typeof inboundPrintOrderSchema.parse>;
   try {
-    parsed = inboundFeedbackSchema.parse(JSON.parse(raw));
+    parsed = inboundPrintOrderSchema.parse(JSON.parse(raw));
   } catch (error) {
     // Name the field so the sender can fix its integration, but nothing beyond
     // it: no issue tree, no received values (which may carry someone's data).
+    // The path includes the item index for an items error (e.g. "items.2.name"),
+    // which is the difference between a fixable report and a shrug.
     const field =
       error instanceof z.ZodError ? error.issues[0]?.path.join(".") : undefined;
     return fail(400, field ? `Invalid body: ${field}` : "Invalid body");
   }
 
-  // 6. Insert. source_app comes from the row, never the body. request_id makes a
-  // retry idempotent: the function returns the original id and duplicate=true.
+  // 6. Insert. source_app comes from the row, never the body. order_id makes a
+  // retry idempotent: the function returns the original id and duplicate=true
+  // without re-inserting items, so a resend cannot cause a second print run.
   // client_name is optional on the wire but NOT NULL in the table, so an omitted
-  // one falls back to the source name (it reads as e.g. "gem-crm" in triage,
+  // one falls back to the source name (it reads as e.g. "gem-crm" in the queue,
   // rather than 400-ing a sender that had no client name to give).
-  const { data, error } = await supabase.rpc("create_client_request", {
+  const { data, error } = await supabase.rpc("create_print_order", {
     p_source_app: source.source_app,
     p_client_name: parsed.client_name ?? source.source_app,
-    p_message: parsed.message,
-    p_type: parsed.type ?? "other",
+    p_items: parsed.items,
     p_client_slug: parsed.client_slug ?? null,
     p_submitter: parsed.submitter ?? null,
-    p_link: parsed.link ?? null,
-    p_request_id: parsed.request_id,
+    p_ordered_at: parsed.ordered_at ?? null,
+    p_order_id: parsed.order_id,
   });
   if (error) {
     // Logged for us (code only, never the body or the token), opaque to them.
-    console.error("inbound: insert failed", error.code);
+    console.error("inbound: print order insert failed", error.code);
     return fail(500, "Internal error");
   }
 
@@ -108,13 +104,13 @@ export async function POST(request: Request) {
     | { id: string; duplicate: boolean }
     | undefined;
   if (!row?.id) {
-    console.error("inbound: insert returned no row");
+    console.error("inbound: print order insert returned no row");
     return fail(500, "Internal error");
   }
 
   await stampLastUsed(supabase, source.id);
 
-  // 200 for a first send and for a retry alike: both mean "it is on the list".
+  // 200 for a first send and for a retry alike: both mean "it is in the queue".
   return NextResponse.json(
     { ok: true, id: row.id, duplicate: row.duplicate === true },
     { status: 200 }

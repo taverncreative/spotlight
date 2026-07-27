@@ -30,6 +30,7 @@ type Status =
   | "failed"
   | "new"
   | "in_progress"
+  | "printing"
   | "done"
   | "ok"
   | "warn"
@@ -47,6 +48,10 @@ const STATUS: Record<Status, { label: string; tone: StatusTone }> = {
   // same thing wherever it appears.
   new: { label: "New", tone: "info" },
   in_progress: { label: "In progress", tone: "warn" },
+  // The print queue's middle state. Same warn tone as in_progress, because it
+  // means the same thing (in flight, not finished) in a module whose lifecycle
+  // reads new -> printing -> done.
+  printing: { label: "Printing", tone: "warn" },
   done: { label: "Done", tone: "ok" },
   // The email-health three states. Default labels are placeholders: the Email
   // view passes a dynamic `label` (e.g. "142 emails · all expected senders").

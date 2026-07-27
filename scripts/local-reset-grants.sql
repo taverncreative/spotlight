@@ -55,3 +55,15 @@ revoke all on function public.create_client_request(
 grant execute on function public.create_client_request(
   text, text, text, text, text, text, text, text
 ) to service_role;
+
+-- 4. The same carve-out for the print orders intake function (0059). Identical
+-- reasoning to section 3: it is a SECURITY DEFINER write path reachable at
+-- /rest/v1/rpc, so the blanket routine grant above would hand anon a way to
+-- insert print orders straight past the endpoint's shared secret.
+-- KEEP IN SYNC WITH migration 0059_print_orders_intake.sql.
+revoke all on function public.create_print_order(
+  text, text, jsonb, text, text, timestamptz, text
+) from anon, authenticated;
+grant execute on function public.create_print_order(
+  text, text, jsonb, text, text, timestamptz, text
+) to service_role;
