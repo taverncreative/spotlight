@@ -160,6 +160,8 @@ export function PostForm({
       </div>
 
       <FeaturedImageInput
+        focusKeyword={focusKeyword}
+        title={title}
         clientId={clientId}
         initialUrl={post?.featured_image ?? null}
         initialAlt={post?.featured_image_alt ?? null}

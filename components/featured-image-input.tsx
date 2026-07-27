@@ -1,9 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fieldInputClass } from "@/components/form-field";
 import { uploadPostImage } from "@/lib/posts/image-upload";
+import { unsplashSearchUrl } from "@/lib/posts/unsplash";
 
 // Featured image control: upload, preview, replace, remove, plus alt text once
 // an image is set. The resolved public URL and the alt are mirrored into hidden
@@ -18,11 +20,18 @@ export function FeaturedImageInput({
   initialUrl,
   initialAlt,
   onChange,
+  // The live focus keyword and title, for the Unsplash search link. Passed down
+  // rather than mirrored here: they belong to the form, and a second copy would
+  // be a second thing to keep in step.
+  focusKeyword,
+  title,
 }: {
   clientId: string;
   initialUrl: string | null;
   initialAlt: string | null;
   onChange?: (state: { url: string | null; alt: string }) => void;
+  focusKeyword?: string | null;
+  title?: string | null;
 }) {
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [alt, setAlt] = useState(initialAlt ?? "");
@@ -107,18 +116,22 @@ export function FeaturedImageInput({
             >
               Remove
             </Button>
+            <UnsplashLink focusKeyword={focusKeyword} title={title} />
           </div>
         </div>
       ) : (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-        >
-          {uploading ? "Uploading…" : "Upload image"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? "Uploading…" : "Upload image"}
+          </Button>
+          <UnsplashLink focusKeyword={focusKeyword} title={title} />
+        </div>
       )}
 
       <input
@@ -134,5 +147,49 @@ export function FeaturedImageInput({
       />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
+  );
+}
+
+// Opens Unsplash pre-searched on the focus keyword, or the title if there is no
+// keyword. A LINK, not an integration: you still download and upload, which is
+// what keeps the image in the post-images bucket where og:image and the client
+// templates expect it, and what keeps the Unsplash API's hotlinking and
+// attribution requirements out of scope entirely. The licence itself asks for
+// nothing.
+//
+// Disabled rather than hidden when there is nothing to search for, so the button
+// does not appear and vanish as the title is typed. The hint says which field it
+// is about to use, because "why did it search for that" is otherwise a mystery.
+function UnsplashLink({
+  focusKeyword,
+  title,
+}: {
+  focusKeyword?: string | null;
+  title?: string | null;
+}) {
+  const href = unsplashSearchUrl(focusKeyword ?? null, title ?? null);
+
+  if (!href) {
+    return (
+      <span className="text-xs text-muted-foreground">
+        Add a title or focus keyword to search Unsplash.
+      </span>
+    );
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      render={
+        // noreferrer alongside noopener: this is an outbound link from a page
+        // whose URL contains a client id.
+        <a href={href} target="_blank" rel="noopener noreferrer" />
+      }
+    >
+      Find on Unsplash
+      <ExternalLink aria-hidden="true" className="size-3.5" />
+    </Button>
   );
 }
