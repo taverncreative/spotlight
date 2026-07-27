@@ -3,6 +3,7 @@ import { ClientGrid } from "@/components/client-grid";
 import type {
   BlogItem,
   ClientCardData,
+  RequestItem,
   SocialItem,
   TaskItem,
   UnassignedCounts,
@@ -33,9 +34,17 @@ type ClientCipherRow = Omit<ClientRow, "has_deploy_hook"> & {
   deploy_hook_url: string | null;
 };
 
-type CountRow = { client_id: string | null };
 // overdue is not selected; it is derived below from due_date against today.
 type TaskRow = Omit<TaskItem, "overdue"> & { client_id: string | null };
+type RequestRow = RequestItem & { client_id: string | null };
+// summary/quantity/extraLines are built below from the embedded lines.
+type PrintOrderRow = {
+  id: string;
+  client_id: string | null;
+  ordered_at: string | null;
+  created_at: string;
+  print_order_items: { name: string; quantity: number; position: number }[];
+};
 type SocialRow = SocialItem & { client_id: string | null };
 type BlogRow = BlogItem & { client_id: string | null };
 
@@ -46,7 +55,9 @@ type BlogRow = BlogItem & { client_id: string | null };
 function emptyCard(): ClientCardData {
   return {
     counts: { requests: 0, tasks: 0, printOrders: 0, social: 0, blog: 0 },
+    requests: [],
     tasks: [],
+    printOrders: [],
     social: [],
     blog: [],
   };
@@ -62,8 +73,8 @@ function emptyCard(): ClientCardData {
 // tasks/social/blog counts are the array lengths, so the number on the face and
 // the rows in the expansion cannot disagree.
 function buildCards(
-  requests: CountRow[],
-  printOrders: CountRow[],
+  requests: RequestRow[],
+  printOrders: PrintOrderRow[],
   tasks: TaskRow[],
   social: SocialRow[],
   blog: BlogRow[],
@@ -72,13 +83,26 @@ function buildCards(
   const cards: Record<string, ClientCardData> = {};
   const at = (clientId: string) => (cards[clientId] ??= emptyCard());
 
-  for (const row of requests) {
-    if (!row.client_id) continue;
-    at(row.client_id).counts.requests++;
+  for (const { client_id, ...request } of requests) {
+    if (!client_id) continue;
+    at(client_id).requests.push(request);
   }
   for (const row of printOrders) {
     if (!row.client_id) continue;
-    at(row.client_id).counts.printOrders++;
+    // The order's lines collapse to one readable line here rather than on the
+    // card: the expansion is a glance at what is waiting, and the full job is
+    // one click away on the client's Print tab.
+    const lines = [...(row.print_order_items ?? [])].sort(
+      (a, b) => a.position - b.position
+    );
+    const first = lines[0];
+    at(row.client_id).printOrders.push({
+      id: row.id,
+      summary: first?.name ?? "Empty order",
+      quantity: first?.quantity ?? 0,
+      extraLines: Math.max(0, lines.length - 1),
+      ordered_at: row.ordered_at ?? row.created_at,
+    });
   }
   for (const { client_id, ...task } of tasks) {
     if (!client_id) continue;
@@ -100,6 +124,8 @@ function buildCards(
   }
 
   for (const card of Object.values(cards)) {
+    card.counts.requests = card.requests.length;
+    card.counts.printOrders = card.printOrders.length;
     card.counts.tasks = card.tasks.length;
     card.counts.social = card.social.length;
     card.counts.blog = card.blog.length;
@@ -122,8 +148,21 @@ export default async function HomePage() {
       .from("clients")
       .select("id, name, slug, status, blog_base_url, deploy_hook_url")
       .order("name"),
-    supabase.from("client_requests").select("client_id").eq("status", "new"),
-    supabase.from("print_orders").select("client_id").eq("status", "new"),
+    // Both carry the detail the expanded card shows. They were count-only while
+    // every inbound row was unassigned; now that assignment works, a counter
+    // with nothing behind it expands to an empty panel.
+    supabase
+      .from("client_requests")
+      .select("id, client_id, submitter, message, created_at")
+      .eq("status", "new")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("print_orders")
+      .select(
+        "id, client_id, ordered_at, created_at, print_order_items(name, quantity, position)"
+      )
+      .eq("status", "new")
+      .order("created_at", { ascending: false }),
     // Ordered here rather than in the component: soonest due first, soonest
     // scheduled first, newest published first. Nulls last so an undated task
     // does not head the list.
@@ -155,8 +194,8 @@ export default async function HomePage() {
     has_deploy_hook: deploy_hook_url !== null,
   }));
 
-  const requestRows = (requestsRes.data ?? []) as CountRow[];
-  const printOrderRows = (printOrdersRes.data ?? []) as CountRow[];
+  const requestRows = (requestsRes.data ?? []) as RequestRow[];
+  const printOrderRows = (printOrdersRes.data ?? []) as PrintOrderRow[];
 
   // Today in the same 'YYYY-MM-DD' shape due_date arrives in. Read once here so
   // every card judges overdue against the same instant, and so the clock is

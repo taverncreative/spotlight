@@ -30,9 +30,10 @@ export const ZERO_COUNTS: ClientCounts = {
   blog: 0,
 };
 
-// The rows behind three of the five counters. Requests and print orders have no
-// detail here on purpose: every one of them is currently unlinked, so there is
-// nothing to show under a client. They get their own view in the orphan slice.
+// The rows behind all five counters. Requests and print orders were count-only
+// while every inbound row was unassigned and no client could have any. Now that
+// assignment works they populate, and a counter with nothing behind it is worse
+// than no counter: GEM showed a requests chip of 2 and expanded to nothing.
 // overdue is computed on the SERVER, not derived in the component. "Is this past
 // due" needs today's date, and a client component that reads the clock during
 // render gives a different answer on the server than on the client, which is a
@@ -54,13 +55,30 @@ export type BlogItem = {
   title: string;
   published_at: string | null;
 };
+export type RequestItem = {
+  id: string;
+  submitter: string | null;
+  message: string;
+  created_at: string;
+};
+// summary is built on the server from the order's lines, so the card does not
+// have to carry every item to show what the job is.
+export type PrintOrderItem = {
+  id: string;
+  summary: string;
+  quantity: number;
+  extraLines: number;
+  ordered_at: string | null;
+};
 
 // Everything one card needs, counts and detail together, so the two cannot
 // drift: tasks/social/blog counts ARE the lengths of these arrays. Only requests
 // and printOrders come from separate count-only queries.
 export type ClientCardData = {
   counts: ClientCounts;
+  requests: RequestItem[];
   tasks: TaskItem[];
+  printOrders: PrintOrderItem[];
   social: SocialItem[];
   blog: BlogItem[];
 };
@@ -76,7 +94,9 @@ export type UnassignedCounts = { requests: number; printOrders: number };
 
 export const EMPTY_CARD_DATA: ClientCardData = {
   counts: { requests: 0, tasks: 0, printOrders: 0, social: 0, blog: 0 },
+  requests: [],
   tasks: [],
+  printOrders: [],
   social: [],
   blog: [],
 };

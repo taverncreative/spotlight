@@ -38,7 +38,9 @@ import {
 // How many rows each section shows before it stops. The expansion is a glance at
 // what is waiting, not the module: anything past this is one click away in the
 // client's own tab, and the "+N more" line says so rather than hiding it.
+const MAX_REQUESTS = 3;
 const MAX_TASKS = 4;
+const MAX_PRINT = 3;
 const MAX_SOCIAL = 4;
 const MAX_BLOG = 3;
 
@@ -146,17 +148,27 @@ function DetailSection({
 // because reading the clock during a client render answers differently on each
 // side of hydration.
 function DetailRow({
+  prefix,
   text,
   date,
   overdue = false,
 }: {
+  // A muted lead-in: who sent a request, how many of a thing to print. It sits
+  // inside the same truncating line so a long message still gets cut cleanly
+  // rather than pushing the date off the card.
+  prefix?: string | null;
   text: string;
   date: string | null;
   overdue?: boolean;
 }) {
   return (
     <li className="flex items-baseline justify-between gap-3 text-xs">
-      <span className="min-w-0 flex-1 truncate">{text}</span>
+      <span className="min-w-0 flex-1 truncate">
+        {prefix ? (
+          <span className="text-muted-foreground">{prefix} </span>
+        ) : null}
+        {text}
+      </span>
       <span
         title={overdue ? "Overdue" : undefined}
         className={cn(
@@ -230,7 +242,11 @@ function ClientCard({
 }) {
   const panelId = useId();
   const hasDetail =
-    data.tasks.length > 0 || data.social.length > 0 || data.blog.length > 0;
+    data.requests.length > 0 ||
+    data.tasks.length > 0 ||
+    data.printOrders.length > 0 ||
+    data.social.length > 0 ||
+    data.blog.length > 0;
 
   // The panel's open height, measured from the content rather than guessed. A
   // ResizeObserver keeps it right if the content reflows (a long client name
@@ -321,6 +337,23 @@ function ClientCard({
           <div className="space-y-3 border-t px-5 py-4">
             {hasDetail ? (
               <>
+                {/* Section order matches COUNTERS, so a chip on the face and
+                    its section below appear in the same sequence. */}
+                <DetailSection
+                  label="Open requests"
+                  total={data.requests.length}
+                  shown={Math.min(data.requests.length, MAX_REQUESTS)}
+                >
+                  {data.requests.slice(0, MAX_REQUESTS).map((request) => (
+                    <DetailRow
+                      key={request.id}
+                      prefix={request.submitter}
+                      text={request.message}
+                      date={request.created_at}
+                    />
+                  ))}
+                </DetailSection>
+
                 <DetailSection
                   label="Open tasks"
                   total={data.tasks.length}
@@ -332,6 +365,25 @@ function ClientCard({
                       text={task.title}
                       date={task.due_date}
                       overdue={task.overdue}
+                    />
+                  ))}
+                </DetailSection>
+
+                <DetailSection
+                  label="New print orders"
+                  total={data.printOrders.length}
+                  shown={Math.min(data.printOrders.length, MAX_PRINT)}
+                >
+                  {data.printOrders.slice(0, MAX_PRINT).map((order) => (
+                    <DetailRow
+                      key={order.id}
+                      prefix={order.quantity > 0 ? `${order.quantity}x` : null}
+                      text={
+                        order.extraLines > 0
+                          ? `${order.summary} +${order.extraLines} more`
+                          : order.summary
+                      }
+                      date={order.ordered_at}
                     />
                   ))}
                 </DetailSection>
