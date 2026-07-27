@@ -365,13 +365,25 @@ function ClientCard({
     >
       <div className="flex flex-col gap-3 p-5 pb-3">
         <div className="flex items-start gap-3">
-          {/* Initials stand in for a logo. Logo storage is a later slice; the
-              avatar box is sized so swapping an <img> in changes nothing else. */}
+          {/* The logo when there is one, initials when there is not. Same box
+              either way, so a roster of mostly-initials cards does not jump
+              around as logos are added one at a time. Decorative in both cases:
+              the client's name is right beside it. */}
           <span
             aria-hidden="true"
-            className="flex size-11 shrink-0 items-center justify-center rounded-control bg-brand/10 text-sm font-semibold tracking-wide text-brand"
+            className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-control bg-brand/10 text-sm font-semibold tracking-wide text-brand"
           >
-            {initialsFrom(client.name)}
+            {client.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={client.logo_url}
+                alt=""
+                loading="lazy"
+                className="size-full object-cover"
+              />
+            ) : (
+              initialsFrom(client.name)
+            )}
           </span>
           {/* Clamped to two lines so a long name cannot push past the avatar's
               44px and make one card taller than the rest. "Safe Lee Inspection

@@ -189,7 +189,7 @@ export default async function HomePage() {
   ] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, name, slug, status, blog_base_url, deploy_hook_url, services")
+      .select("id, name, slug, status, blog_base_url, deploy_hook_url, services, logo_url")
       .order("name"),
     // Both carry the detail the expanded card shows. They were count-only while
     // every inbound row was unassigned; now that assignment works, a counter

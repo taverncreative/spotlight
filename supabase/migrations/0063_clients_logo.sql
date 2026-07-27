@@ -1,0 +1,15 @@
+-- The client's logo, as the public URL of an object in the client-logos bucket
+-- (0064). Null means no logo, which is where every client starts and where most
+-- will stay: the card falls back to initials derived from the name, so this is
+-- an upgrade to the avatar rather than a requirement for one.
+--
+-- A URL rather than a storage path, matching posts.featured_image (0015). The
+-- bucket is public-read, so the URL is directly usable in an <img> and nothing
+-- has to sign anything at render time. The trade is that moving buckets later
+-- means rewriting stored URLs, which is the same trade the posts table already
+-- made and not worth diverging from for one column.
+--
+-- No paired policy: clients_operator_all (0003) is a table-wide `for all` on
+-- operator_id, so it already covers this column, as with blog_base_url (0038),
+-- retainer_minutes (0054), the deploy hook columns (0060) and services (0061).
+alter table public.clients add column logo_url text;

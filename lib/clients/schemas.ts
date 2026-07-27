@@ -119,6 +119,17 @@ export const clientFormSchema = z.object({
   // the difference (see migration 0061). Empty is valid and is where every
   // client starts.
   services: z.array(z.enum(SERVICES)),
+  // The uploaded logo's public URL, or blank for none. Not typed by the
+  // operator: the upload control writes it into a hidden field after the file
+  // reaches storage, so this validates the shape of something we produced
+  // rather than something that was typed.
+  logo_url: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === "" || isHttpUrl(value),
+      "The logo could not be attached. Try uploading it again."
+    ),
 });
 
 export type ClientFormValues = z.infer<typeof clientFormSchema>;

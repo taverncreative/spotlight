@@ -19,6 +19,7 @@ function parseForm(formData: FormData) {
     deploy_hook_remove: formData.get("deploy_hook_remove") === "on",
     // getAll: one checkbox per service, all sharing the name.
     services: formData.getAll("services").map(String),
+    logo_url: String(formData.get("logo_url") ?? ""),
   });
 }
 
@@ -80,6 +81,7 @@ export async function createClientAction(
     // Nothing to preserve on insert, so a blank field is simply no hook.
     deploy_hook_url: deployHook ?? null,
     services: parsed.data.services,
+    logo_url: parsed.data.logo_url || null,
   });
 
   if (error) {
@@ -123,6 +125,7 @@ export async function updateClientAction(
       status: parsed.data.status,
       blog_base_url: parsed.data.blog_base_url || null,
       services: parsed.data.services,
+      logo_url: parsed.data.logo_url || null,
       // Spread, not a plain key: undefined means "left blank, keep the saved
       // hook", and the column has to be absent from the payload for that.
       ...(deployHook === undefined ? {} : { deploy_hook_url: deployHook }),

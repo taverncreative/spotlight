@@ -18,6 +18,8 @@ import {
   type ClientFormState,
 } from "@/lib/clients/schemas";
 import { SERVICES, SERVICE_LABELS } from "@/lib/clients/health";
+import { uploadClientLogo } from "@/lib/clients/logo-upload";
+import { initialsFrom } from "@/components/client-grid";
 
 export type ClientRow = {
   id: string;
@@ -33,6 +35,8 @@ export type ClientRow = {
   // treats as applicable, so an empty list means the score stays silent rather
   // than reading zero.
   services: string[];
+  // Public URL of the uploaded logo, or null to fall back to initials.
+  logo_url: string | null;
 };
 
 // The add/edit client modal. client === null is the add case; otherwise it is
@@ -61,6 +65,9 @@ export function ClientFormDialog({
   const [status, setStatus] = useState(client?.status ?? "active");
   const [blogBaseUrl, setBlogBaseUrl] = useState(client?.blog_base_url ?? "");
   const [services, setServices] = useState<string[]>(client?.services ?? []);
+  const [logoUrl, setLogoUrl] = useState(client?.logo_url ?? "");
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [deployHookUrl, setDeployHookUrl] = useState("");
   const [removeDeployHook, setRemoveDeployHook] = useState(false);
   // In edit mode the slug is treated as operator-set so it does not auto-rewrite.
@@ -73,6 +80,22 @@ export function ClientFormDialog({
       router.refresh();
     }
   }, [state, onOpenChange, router]);
+
+  // The upload runs browser-to-storage and only its RESULT reaches the form, in
+  // a hidden field, so the server never handles the bytes. Storage RLS is the
+  // write gate (0065), keyed on the client-id folder.
+  //
+  // Only possible when editing: the object path is {client_id}/<file>, and a
+  // client being created has no id yet. The control says so rather than failing.
+  async function handleLogoFile(file: File | undefined) {
+    if (!file || !client) return;
+    setLogoBusy(true);
+    setLogoError(null);
+    const result = await uploadClientLogo(file, client.id);
+    setLogoBusy(false);
+    if (result.ok) setLogoUrl(result.url);
+    else setLogoError(result.error);
+  }
 
   function handleNameChange(value: string) {
     setName(value);
@@ -156,6 +179,69 @@ export function ClientFormDialog({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="text-sm font-medium">
+              Logo <span className="text-muted-foreground">(optional)</span>
+            </span>
+            <input type="hidden" name="logo_url" value={logoUrl} />
+            <div className="flex items-center gap-3">
+              {/* Same 44px box the card uses, showing exactly what the card
+                  will show: the logo if there is one, the initials if not. */}
+              <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-control bg-brand/10 text-sm font-semibold tracking-wide text-brand">
+                {logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={logoUrl}
+                    alt=""
+                    className="size-full object-cover"
+                  />
+                ) : (
+                  initialsFrom(name || "?")
+                )}
+              </span>
+              {isEdit ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    id="client-logo"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    disabled={logoBusy}
+                    onChange={(event) => {
+                      void handleLogoFile(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
+                    className="max-w-[13rem] text-xs file:mr-2 file:rounded-control file:border file:border-input file:bg-secondary file:px-2 file:py-1 file:text-xs"
+                  />
+                  {logoUrl ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLogoUrl("")}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Save the client first, then add a logo.
+                </p>
+              )}
+            </div>
+            {logoBusy ? (
+              <p className="text-xs text-muted-foreground">Uploading…</p>
+            ) : null}
+            {logoError ? (
+              <p className="text-sm text-destructive">{logoError}</p>
+            ) : null}
+            {!logoBusy && !logoError ? (
+              <p className="text-xs text-muted-foreground">
+                PNG, JPEG or WebP, under 2 MB. Falls back to initials.
+              </p>
+            ) : null}
           </div>
 
           <fieldset className="space-y-1.5">
