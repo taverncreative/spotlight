@@ -32,9 +32,10 @@ import { healthScore, type HealthInput } from "@/lib/clients/health";
 //
 // deploy_hook_url is selected but never passed on: it is narrowed to a boolean
 // below, before the row reaches a client component.
-type ClientCipherRow = Omit<ClientRow, "has_deploy_hook"> & {
-  deploy_hook_url: string | null;
-};
+// The clients row as SELECTED, which carries more than the grid needs. services
+// is read here to score health and then dropped; the deploy hook is not selected
+// at all any more, because nothing on this page needs to know it exists.
+type ClientConfigRow = ClientRow & { services: string[] | null };
 
 // overdue is not selected; it is derived below from due_date against today.
 type TaskRow = Omit<TaskItem, "overdue"> & { client_id: string | null };
@@ -189,7 +190,7 @@ export default async function HomePage() {
   ] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, name, slug, status, blog_base_url, deploy_hook_url, services, logo_url")
+      .select("id, name, slug, status, services, logo_url")
       .order("name"),
     // Both carry the detail the expanded card shows. They were count-only while
     // every inbound row was unassigned; now that assignment works, a counter
@@ -242,14 +243,12 @@ export default async function HomePage() {
       .limit(1, { referencedTable: "site_checks" }),
   ]);
 
-  // Drop the deploy hook ciphertext here. ClientGrid is a client component, so
-  // the column is replaced by presence-only before it can travel.
-  const clients: ClientRow[] = (
-    (clientsRes.data ?? []) as ClientCipherRow[]
-  ).map(({ deploy_hook_url, ...client }) => ({
-    ...client,
-    has_deploy_hook: deploy_hook_url !== null,
-  }));
+  // services is used below to score health and then left behind: ClientGrid is a
+  // client component, and what it needs is the score, not the inputs.
+  const clientRows = (clientsRes.data ?? []) as ClientConfigRow[];
+  const clients: ClientRow[] = clientRows.map(
+    ({ services, ...client }) => client
+  );
 
   const requestRows = (requestsRes.data ?? []) as RequestRow[];
   const printOrderRows = (printOrdersRes.data ?? []) as PrintOrderRow[];
@@ -276,7 +275,7 @@ export default async function HomePage() {
     sitesByClient.set(site.client_id, list);
   }
 
-  for (const client of clients) {
+  for (const client of clientRows) {
     const card = (cards[client.id] ??= emptyCard());
 
     // Oldest open request: the requests array is newest-first, so the last is
@@ -300,7 +299,7 @@ export default async function HomePage() {
       : null;
 
     card.health = healthScore({
-      services: client.services,
+      services: client.services ?? [],
       oldestOpenRequestDays,
       socialRunwayDays,
       daysSinceLastPost,

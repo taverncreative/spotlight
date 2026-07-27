@@ -16,4 +16,7 @@ export const CLIENT_MODULES: ClientModule[] = [
   { segment: "business", label: "Business" },
   { segment: "blog", label: "Blog" },
   { segment: "social", label: "Social" },
+  // Last in the bar: configuration you set once and rarely revisit, unlike the
+  // modules above it which are daily work.
+  { segment: "settings", label: "Settings" },
 ];

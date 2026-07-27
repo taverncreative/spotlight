@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,31 +18,30 @@ import {
   slugify,
   type ClientFormState,
 } from "@/lib/clients/schemas";
-import { SERVICES, SERVICE_LABELS } from "@/lib/clients/health";
-import { uploadClientLogo } from "@/lib/clients/logo-upload";
-import { initialsFrom } from "@/components/client-grid";
 
+// What the home grid needs about a client. Deliberately smaller than the row:
+// services, the blog URL and the deploy hook are configuration rather than
+// roster metadata, and no longer cross into the browser at all.
 export type ClientRow = {
   id: string;
   name: string;
   slug: string;
   status: string;
-  blog_base_url: string | null;
-  // Presence only. The deploy hook is stored encrypted and this row reaches the
-  // browser, so the value itself is narrowed to a boolean server-side (see
-  // app/home/page.tsx) and never travels.
-  has_deploy_hook: boolean;
-  // Which services this client is on. Drives which signals the neglect score
-  // treats as applicable, so an empty list means the score stays silent rather
-  // than reading zero.
-  services: string[];
-  // Public URL of the uploaded logo, or null to fall back to initials.
+  // Public URL of the uploaded logo, or null to fall back to initials. Read
+  // only here: it is set on the client's Settings tab.
   logo_url: string | null;
 };
 
-// The add/edit client modal. client === null is the add case; otherwise it is
-// pre-filled for editing. The slug auto-derives from the name until the operator
-// edits it by hand. Mount it under a changing `key` so each open starts fresh.
+// The add/edit client modal: name, slug and status, and nothing else.
+//
+// It had reached eight fields. Blog base URL, the deploy hook, services and the
+// logo have moved to /c/[clientSlug]/settings, where each has room to explain
+// itself. What is left is the minimum to bring a client into existence: without
+// a name there is nothing to call them, without a slug there is no URL, and
+// status decides whether they appear at all.
+//
+// The slug auto-derives from the name until the operator edits it by hand. Mount
+// under a changing `key` so each open starts fresh.
 export function ClientFormDialog({
   open,
   onOpenChange,
@@ -53,7 +53,6 @@ export function ClientFormDialog({
 }) {
   const router = useRouter();
   const isEdit = client !== null;
-  const hasDeployHook = client?.has_deploy_hook ?? false;
   const action = isEdit ? updateClientAction : createClientAction;
   const [state, formAction, pending] = useActionState<
     ClientFormState,
@@ -63,13 +62,6 @@ export function ClientFormDialog({
   const [name, setName] = useState(client?.name ?? "");
   const [slug, setSlug] = useState(client?.slug ?? "");
   const [status, setStatus] = useState(client?.status ?? "active");
-  const [blogBaseUrl, setBlogBaseUrl] = useState(client?.blog_base_url ?? "");
-  const [services, setServices] = useState<string[]>(client?.services ?? []);
-  const [logoUrl, setLogoUrl] = useState(client?.logo_url ?? "");
-  const [logoBusy, setLogoBusy] = useState(false);
-  const [logoError, setLogoError] = useState<string | null>(null);
-  const [deployHookUrl, setDeployHookUrl] = useState("");
-  const [removeDeployHook, setRemoveDeployHook] = useState(false);
   // In edit mode the slug is treated as operator-set so it does not auto-rewrite.
   const [slugEdited, setSlugEdited] = useState(isEdit);
 
@@ -80,22 +72,6 @@ export function ClientFormDialog({
       router.refresh();
     }
   }, [state, onOpenChange, router]);
-
-  // The upload runs browser-to-storage and only its RESULT reaches the form, in
-  // a hidden field, so the server never handles the bytes. Storage RLS is the
-  // write gate (0065), keyed on the client-id folder.
-  //
-  // Only possible when editing: the object path is {client_id}/<file>, and a
-  // client being created has no id yet. The control says so rather than failing.
-  async function handleLogoFile(file: File | undefined) {
-    if (!file || !client) return;
-    setLogoBusy(true);
-    setLogoError(null);
-    const result = await uploadClientLogo(file, client.id);
-    setLogoBusy(false);
-    if (result.ok) setLogoUrl(result.url);
-    else setLogoError(result.error);
-  }
 
   function handleNameChange(value: string) {
     setName(value);
@@ -181,191 +157,20 @@ export function ClientFormDialog({
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <span className="text-sm font-medium">
-              Logo <span className="text-muted-foreground">(optional)</span>
-            </span>
-            <input type="hidden" name="logo_url" value={logoUrl} />
-            <div className="flex items-center gap-3">
-              {/* Same 44px box the card uses, showing exactly what the card
-                  will show: the logo if there is one, the initials if not. */}
-              <span className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-control bg-brand/10 text-sm font-semibold tracking-wide text-brand">
-                {logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={logoUrl}
-                    alt=""
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  initialsFrom(name || "?")
-                )}
-              </span>
-              {isEdit ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    id="client-logo"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    disabled={logoBusy}
-                    onChange={(event) => {
-                      void handleLogoFile(event.target.files?.[0]);
-                      event.target.value = "";
-                    }}
-                    className="max-w-[13rem] text-xs file:mr-2 file:rounded-control file:border file:border-input file:bg-secondary file:px-2 file:py-1 file:text-xs"
-                  />
-                  {logoUrl ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setLogoUrl("")}
-                    >
-                      Remove
-                    </Button>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Save the client first, then add a logo.
-                </p>
-              )}
-            </div>
-            {logoBusy ? (
-              <p className="text-xs text-muted-foreground">Uploading…</p>
-            ) : null}
-            {logoError ? (
-              <p className="text-sm text-destructive">{logoError}</p>
-            ) : null}
-            {!logoBusy && !logoError ? (
-              <p className="text-xs text-muted-foreground">
-                PNG, JPEG or WebP, under 2 MB. Falls back to initials.
-              </p>
-            ) : null}
-          </div>
-
-          <fieldset className="space-y-1.5">
-            <legend className="text-sm font-medium">
-              Services{" "}
-              <span className="text-muted-foreground">(optional)</span>
-            </legend>
-            <div className="flex flex-wrap gap-x-4 gap-y-2 pt-0.5">
-              {SERVICES.map((service) => (
-                <label
-                  key={service}
-                  className="flex items-center gap-2 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    name="services"
-                    value={service}
-                    checked={services.includes(service)}
-                    onChange={(event) =>
-                      setServices((current) =>
-                        event.target.checked
-                          ? [...current, service]
-                          : current.filter((s) => s !== service)
-                      )
-                    }
-                    className="size-4 rounded border-input accent-brand"
-                  />
-                  {SERVICE_LABELS[service]}
-                </label>
-              ))}
-            </div>
+          {/* Edit only: the settings tab needs a client that exists, and its
+              logo upload needs an id for the storage path. */}
+          {isEdit ? (
             <p className="text-xs text-muted-foreground">
-              What you actually do for this client. Only these count towards
-              their health score, so a client you have never done social for is
-              not marked down for having no posts scheduled.
+              Services, logo, blog URL and deploy hook live on{" "}
+              <Link
+                href={`/c/${client.slug}/settings`}
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                this client&rsquo;s settings
+              </Link>
+              .
             </p>
-            {state?.fieldErrors?.services ? (
-              <p className="text-sm text-destructive">
-                {state.fieldErrors.services[0]}
-              </p>
-            ) : null}
-          </fieldset>
-
-          <div className="space-y-1.5">
-            <label htmlFor="client-blog-base-url" className="text-sm font-medium">
-              Blog base URL{" "}
-              <span className="text-muted-foreground">(optional)</span>
-            </label>
-            <input
-              id="client-blog-base-url"
-              name="blog_base_url"
-              type="url"
-              inputMode="url"
-              value={blogBaseUrl}
-              onChange={(event) => setBlogBaseUrl(event.target.value)}
-              placeholder="https://businesssortedkent.co.uk/news"
-              className={fieldInputClass}
-            />
-            <p className="text-xs text-muted-foreground">
-              Where this client&rsquo;s posts live publicly. Stored for
-              reference: social captions are self-contained, so this is not
-              added to them.
-            </p>
-            {state?.fieldErrors?.blog_base_url ? (
-              <p className="text-sm text-destructive">
-                {state.fieldErrors.blog_base_url[0]}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="space-y-1.5">
-            <label
-              htmlFor="client-deploy-hook"
-              className="text-sm font-medium"
-            >
-              Deploy hook{" "}
-              <span className="text-muted-foreground">(optional)</span>
-            </label>
-            <input
-              id="client-deploy-hook"
-              name="deploy_hook_url"
-              type="url"
-              inputMode="url"
-              value={deployHookUrl}
-              onChange={(event) => setDeployHookUrl(event.target.value)}
-              disabled={removeDeployHook}
-              placeholder={
-                hasDeployHook
-                  ? "Paste a new URL to replace the saved one"
-                  : "https://api.vercel.com/v1/integrations/deploy/..."
-              }
-              className={`${fieldInputClass} disabled:opacity-50`}
-            />
-            <p className="text-xs text-muted-foreground">
-              Only needed for static sites that rebuild to pick up new posts.
-              Leave blank if the site fetches posts live.
-            </p>
-            {hasDeployHook ? (
-              <div className="space-y-1.5 pt-0.5">
-                <p className="text-xs text-muted-foreground">
-                  A hook is saved. It is stored encrypted, so it is not shown
-                  here. Leave this blank to keep it.
-                </p>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="deploy_hook_remove"
-                    checked={removeDeployHook}
-                    onChange={(event) => {
-                      setRemoveDeployHook(event.target.checked);
-                      if (event.target.checked) setDeployHookUrl("");
-                    }}
-                    className="size-4 rounded border-input accent-brand"
-                  />
-                  Remove the saved hook
-                </label>
-              </div>
-            ) : null}
-            {state?.fieldErrors?.deploy_hook_url ? (
-              <p className="text-sm text-destructive">
-                {state.fieldErrors.deploy_hook_url[0]}
-              </p>
-            ) : null}
-          </div>
+          ) : null}
 
           {state?.error ? (
             <p role="alert" className="text-sm text-destructive">
