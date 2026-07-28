@@ -11,11 +11,19 @@ import { SocialCalendar } from "@/components/social/social-calendar";
 import { SocialRunway } from "@/components/social/social-runway";
 import { SocialCancelButton } from "@/components/social/social-cancel-button";
 import { SocialDeleteButton } from "@/components/social/social-delete-button";
+import { PostInsights } from "@/components/social/post-insights";
 
 type MediaRow = { position: number; storage_path: string };
 type TargetRow = {
   meta_account_id: string;
   meta_accounts: { platform: string } | null;
+  social_post_insights: {
+    likes: number | null;
+    comments: number | null;
+    shares: number | null;
+    fetched_at: string | null;
+    last_error: string | null;
+  }[] | null;
 };
 type PostRow = {
   id: string;
@@ -85,7 +93,7 @@ export default async function SocialPage({
   const { data } = await supabase
     .from("social_posts")
     .select(
-      "id, caption, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path), social_post_targets(meta_account_id, meta_accounts(platform))"
+      "id, caption, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path), social_post_targets(meta_account_id, meta_accounts(platform), social_post_insights(likes, comments, shares, fetched_at, last_error))"
     )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });
@@ -267,6 +275,25 @@ export default async function SocialPage({
                     )}
                   </p>
                   <p className="text-xs text-muted-foreground">{when}</p>
+                  {/* Only for posts that have actually gone out: engagement on
+                      a draft is not a thing. */}
+                  {post.status === "published" ? (
+                    <PostInsights
+                      targets={(post.social_post_targets ?? [])
+                        .map((target) => {
+                          const row = target.social_post_insights?.[0];
+                          return {
+                            platform: target.meta_accounts?.platform ?? "",
+                            likes: row?.likes ?? null,
+                            comments: row?.comments ?? null,
+                            shares: row?.shares ?? null,
+                            fetchedAt: row?.fetched_at ?? null,
+                            error: row?.last_error ?? null,
+                          };
+                        })
+                        .filter((target) => target.platform)}
+                    />
+                  ) : null}
                   {(post.status === "failed" || post.status === "partial") &&
                   post.last_error ? (
                     <p className="line-clamp-3 text-xs text-destructive">

@@ -1,6 +1,16 @@
 {
   "crons": [
-    { "path": "/api/cron/run-checks", "schedule": "*/10 * * * *" },
-    { "path": "/api/cron/run-publisher", "schedule": "*/5 * * * *" }
+    {
+      "path": "/api/cron/run-checks",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/run-publisher",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/run-insights",
+      "schedule": "0 */6 * * *"
+    }
   ]
 }
