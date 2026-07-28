@@ -15,6 +15,7 @@ import {
   classifyMetaError,
   type ErrorClass,
 } from "@/lib/social/publish-errors";
+import { settle, settlementUpdate } from "@/lib/social/publish-status";
 
 export {
   classifyMetaError,
@@ -33,7 +34,7 @@ export {
 //     attempt_started_at set but no platform_post_id was interrupted mid-publish
 //     and is NEVER auto-reposted — it is flagged for manual verification.
 
-export const MAX_ATTEMPTS = 3;
+export { MAX_ATTEMPTS } from "@/lib/social/publish-status";
 export const STALE_RECLAIM_MINUTES = 10;
 export const CLAIM_BATCH = 20;
 
@@ -566,44 +567,30 @@ export async function publishPost(
   }
 
   const total = targets.length;
-  const allPublished = total > 0 && published + skipped === total;
-  // Nothing went wrong; something is merely not ready.
-  const pendingOnly = sawPending && !sawTransient && !sawTerminal;
 
-  let status: string;
-  if (allPublished) {
-    status = "published";
-  } else if (sawTerminal || (attempts >= MAX_ATTEMPTS && !pendingOnly)) {
-    // Give up now: terminal failure present, or transient retries exhausted.
-    // pendingOnly is exempt because nothing has failed -- we are waiting.
-    status = published + skipped > 0 ? "partial" : "failed";
-  } else if (sawTransient || sawPending) {
-    // Retry next cron tick.
-    status = "scheduled";
-  } else {
-    // No targets at all, or nothing actionable.
-    status = total === 0 ? "failed" : "partial";
-  }
-
-  const update: Record<string, unknown> = { status };
-  // Give the attempt back. Waiting for Meta's encoder is not an attempt, and
-  // charging it as one is what would make a slow Reel look like a broken post.
-  // Rolled back rather than never incremented, because the increment happens
-  // when the post is claimed, long before anyone knows what will happen.
-  if (pendingOnly) update.attempts = Math.max(0, attempts - 1);
-  if (status === "published") {
-    update.published_at = new Date().toISOString();
-    update.last_error = null;
-  } else if (status === "partial" || status === "failed") {
-    update.last_error = `${published + skipped}/${total} targets published.`;
-  } else {
-    update.last_error = null;
-  }
-  await supabase.from("social_posts").update(update).eq("id", postId);
+  // The status decision, and the scheduled_at that must travel with it, live in
+  // publish-status.ts. Settling 'scheduled' without a future scheduled_at is
+  // what stranded a Reel: the claim query ignores a null one, so the post was
+  // not queued for a retry, it was invisible to the retry.
+  const settlement = settle({
+    total,
+    published,
+    skipped,
+    sawTransient,
+    sawTerminal,
+    sawPending,
+    attempts,
+  });
+  await supabase
+    .from("social_posts")
+    .update(
+      settlementUpdate(settlement, new Date(), published + skipped, total)
+    )
+    .eq("id", postId);
 
   return {
     postId,
-    status,
+    status: settlement.status,
     published,
     failed: total - published - skipped - interrupted,
     interrupted,

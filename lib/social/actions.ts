@@ -41,6 +41,11 @@ function parseMedia(raw: string): SocialMediaItem[] {
         media_type: m.media_type === "video" ? "video" : "image",
         width: typeof m.width === "number" ? m.width : null,
         height: typeof m.height === "number" ? m.height : null,
+        // The second place this was dropped. The composer omitted it from the
+        // JSON and this omitted it from the parse, so fixing either alone would
+        // have looked like a fix and changed nothing.
+        poster_path:
+          typeof m.poster_path === "string" ? m.poster_path : null,
       }));
   } catch {
     return [];

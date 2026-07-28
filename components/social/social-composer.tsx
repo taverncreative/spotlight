@@ -96,6 +96,9 @@ export function SocialComposer({
     });
   }
 
+  const captionlessVideo =
+    caption.trim() === "" && media.some((m) => m.media_type === "video");
+
   // Photos are only mandatory for Instagram; Facebook supports text-only posts.
   const igSelected = accounts.some(
     (account) =>
@@ -115,12 +118,17 @@ export function SocialComposer({
     markStale({ media: true });
   }
 
+  // poster_path travels with the item. Leaving it out is what made every saved
+  // video a blank tile: the uploader grabs a first frame and stores it, the row
+  // that would point at it was written null, and the still sat orphaned in the
+  // bucket while lists and the calendar had nothing to render.
   const mediaJson = JSON.stringify(
     media.map((m) => ({
       storage_path: m.storage_path,
       media_type: m.media_type,
       width: m.width,
       height: m.height,
+      poster_path: m.poster_path,
     }))
   );
 
@@ -261,6 +269,18 @@ export function SocialComposer({
       {state?.error ? (
         <p role="alert" className="text-sm text-destructive">
           {state.error}
+        </p>
+      ) : null}
+
+      {/* A WARNING, NOT A RULE. Meta accepts a Reel with no caption, so blocking
+          one would be inventing a requirement that does not exist. But a silent
+          captionless Reel is almost never what was meant -- it is what a post
+          looks like when the caption box was forgotten between uploading the
+          video and pressing Publish. Say so, and let it through. */}
+      {captionlessVideo ? (
+        <p className="text-sm text-status-warn">
+          This video has no caption. Reels can post without one, but they rarely
+          should.
         </p>
       ) : null}
 
