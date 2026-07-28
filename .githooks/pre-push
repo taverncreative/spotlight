@@ -1,0 +1,26 @@
+#!/bin/sh
+# Refuse to push when production's migration ledger and this branch disagree.
+#
+# WHY PRE-PUSH, and not the build. The Vercel build cannot do this: it has no
+# PROD_DB_URL, and supabase_migrations is not exposed through PostgREST, so the
+# app's own Supabase keys cannot read the ledger. Adding a definer function to
+# expose it would mean a migration whose job is to check migrations, which is a
+# lot of new surface to catch a filing error.
+#
+# It is not in `npm test` either. Those tests are pure and offline by design --
+# that is what makes them fast and trustworthy -- and one that needs a database
+# and a network would be the one people learn to skip.
+#
+# Push is the right moment: it is when code leaves this machine, this is the only
+# machine with the credentials, and drift between prod and the repo is exactly a
+# "what is about to be true for everyone else" problem.
+#
+# Skips silently where PROD_DB_URL is absent, so a clone without credentials is
+# not blocked. Bypass deliberately with: git push --no-verify
+node scripts/check-migrations.mjs --allow-skip || {
+  echo ""
+  echo "  Push blocked: production and this branch disagree about migrations."
+  echo "  Fix the drift, or bypass deliberately with: git push --no-verify"
+  echo ""
+  exit 1
+}
