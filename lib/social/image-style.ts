@@ -1,4 +1,5 @@
 import { DEFAULTS, type TemplateStyle } from "@/lib/social/render-template-style";
+import { isFontId } from "@/lib/social/fonts";
 
 // Merging a stored template and a post's overrides into one style.
 //
@@ -37,11 +38,15 @@ export function cleanStyle(value: unknown): Partial<TemplateStyle> {
     (out as Record<string, unknown>)[key] = candidate;
   }
 
-  // scrim is the one enum, and an unknown value would silently render as no
-  // scrim. Dropping it lets the layer beneath decide, which is the rule every
-  // other key already follows.
+  // ENUMS NEED THEIR OWN CHECK. The loop above only compares typeof, so any
+  // string passes for scrim or font -- including a font that was removed from
+  // the registry, or a typo in a hand-edited row. Satori would then silently
+  // substitute a face and the picture would stop matching the preview.
   if (out.scrim && !["none", "black", "white"].includes(out.scrim)) {
     delete out.scrim;
+  }
+  if (out.font && !isFontId(out.font)) {
+    delete out.font;
   }
   return out;
 }

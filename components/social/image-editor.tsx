@@ -9,10 +9,17 @@ import { socialMediaPublicUrl } from "@/lib/social/media-paths";
 import { resolveStyle } from "@/lib/social/image-style";
 import {
   CANVAS,
-  CAP_OVER_EM,
   type ScrimColour,
   type TemplateStyle,
 } from "@/lib/social/render-template-style";
+import {
+  FONTS,
+  FONT_IDS,
+  fontOrDefault,
+  weightOrDefault,
+  weightsOf,
+  type FontId,
+} from "@/lib/social/fonts";
 import {
   renderImageRecipe,
   saveImageRecipe,
@@ -42,11 +49,43 @@ import {
 //
 // "See the real render" is next to Save so drift is checkable rather than
 // assumed.
+// One declaration per family, from the same files lib/social/fonts.ts gives the
+// renderer. next/font/local needs literal paths at build time, so this list
+// cannot be generated from the registry -- which makes it the one place the two
+// could drift. Record<FontId, ...> is what stops it: adding a face to the
+// registry fails the build here until it is declared, so the preview can never
+// be missing a font the renderer has.
 const anton = localFont({
   src: "../../assets/fonts/Anton-Regular.ttf",
   weight: "400",
   display: "block",
 });
+const oswald = localFont({
+  src: [
+    { path: "../../assets/fonts/Oswald-Regular.ttf", weight: "400" },
+    { path: "../../assets/fonts/Oswald-Bold.ttf", weight: "700" },
+  ],
+  display: "block",
+});
+const bebas = localFont({
+  src: "../../assets/fonts/BebasNeue-Regular.ttf",
+  weight: "400",
+  display: "block",
+});
+const archivo = localFont({
+  src: [
+    { path: "../../assets/fonts/ArchivoNarrow-Regular.ttf", weight: "400" },
+    { path: "../../assets/fonts/ArchivoNarrow-Bold.ttf", weight: "700" },
+  ],
+  display: "block",
+});
+
+export const PREVIEW_FONTS: Record<FontId, { className: string }> = {
+  anton,
+  oswald,
+  "bebas-neue": bebas,
+  "archivo-narrow": archivo,
+};
 
 export type EditorTemplate = ControlTemplate;
 
@@ -110,8 +149,12 @@ export function ImageEditor({
   // display width is exact rather than a scaled approximation.
   const W = 340;
   const H = Math.round((W * CANVAS.height) / CANVAS.width);
+  const face = fontOrDefault(style.font);
+  const weight = weightOrDefault(face, style.weight);
   const capPx = style.capHeight * W;
-  const fontSize = capPx / CAP_OVER_EM;
+  // The FACE's ratio. They range from 0.686 to 0.859, so using one number for
+  // all of them is a wrong size rather than a rounding difference.
+  const fontSize = capPx / face.capOverEm;
   const padX = style.highlight ? style.highlightPadX * capPx : 0;
   const lines = text.split("\n");
 
@@ -130,6 +173,8 @@ export function ImageEditor({
       width: String(style.width),
       capHeight: String(style.capHeight),
       leading: String(style.leading),
+      font: face.id,
+      weight: String(weight),
       scrim: style.scrim,
       scrimOpacity: String(style.scrimOpacity),
       highlight: style.highlight ? "1" : "0",
@@ -138,7 +183,7 @@ export function ImageEditor({
       highlightPadX: String(style.highlightPadX),
     });
     return `/api/render/social?${p.toString()}`;
-  }, [photoUrl, text, style]);
+  }, [photoUrl, text, style, face.id, weight]);
 
   const scrimRgba =
     style.scrim === "none"
@@ -192,9 +237,10 @@ export function ImageEditor({
             {lines.map((line, index) => (
               <div
                 key={index}
-                className={anton.className}
+                className={PREVIEW_FONTS[face.id].className}
                 style={{
                   fontSize,
+                  fontWeight: weight,
                   lineHeight: (style.leading * capPx) / fontSize,
                   color: style.colour,
                   textTransform: "uppercase",
@@ -289,6 +335,54 @@ export function ImageEditor({
           <Slider label="Down" value={style.y} min={0} max={0.85} step={0.002}
             onChange={(v) => set("y", v)} />
         </div>
+
+        <Field label="Font">
+          <select
+            value={face.id}
+            onChange={(event) => {
+              const next = fontOrDefault(event.target.value);
+              setStyle((current) => ({
+                ...current,
+                font: next.id,
+                // Clamp, because the new face may not have the old weight and
+                // Satori would silently substitute rather than fail.
+                weight: weightOrDefault(next, current.weight),
+              }));
+            }}
+            className={fieldInputClass}
+          >
+            {FONT_IDS.map((id) => (
+              <option key={id} value={id}>
+                {FONTS[id].family}
+              </option>
+            ))}
+          </select>
+          <Hint>{face.note}</Hint>
+          {/* The same kind of warning "Update template" gives, and for the same
+              reason: this changes something the eye will not predict. */}
+          <p className="text-xs text-status-warn">
+            Changing the font changes every line&rsquo;s width. Highlights will
+            shift, and line breaks that only just fitted may not.
+          </p>
+        </Field>
+
+        {weightsOf(face).length > 1 ? (
+          <Field label="Weight">
+            <select
+              value={weight}
+              onChange={(event) => set("weight", Number(event.target.value))}
+              className={fieldInputClass}
+            >
+              {weightsOf(face).map((option) => (
+                <option key={option} value={option}>
+                  {option === 700 ? "Bold" : "Regular"}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <Hint>{FONTS[face.id].family} has one weight.</Hint>
+        )}
 
         <Field label="Text colour">
           <Swatches

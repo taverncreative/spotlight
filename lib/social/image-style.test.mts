@@ -103,3 +103,18 @@ test("rendered after the template changed is fresh", () => {
     false
   );
 });
+
+// --- fonts ----------------------------------------------------------------
+
+test("an unknown font falls back rather than reaching the renderer", () => {
+  // typeof alone lets any string through, and Satori answers an unknown family
+  // with a silent substitution rather than an error -- so the picture would stop
+  // matching the preview with nothing to show for it.
+  assert.equal(resolveStyle({ font: "comic-sans" }, {}).font, DEFAULTS.font);
+  assert.equal(resolveStyle({ font: 42 }, {}).font, DEFAULTS.font);
+  assert.equal(resolveStyle({ font: "oswald" }, {}).font, "oswald");
+});
+
+test("a post can override the template's font", () => {
+  assert.equal(resolveStyle({ font: "anton" }, { font: "bebas-neue" }).font, "bebas-neue");
+});

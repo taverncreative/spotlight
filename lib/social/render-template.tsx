@@ -2,11 +2,12 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ReactElement } from "react";
+import { CANVAS, type RenderInput } from "@/lib/social/render-template-style";
 import {
-  CANVAS,
-  CAP_OVER_EM,
-  type RenderInput,
-} from "@/lib/social/render-template-style";
+  fontOrDefault,
+  weightOrDefault,
+  type FontFace,
+} from "@/lib/social/fonts";
 
 // Re-exported so callers that only want to draw something do not need to know
 // the type and the renderer live in two files.
@@ -37,24 +38,47 @@ export {
 // photos with a quiet area -- a yellow wall, an empty sky. Both exist here for
 // the photos that have no such area, which is most of them.
 
-// Anton, SIL Open Font License 1.1 (assets/fonts/Anton-OFL.txt). A stand-in for
-// whatever BSK's real face is: condensed, heavy, and free to embed in a
-// renderer, which a Canva-bundled or commercially licensed face may not be.
-//
-// SINGLE WEIGHT. Anton ships 400 and nothing else, so `weight` below is part of
-// the model and has exactly one valid value today. It is modelled anyway because
-// slice 2 stores this shape, and adding a second face later should be data
-// rather than a migration of every stored template.
-const FONT_FILE = "assets/fonts/Anton-Regular.ttf";
-export const FONT_NAME = "Anton";
-export const FONT_WEIGHTS = [400] as const;
+// Font files are read from disk at request time and cached per lambda, rather
+// than imported, so they never enter the bundle and never count against
+// ImageResponse's 500KB budget. Only the face a render actually uses is loaded.
+const cache = new Map<string, Buffer>();
 
-let cached: Buffer | null = null;
-export async function loadFont(): Promise<Buffer> {
-  // Read once per lambda. 167KB, which matters against ImageResponse's 500KB
-  // budget for everything it carries.
-  cached ??= await readFile(join(process.cwd(), FONT_FILE));
-  return cached;
+export async function loadFontFile(path: string): Promise<Buffer> {
+  const hit = cache.get(path);
+  if (hit) return hit;
+  const data = await readFile(join(process.cwd(), path));
+  cache.set(path, data);
+  return data;
+}
+
+// What ImageResponse needs: the one face, at the one weight, this render uses.
+// ImageResponse types weight as a union of literals rather than a number, so
+// the registry's value is narrowed here, once, instead of being cast at every
+// call site.
+type SatoriWeight = 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900;
+
+function asSatoriWeight(weight: number): SatoriWeight {
+  const allowed: SatoriWeight[] = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+  return allowed.includes(weight as SatoriWeight)
+    ? (weight as SatoriWeight)
+    : 400;
+}
+
+export async function fontsFor(
+  face: FontFace,
+  weight: number
+): Promise<
+  { name: string; data: Buffer; weight: SatoriWeight; style: "normal" }[]
+> {
+  const path = face.files[weight] ?? Object.values(face.files)[0];
+  return [
+    {
+      name: face.family,
+      data: await loadFontFile(path),
+      weight: asSatoriWeight(weight),
+      style: "normal",
+    },
+  ];
 }
 
 // #RGB or #RRGGBB plus an alpha, as rgba(). Satori takes rgba() strings; keeping
@@ -82,8 +106,11 @@ function rgba(hex: string, alpha: number): string {
 export function templateElement(input: RenderInput): ReactElement {
   // Measured design -> font size. The em is what the renderer wants; the cap
   // height is what the design is expressed in.
+  const face = fontOrDefault(input.font);
   const capPx = input.capHeight * CANVAS.width;
-  const fontSize = capPx / CAP_OVER_EM;
+  // The face's own ratio, not a shared constant: they range from 0.686 to
+  // 0.859, so the wrong one is a wrong size, not a rounding difference.
+  const fontSize = capPx / face.capOverEm;
   // Satori's line-height is a multiple of the em, so a pitch measured in cap
   // heights converts through the same ratio.
   const lineHeight = (input.leading * capPx) / fontSize;
@@ -167,9 +194,9 @@ export function templateElement(input: RenderInput): ReactElement {
           <div
             key={index}
             style={{
-              fontFamily: FONT_NAME,
+              fontFamily: face.family,
               fontSize,
-              fontWeight: input.weight,
+              fontWeight: weightOrDefault(face, input.weight),
               lineHeight,
               color: input.colour,
               textTransform: "uppercase",

@@ -6,17 +6,15 @@
 // the merge rules (testable, and later the browser preview) can share one
 // definition rather than keeping two in step.
 
+import type { FontId } from "@/lib/social/fonts";
+
 // 4:5, the ratio BSK uses most, and Instagram's tallest feed size.
 export const CANVAS = { width: 1122, height: 1402 };
 
-// Anton's cap height as a fraction of its em, read from the font's own OS/2
-// table: sCapHeight 1760 over unitsPerEm 2048.
-//
-// This is what converts a measured design into a font size. A font size is the
-// em, and the em is invisible; what the eye reads, and what can be measured off
-// a finished image, is the CAP HEIGHT. Sizing by em is how the first attempt
-// came out 43% too small.
-export const CAP_OVER_EM = 1760 / 2048;
+// The per-face cap-height ratio now lives in lib/social/fonts.ts, because it is
+// a property of the font rather than of this template. It was a single constant
+// while Anton was the only face, and leaving it that way would have rendered
+// Archivo Narrow 25% too small.
 
 export type ScrimColour = "none" | "black" | "white";
 
@@ -30,7 +28,14 @@ export type TemplateStyle = {
   scrimOpacity: number;
 
   // --- the type ---
+  // Which face. The cap-height ratio that converts the design into a font size
+  // is a property of the FACE, not a constant, so this decides the arithmetic as
+  // well as the letterforms -- see lib/social/fonts.ts.
+  font: FontId;
   colour: string;
+  // Only meaningful where the face has more than one file. Anton and Bebas Neue
+  // ship a single weight; asking for another gets a silent substitution rather
+  // than an error, so it is clamped to what the face actually has.
   weight: number;
   // Text box as fractions of the canvas, so the numbers survive a change of
   // output size.
@@ -73,6 +78,7 @@ export type RenderInput = TemplateStyle & {
 //   left margin   68px   / 1086 wide  = 0.0626
 //   first line   215px   / 1448 tall  = 0.1485
 export const DEFAULTS: TemplateStyle = {
+  font: "anton",
   scrim: "none",
   scrimOpacity: 0.35,
   colour: "#111111",

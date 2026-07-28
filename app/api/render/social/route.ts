@@ -3,12 +3,11 @@ import { NextResponse } from "next/server";
 import {
   CANVAS,
   DEFAULTS,
-  FONT_NAME,
-  FONT_WEIGHTS,
-  loadFont,
+  fontsFor,
   templateElement,
   type RenderInput,
 } from "@/lib/social/render-template";
+import { fontOrDefault, weightOrDefault } from "@/lib/social/fonts";
 
 // Slice 1: photo and text in, PNG out. No storage, no schema, no editor.
 //
@@ -88,16 +87,12 @@ export async function GET(request: Request) {
         ? scrimParam
         : DEFAULTS.scrim,
     scrimOpacity: num(params.get("scrimOpacity"), DEFAULTS.scrimOpacity),
+    font: fontOrDefault(params.get("font")).id,
     colour: params.get("colour") ?? DEFAULTS.colour,
-    // Anton has one weight, so this can only be 400 today. Modelled anyway --
-    // see FONT_WEIGHTS -- and clamped to what the face actually offers, because
-    // asking Satori for a weight it has no file for gets you a silent
-    // substitution rather than an error.
-    weight: FONT_WEIGHTS.includes(
-      num(params.get("weight"), DEFAULTS.weight) as (typeof FONT_WEIGHTS)[number]
-    )
-      ? num(params.get("weight"), DEFAULTS.weight)
-      : DEFAULTS.weight,
+    // Clamped to what the chosen face actually has a file for. Asking Satori
+    // for a missing weight gets a silent substitution rather than an error, so
+    // the picture would quietly stop matching the preview.
+    weight: num(params.get("weight"), DEFAULTS.weight),
     x: num(params.get("x"), DEFAULTS.x),
     y: num(params.get("y"), DEFAULTS.y),
     width: num(params.get("width"), DEFAULTS.width),
@@ -115,16 +110,10 @@ export async function GET(request: Request) {
     highlightPadX: num(params.get("highlightPadX"), DEFAULTS.highlightPadX),
   };
 
+  const face = fontOrDefault(input.font);
   return new ImageResponse(templateElement(input), {
     width: CANVAS.width,
     height: CANVAS.height,
-    fonts: [
-      {
-        name: FONT_NAME,
-        data: await loadFont(),
-        weight: 400,
-        style: "normal",
-      },
-    ],
+    fonts: await fontsFor(face, weightOrDefault(face, input.weight)),
   });
 }
