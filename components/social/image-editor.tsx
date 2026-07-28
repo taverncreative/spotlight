@@ -14,6 +14,7 @@ import {
   type TemplateStyle,
 } from "@/lib/social/render-template-style";
 import {
+  renderImageRecipe,
   saveImageRecipe,
   type ImageRecipeState,
 } from "@/lib/social/image-actions";
@@ -76,6 +77,14 @@ export function ImageEditor({
     saveImageRecipe,
     null
   );
+  const [renderState, renderAction, rendering] = useActionState<
+    ImageRecipeState,
+    FormData
+  >(renderImageRecipe, null);
+
+  // A recipe id exists either because we loaded one or because Save just made
+  // one. Rendering needs something saved to render.
+  const savedId = state?.id ?? initial.recipeId;
 
   const [templateId, setTemplateId] = useState(
     initial.templateId ?? templates[0]?.id ?? ""
@@ -344,6 +353,16 @@ export function ImageEditor({
         {state?.ok ? (
           <p className="text-sm text-counter-ok">Saved.</p>
         ) : null}
+        {renderState?.error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {renderState.error}
+          </p>
+        ) : null}
+        {renderState?.ok ? (
+          <p className="text-sm text-counter-ok">
+            Rendered and attached to the post.
+          </p>
+        ) : null}
 
         <div className="flex items-center gap-2">
           <Button type="submit" size="sm" disabled={pending || !photoPath}>
@@ -360,8 +379,55 @@ export function ImageEditor({
             </Button>
           ) : null}
         </div>
+
+        {savedId ? (
+          <div className="space-y-1.5 border-t pt-4">
+            {/* Its own form: rendering acts on what is SAVED, so putting it in
+                the same submit as Save would render whatever was on screen
+                rather than what the post actually holds. */}
+            <p className="text-xs text-muted-foreground">
+              Rendering makes the picture and attaches it to the post, replacing
+              whatever is in that slot. Save any changes first.
+            </p>
+            <RenderButton
+              action={renderAction}
+              pending={rendering}
+              recipeId={savedId}
+              clientSlug={clientSlug}
+            />
+          </div>
+        ) : (
+          <p className="border-t pt-4 text-xs text-muted-foreground">
+            Save first, then you can render it onto the post.
+          </p>
+        )}
       </div>
     </form>
+  );
+}
+
+// Rendering is a separate form, and a form cannot nest inside another, so it
+// lives outside the editor's form element via the `form` attribute.
+function RenderButton({
+  action,
+  pending,
+  recipeId,
+  clientSlug,
+}: {
+  action: (formData: FormData) => void;
+  pending: boolean;
+  recipeId: string;
+  clientSlug: string;
+}) {
+  return (
+    <>
+      <form id="render-image-form" action={action} />
+      <input type="hidden" name="recipe_id" value={recipeId} form="render-image-form" />
+      <input type="hidden" name="client_slug" value={clientSlug} form="render-image-form" />
+      <Button type="submit" size="sm" variant="outline" form="render-image-form" disabled={pending}>
+        {pending ? "Rendering…" : "Render onto the post"}
+      </Button>
+    </>
   );
 }
 

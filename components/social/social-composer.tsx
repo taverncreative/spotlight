@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
+import { Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { fieldInputClass } from "@/components/form-field";
@@ -33,6 +35,7 @@ export function SocialComposer({
   accounts,
   selectedTargetIds,
   initialCaptionError = null,
+  hasStyledImage = false,
 }: {
   clientId: string;
   clientSlug: string;
@@ -45,6 +48,9 @@ export function SocialComposer({
   // Set when a share seeded this draft but the caption generation failed, so the
   // caption is the safe fallback and the operator needs to know why.
   initialCaptionError?: string | null;
+  // Whether this post already has a styled image recipe, so the way in can say
+  // which it is. Absent on a new post, which has no saved row to attach one to.
+  hasStyledImage?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<
     SocialPostFormState,
@@ -177,6 +183,46 @@ export function SocialComposer({
             ? "Instagram requires at least one photo."
             : "Photos are optional for Facebook-only posts."}
         </p>
+        {/* THE WAY IN TO THE IMAGE EDITOR.
+            Here rather than on the post card in the list, because this is where
+            you are already thinking about the picture -- the uploader is
+            directly above it -- and because a card full of one-click icons is
+            the wrong place for something that opens a workspace. It is a
+            labelled block rather than an icon for the same reason: nobody
+            guesses what an icon for "compose type over a photo" looks like.
+
+            Only in edit mode. A new post has a client-side id but no row yet, so
+            the editor page would 404 on it. */}
+        {mode === "edit" ? (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-card border bg-card p-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">
+                {hasStyledImage ? "Styled image" : "Make a styled image"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {hasStyledImage
+                  ? "This post has a headline composed over a photo. Open it to change the words or the layout."
+                  : "Put a big headline over one of these photos, in the house style."}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              render={
+                <Link href={`/c/${clientSlug}/social/${postId}/image`} />
+              }
+            >
+              <ImageIcon aria-hidden="true" className="size-3.5" />
+              {hasStyledImage ? "Open" : "Make one"}
+            </Button>
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground">
+            Save this post and you can compose a styled headline over one of its
+            photos.
+          </p>
+        )}
         {state?.fieldErrors?.media && !mediaErrorStale ? (
           <p className="mt-1 text-sm text-destructive">
             {state.fieldErrors.media[0]}

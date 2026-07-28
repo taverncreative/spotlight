@@ -5,6 +5,7 @@ import { requireClient } from "@/lib/clients/require-client";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
 import { captionErrorMessage } from "@/lib/social/schemas";
 import { SocialComposer } from "@/components/social/social-composer";
+import { recipesForPost } from "@/lib/social/image-recipe";
 import type { UploaderItem } from "@/components/social/social-media-uploader";
 
 type MediaRow = {
@@ -82,6 +83,8 @@ export default async function EditSocialPostPage({
     (post.social_post_targets ?? []) as { meta_account_id: string }[]
   ).map((t) => t.meta_account_id);
 
+  const styledImages = await recipesForPost(post.id);
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-xl font-semibold tracking-tight">Edit post</h1>
@@ -95,6 +98,7 @@ export default async function EditSocialPostPage({
         accounts={accounts ?? []}
         selectedTargetIds={selectedTargetIds}
         initialCaptionError={captionErrorMessage(captionErrorCode)}
+        hasStyledImage={styledImages.length > 0}
       />
     </div>
   );

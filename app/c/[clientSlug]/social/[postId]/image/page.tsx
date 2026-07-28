@@ -8,6 +8,7 @@ import {
   recipesForPost,
   templatesForClient,
 } from "@/lib/social/image-recipe";
+import { isRenderPath } from "@/lib/social/render-to-storage";
 
 // Making the image for one social post.
 //
@@ -37,15 +38,26 @@ export default async function SocialImagePage({
     recipesForPost(postId),
   ]);
 
-  const photos = ((post.social_post_media ?? []) as {
-    position: number;
-    storage_path: string;
-  }[])
-    .slice()
-    .sort((a, b) => a.position - b.position)
-    .map((media) => ({ storagePath: media.storage_path }));
+  // SOURCE PHOTOS ONLY. Once a recipe is rendered, the render takes over the
+  // media slot, so the media list would otherwise offer the composed image back
+  // as the source for the next render -- words composited onto words. The
+  // recipe's own photo is added back because it is exactly the one that just
+  // stopped being a media row.
+  const sourcePaths = new Set(
+    ((post.social_post_media ?? []) as {
+      position: number;
+      storage_path: string;
+    }[])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((media) => media.storage_path)
+      .filter((path) => !isRenderPath(path))
+  );
+  const existingRecipe = recipes[0] ?? null;
+  if (existingRecipe?.photoPath) sourcePaths.add(existingRecipe.photoPath);
+  const photos = [...sourcePaths].map((storagePath) => ({ storagePath }));
 
-  const existing = recipes[0] ?? null;
+  const existing = existingRecipe;
 
   if (templates.length === 0) {
     return (
