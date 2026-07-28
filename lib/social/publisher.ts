@@ -1,9 +1,10 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/oauth/encryption";
-import { graphUrl } from "@/lib/oauth/meta";
+import { graphUrl, ruploadUrl } from "@/lib/oauth/meta";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
+import { publishFacebookReel, type FbDeps } from "@/lib/social/facebook-reels";
 import {
   createInstagramContainer,
   finishInstagramContainer,
@@ -195,9 +196,76 @@ async function publishFacebookTarget(
   return String(json.id);
 }
 
+// Publish one Facebook target as a Reel.
+//
+// container_id carries the video id. It is the same column Instagram uses for
+// its container id, and that is not a shortcut: a target belongs to exactly one
+// account and therefore one platform, so there is one in-flight id per target
+// and no ambiguity about whose it is. A second column would have meant two
+// nullable fields that can never both be set.
+async function publishFacebookReelTarget(
+  account: AccountRow,
+  caption: string,
+  video: MediaRow,
+  targetId: string,
+  existingVideoId: string | null,
+  supabase: SupabaseClient
+): Promise<string> {
+  if (!account.access_token) {
+    throw new PublishError("No stored token for this Page.", "auth");
+  }
+  let pageToken: string;
+  try {
+    pageToken = decryptToken(account.access_token);
+  } catch {
+    throw new PublishError(
+      "Stored token could not be read; reconnect needed.",
+      "auth"
+    );
+  }
+
+  try {
+    const result = await publishFacebookReel(
+      FB_DEPS,
+      account.external_id,
+      pageToken,
+      caption,
+      // Facebook fetches this itself; no bytes pass through this process.
+      socialMediaPublicUrl(video.storage_path),
+      existingVideoId,
+      async (videoId) => {
+        await supabase
+          .from("social_post_targets")
+          .update({ container_id: videoId })
+          .eq("id", targetId);
+      }
+    );
+    return result.videoId;
+  } catch (e) {
+    // A failed upload session cannot be resumed; forgetting the id is what lets
+    // a retry start a clean one instead of polling a dead session forever.
+    if (e instanceof PublishError && e.classification === "validation") {
+      await supabase
+        .from("social_post_targets")
+        .update({ container_id: null })
+        .eq("id", targetId);
+    }
+    throw e;
+  }
+}
+
 // Instagram uses a public-URL container flow (no binary upload) with a bounded
 // processing poll: up to 5 polls ~2s apart before returning transient.
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+const FB_DEPS: FbDeps = {
+  graphUrl,
+  ruploadUrl,
+  fetchImpl: fetch,
+  sleep,
+  maxPolls: 5,
+  pollDelayMs: 2000,
+};
+
 const IG_DEPS: IgDeps = {
   graphUrl,
   fetchImpl: fetch,
@@ -319,13 +387,24 @@ async function publishTarget(
   target: { id: string; container_id: string | null }
 ): Promise<string> {
   if (account.platform === "facebook") {
-    // Facebook video is a different integration entirely -- a resumable binary
-    // upload to a different host -- and is not built. Refused by name rather
-    // than attempted through the photo endpoint, which would fail obscurely.
-    if (media.some((m) => m.media_type === "video")) {
-      throw new PublishError(
-        "Video to Facebook is not supported yet; post it to Instagram.",
-        "validation"
+    const videos = media.filter((m) => m.media_type === "video");
+    if (videos.length > 0) {
+      // A carousel mixing video and photos needs a different Facebook flow
+      // again. Refused by name rather than attempted through the photo
+      // endpoint, which would fail obscurely.
+      if (media.length > 1) {
+        throw new PublishError(
+          "A Facebook post can be one video, or photos. Mixed posts are not supported yet.",
+          "validation"
+        );
+      }
+      return publishFacebookReelTarget(
+        account,
+        caption,
+        videos[0],
+        target.id,
+        target.container_id,
+        supabase
       );
     }
     return publishFacebookTarget(supabase, account, caption, media);

@@ -21,6 +21,13 @@ export function graphUrl(path: string): string {
   return `${GRAPH}${path}`;
 }
 
+// Facebook's resumable upload host. A DIFFERENT HOST from the Graph API, pinned
+// to the same version, and used by exactly one call: the Reels transfer phase.
+// It lives here so the version cannot drift from graphUrl's.
+export function ruploadUrl(videoId: string): string {
+  return `https://rupload.facebook.com/video-upload/${GRAPH_VERSION}/${videoId}`;
+}
+
 // Facebook-Login-via-Page path: Page listing/posting, plus Instagram publishing
 // through the linked Page (instagram_basic + instagram_content_publish), plus
 // business_management for Business-owned Pages. Meta wants these comma-joined.
