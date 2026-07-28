@@ -67,10 +67,13 @@ const DOT: Record<string, string> = {
   partial: "bg-status-warn",
   // Done. Still legible, deliberately recessive -- history, not a task.
   published: "bg-muted-foreground/50",
-  // Never reaches the calendar today: a draft has no date. It will once blog
-  // gets planned_for, and it needs a treatment distinct from published then,
-  // since "planned but not committed" and "already out" are opposite things.
-  draft: "bg-muted-foreground/50",
+  // Planned, not committed. HOLLOW rather than a third shade, because the
+  // difference from published is not one of loudness: a filled dot is a fact,
+  // an outline is an intention. Shading it would have said "slightly less
+  // published", which is not what a draft with a planned date is.
+  //
+  // Reaches the calendar from 0074 onwards, when a draft can carry planned_for.
+  draft: "border border-foreground/60 bg-transparent",
 };
 
 // An item plus the parts only the module can supply.

@@ -1,0 +1,40 @@
+-- The date a post is INTENDED to go out. Planning only.
+--
+-- WHAT THIS IS NOT. Not scheduling. There is no status change, no worker, no
+-- automation, and nothing publishes because this date arrives. posts.status
+-- stays draft|published, and a post with planned_for in the past is simply a
+-- plan that slipped, not a job that failed.
+--
+-- That distinction is the whole reason this column exists rather than a
+-- scheduled state. Real blog scheduling would mean a worker flipping
+-- draft -> published unattended, which also fires the deploy hook and rebuilds a
+-- client's live site at 3am with nobody watching. That belongs in the
+-- high-stakes bucket and deserves its own decision. This column delivers the
+-- thing actually wanted -- seeing what is meant to go out and when -- at none of
+-- that risk, and it is a nullable column, so backing it out is a drop.
+--
+-- DATE, NOT TIMESTAMPTZ, on purpose. An intention is "the 12th", not "the 12th
+-- at 09:00 UTC". A date has no timezone, so this column cannot drift across
+-- midnight the way every instant in this codebase has to be defended against
+-- with londonParts. There is no time to display, so there is no time to get
+-- wrong.
+--
+-- Null means "no date planned", which is the default and the honest state for
+-- most drafts. It is NOT the same as a date in the past.
+--
+-- ONE POST, ONE PLACE ON THE CALENDAR. published_at wins for a published post
+-- and planned_for is then historical intent, kept rather than cleared because
+-- "we meant to run this on the 3rd and it went out on the 9th" is worth being
+-- able to see later. The calendar adapter picks exactly one instant per post,
+-- the same way social's does, so a published post never appears twice.
+--
+-- NOT added to the content API (0035, 0067, 0071, 0073), for the same reason
+-- focus_keyword was not (0068): an internal planning note is not something a
+-- client's site renders, and exposing it would put an editorial working date on
+-- a public endpoint for nobody's benefit. That also keeps this migration off the
+-- drop-and-recreate path those functions need, so no live client request is at
+-- risk from it.
+--
+-- No paired policy: posts_operator_all (0012) is table-wide through
+-- owns_client(client_id), so it already covers this column.
+alter table public.posts add column planned_for date;

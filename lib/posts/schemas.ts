@@ -56,6 +56,14 @@ export const postFormSchema = z.object({
     .trim()
     .max(300, "Keep the meta description under 300 characters.")
     .optional(),
+  // An INTENDED date, planning only. Nothing publishes because this arrives.
+  // Blank stores null, which is the honest state for a draft with no plan yet
+  // and is not the same as a date in the past.
+  planned_for: z
+    .string()
+    .trim()
+    .regex(/^(\d{4}-\d{2}-\d{2})?$/, "Use a date, or leave it empty.")
+    .optional(),
   featured_image: z.string().optional(),
   featured_image_alt: z
     .string()

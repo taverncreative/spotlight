@@ -36,6 +36,7 @@ function parseForm(formData: FormData) {
     slug: String(formData.get("slug") ?? ""),
     body: String(formData.get("body") ?? ""),
     meta_description: String(formData.get("meta_description") ?? ""),
+    planned_for: String(formData.get("planned_for") ?? ""),
     featured_image: String(formData.get("featured_image") ?? ""),
     featured_image_alt: String(formData.get("featured_image_alt") ?? ""),
     faq: String(formData.get("faq") ?? ""),
@@ -68,6 +69,7 @@ export async function createPost(
     meta_description: parsed.data.meta_description || null,
     excerpt: parsed.data.excerpt || null,
     focus_keyword: parsed.data.focus_keyword || null,
+    planned_for: parsed.data.planned_for || null,
     featured_image: parsed.data.featured_image || null,
     // Alt without an image is meaningless; clear it when no image is set.
     featured_image_alt: parsed.data.featured_image
@@ -125,6 +127,10 @@ export async function updatePost(
     meta_title: parsed.data.meta_title || null,
     excerpt: parsed.data.excerpt || null,
     focus_keyword: parsed.data.focus_keyword || null,
+    // Kept on publish rather than cleared: "meant to run on the 3rd, went out
+    // on the 9th" is worth being able to see later. The calendar picks one
+    // instant per post, so a published post never appears twice.
+    planned_for: parsed.data.planned_for || null,
     slug: parsed.data.slug,
     body: parsed.data.body || null,
     meta_description: parsed.data.meta_description || null,

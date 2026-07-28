@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { fieldInputClass } from "@/components/form-field";
+import { cn } from "@/lib/utils";
 import { PostEditor } from "@/components/post-editor";
 import { FeaturedImageInput } from "@/components/featured-image-input";
 import { slugify } from "@/lib/clients/schemas";
@@ -29,6 +30,7 @@ export type PostFormData = {
   meta_title: string | null;
   excerpt: string | null;
   focus_keyword: string | null;
+  planned_for: string | null;
   slug: string;
   body: string | null;
   meta_description: string | null;
@@ -77,6 +79,7 @@ export function PostForm({
   );
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
   const [focusKeyword, setFocusKeyword] = useState(post?.focus_keyword ?? "");
+  const [plannedFor, setPlannedFor] = useState(post?.planned_for ?? "");
   const [faq, setFaq] = useState<FaqEntry[]>(() =>
     faqEntries(parseSchemas(post?.schemas))
   );
@@ -313,6 +316,33 @@ export function PostForm({
         {state?.fieldErrors?.focus_keyword ? (
           <p className="text-sm text-destructive">
             {state.fieldErrors.focus_keyword[0]}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="space-y-1.5">
+        <label htmlFor="post-planned-for" className="text-sm font-medium">
+          Planned for <span className="text-muted-foreground">(optional)</span>
+        </label>
+        <input
+          id="post-planned-for"
+          name="planned_for"
+          type="date"
+          value={plannedFor}
+          onChange={(event) => setPlannedFor(event.target.value)}
+          className={cn(fieldInputClass, "w-auto")}
+        />
+        {/* The wording matters. This field must never be mistaken for
+            scheduling: nothing publishes because the date arrives, and a post
+            planned for a date that has passed is a plan that slipped, not a job
+            that failed. */}
+        <p className="text-xs text-muted-foreground">
+          An intended date, so the post shows on the calendar before it goes
+          out. Nothing publishes automatically &mdash; you still press Publish.
+        </p>
+        {state?.fieldErrors?.planned_for ? (
+          <p className="text-sm text-destructive">
+            {state.fieldErrors.planned_for[0]}
           </p>
         ) : null}
       </div>
