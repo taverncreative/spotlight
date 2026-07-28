@@ -90,6 +90,9 @@ export function SocialCalendar({
         ? `/c/${clientSlug}/social/${post.id}/edit`
         : null,
       meta: platforms.length ? platforms.join(", ") : "No targets",
+      // Already out. NOT partial: some of its targets failed, so it still needs
+      // someone and must not recede with the finished work.
+      done: post.status === "published",
       // The same actions the card grid offers, so moving the calendar to the
       // front is not a read-only downgrade. Rendered on the server here and
       // handed through the client dialog untouched.

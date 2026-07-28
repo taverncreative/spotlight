@@ -105,6 +105,11 @@ export type CalendarEntry = CalendarItem & {
   meta?: string | null;
   // Module-specific buttons, rendered on the server and passed through.
   actions?: ReactNode;
+  // Already out: a published blog post, a posted social post. Set by the module,
+  // because "has this gone out" is a lifecycle question and the calendar does not
+  // know any module's lifecycle. Note that a PARTIAL social post is deliberately
+  // not done -- some targets failed, so it still needs someone.
+  done?: boolean;
 };
 
 function Dot({ status, onImage }: { status: string; onImage?: boolean }) {
@@ -128,13 +133,25 @@ function Dot({ status, onImage }: { status: string; onImage?: boolean }) {
   );
 }
 
-function Thumb({ src, size }: { src: string | null; size: string }) {
+function Thumb({
+  src,
+  size,
+  done,
+}: {
+  src: string | null;
+  size: string;
+  done?: boolean;
+}) {
   return src ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt=""
-      className={cn("shrink-0 rounded-sm object-cover", size)}
+      className={cn(
+        "shrink-0 rounded-sm object-cover",
+        size,
+        done && "opacity-45 saturate-50"
+      )}
     />
   ) : (
     <span className={cn("shrink-0 rounded-sm bg-muted", size)} />
@@ -159,9 +176,18 @@ const SPAN_CLASS: Record<MosaicSpan, string> = {
   quarter: "",
 };
 
+// WHAT "DONE" LOOKS LIKE, and why it is not just lower opacity on the whole tile.
+//
+// Fading a tile wholesale fades its text too, and a month you cannot read is not
+// a calendar. So the PICTURE recedes -- dimmed and desaturated, which is what
+// carries the visual weight -- while the label stays legible, one step down
+// rather than ten. Done work should be quiet, not illegible.
+const DONE_IMAGE = "opacity-45 saturate-50";
+
 function Tile({ entry, span }: { entry: CalendarEntry; span: MosaicSpan }) {
   const label = entry.chipLabel ?? entry.label;
   const hasImage = Boolean(entry.thumbnail);
+  const done = Boolean(entry.done);
 
   const inner = (
     <>
@@ -171,12 +197,30 @@ function Tile({ entry, span }: { entry: CalendarEntry; span: MosaicSpan }) {
           <img
             src={entry.thumbnail!}
             alt=""
-            className="absolute inset-0 size-full object-cover"
+            className={cn(
+              "absolute inset-0 size-full object-cover",
+              done && DONE_IMAGE
+            )}
           />
-          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-1 pt-3 pb-1">
+          <span
+            className={cn(
+              "absolute inset-x-0 bottom-0 px-1 pt-3 pb-1",
+              // A dimmed photo needs less gradient to sit text on, and piling
+              // the full one on top would make an already-recessive tile read as
+              // a dark smear.
+              done
+                ? "bg-gradient-to-t from-black/60 to-transparent"
+                : "bg-gradient-to-t from-black/85 via-black/50 to-transparent"
+            )}
+          >
             <span className="flex items-start gap-1">
               <Dot status={entry.status} onImage />
-              <span className="line-clamp-2 text-[11px] leading-tight text-white">
+              <span
+                className={cn(
+                  "line-clamp-2 text-[11px] leading-tight",
+                  done ? "text-white/60" : "text-white"
+                )}
+              >
                 {label}
               </span>
             </span>
@@ -187,10 +231,20 @@ function Tile({ entry, span }: { entry: CalendarEntry; span: MosaicSpan }) {
            bg-card in the dark theme that without an edge the tile reads as empty
            space with text floating in it, rather than as a post that happens to
            have no picture. Absence has to look deliberate. */
-        <span className="absolute inset-0 flex items-end rounded-sm bg-muted px-1 pb-1 ring-1 ring-border ring-inset">
+        <span
+          className={cn(
+            "absolute inset-0 flex items-end rounded-sm px-1 pb-1 ring-1 ring-border ring-inset",
+            done ? "bg-muted/40" : "bg-muted"
+          )}
+        >
           <span className="flex items-start gap-1">
             <Dot status={entry.status} />
-            <span className="line-clamp-3 text-[11px] leading-tight">
+            <span
+              className={cn(
+                "line-clamp-3 text-[11px] leading-tight",
+                done && "text-muted-foreground"
+              )}
+            >
               {label}
             </span>
           </span>
@@ -223,9 +277,10 @@ function Tile({ entry, span }: { entry: CalendarEntry; span: MosaicSpan }) {
 // module's meta line and its actions. This is where everything a cell cannot
 // show ends up.
 function DetailRow({ entry }: { entry: CalendarEntry }) {
+  const done = Boolean(entry.done);
   const body = (
     <>
-      <Thumb src={entry.thumbnail} size="size-10" />
+      <Thumb src={entry.thumbnail} size="size-10" done={done} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <Dot status={entry.status} />
@@ -240,7 +295,15 @@ function DetailRow({ entry }: { entry: CalendarEntry }) {
             </span>
           ) : null}
         </span>
-        <span className="line-clamp-2 text-sm">
+        <span
+          className={cn(
+            "line-clamp-2 text-sm",
+            // The row still has to be readable enough to act on -- the actions
+            // for a published post live right beside it -- so this is one step
+            // back, not a fade-out.
+            done && "text-muted-foreground"
+          )}
+        >
           {entry.label || (
             <span className="text-muted-foreground">No caption</span>
           )}
@@ -250,7 +313,12 @@ function DetailRow({ entry }: { entry: CalendarEntry }) {
   );
 
   return (
-    <li className="flex items-start gap-2 rounded-md border p-2">
+    <li
+      className={cn(
+        "flex items-start gap-2 rounded-md border p-2",
+        done && "bg-muted/20"
+      )}
+    >
       {entry.href ? (
         <Link
           href={entry.href}

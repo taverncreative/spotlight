@@ -75,6 +75,8 @@ export function BlogCalendar({
       // ordinary work, not a special case, and the editor handles both states.
       href: `/c/${clientSlug}/blog/${post.id}/edit`,
       meta: post.status === "published" ? "Published" : "Planned",
+      // Already out, so it recedes against what is still to come.
+      done: post.status === "published",
       // The same actions the card grid offers, so the calendar is not a
       // read-only downgrade. Server-rendered here and passed through the client
       // dialog untouched.
