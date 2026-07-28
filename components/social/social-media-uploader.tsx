@@ -131,7 +131,20 @@ export function SocialMediaUploader({
         onProgress: ({ sent, total }) => setBytes({ sent, total }),
       });
       return true;
-    } catch {
+    } catch (uploadError) {
+      // SURFACE IT. The previous version caught and discarded this, so a failed
+      // upload said only "upload failed" -- which is exactly as useful as
+      // silence, and made the first real failure impossible to diagnose from
+      // either end. TUS errors carry the server's response text, which is where
+      // the actual cause lives.
+      const detail =
+        uploadError instanceof Error
+          ? uploadError.message
+          : String(uploadError);
+      setError(`${file.name}: ${detail}`);
+      // Also to the console, because the on-screen message gets truncated and
+      // the full response body is what identifies an auth problem.
+      console.error("[resumable upload]", uploadError);
       return false;
     } finally {
       setBytes(null);
@@ -196,11 +209,15 @@ export function SocialMediaUploader({
     const path = pathFor(file, id);
     // Above the threshold the plain upload is one long request that fails whole
     // on any wobble -- which is exactly how a 111 MB video was lost.
-    const ok = shouldUseResumable(file)
+    const resumable = shouldUseResumable(file);
+    const ok = resumable
       ? await putResumable(supabase, path, file)
       : await put(supabase, path, file, file.type);
     if (!ok) {
-      setError(`${file.name}: upload failed.`);
+      // putResumable has already set a message with the real reason; only the
+      // plain path needs a generic one, and overwriting the detailed message
+      // here is what hid the cause the first time.
+      if (!resumable) setError(`${file.name}: upload failed.`);
       return null;
     }
 

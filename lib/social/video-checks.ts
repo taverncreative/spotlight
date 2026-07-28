@@ -97,12 +97,14 @@ export function checkVideo(facts: VideoFacts): VideoCheck {
     }
   }
 
-  // Last, because it is about the upload rather than the video, and it should
-  // read as the final caveat rather than the headline.
+  // Last, because it is about the upload rather than the video.
+  //
+  // IT NO LONGER CLAIMS THE UPLOAD CANNOT RESUME. That was true when every
+  // upload was one long request, and it stayed on screen after resumable
+  // uploads landed -- where it actively misled a diagnosis, because a stale
+  // warning reads as evidence about which code path ran.
   if (facts.bytes > LARGE_VIDEO_WARN_BYTES && facts.bytes <= MAX_VIDEO_BYTES) {
-    warnings.push(
-      `${megabytes(facts.bytes)} will take a while and cannot resume if it drops.`
-    );
+    warnings.push(`${megabytes(facts.bytes)} will take a few minutes to upload.`);
   }
 
   return { blocking, warnings };

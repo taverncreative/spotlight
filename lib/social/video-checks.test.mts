@@ -87,9 +87,12 @@ test("below the Reels minimum resolution warns about softness", () => {
 test("a large but legal file warns about the upload, not the video", () => {
   const result = checkVideo(facts({ bytes: 120 * 1024 * 1024 }));
   assert.deepEqual(result.blocking, []);
-  assert.match(result.warnings.join(" "), /cannot resume/);
+  assert.match(result.warnings.join(" "), /take a few minutes/);
   // And it comes last, because it is a caveat rather than the headline.
-  assert.match(result.warnings.at(-1)!, /cannot resume/);
+  assert.match(result.warnings.at(-1)!, /take a few minutes/);
+  // It must NOT claim the upload cannot resume: above 6 MB it now can, and a
+  // stale warning reads as evidence about which code path ran.
+  assert.doesNotMatch(result.warnings.join(" "), /cannot resume/);
 });
 
 test("a file under the warning threshold says nothing about size", () => {
