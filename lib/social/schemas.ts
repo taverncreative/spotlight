@@ -82,14 +82,21 @@ export const ALLOWED_MEDIA_TYPES = [
 ];
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
-// The bucket ceiling (0082). A 90-second Reel at 1080x1920 lands around
-// 50-150 MB, so this covers the format with headroom.
-export const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
-// NOT A LIMIT, a warning threshold. Supabase's standard upload is one request,
-// and above roughly this a browser upload over a domestic connection gets slow
-// and fails whole rather than resuming. Resumable upload is its own slice; until
-// then the uploader says so rather than pretending 200 MB will be pleasant.
-export const LARGE_VIDEO_WARN_BYTES = 50 * 1024 * 1024; // 50 MB
+// THE BINDING LIMIT, and it is not ours. Supabase's Free Plan caps uploads at
+// 50 MB per file, project-wide, above whatever a bucket allows. It is fixed and
+// not configurable, so this is the real ceiling for video until the plan
+// changes.
+//
+// The social-media bucket is deliberately left at 200 MB (0082) rather than
+// lowered to match. The bucket limit is not wrong -- it is what we would want
+// and what applies the day the plan changes -- and lowering it would mean a
+// migration to encode somebody else's billing tier into our schema.
+//
+// This cost a bad diagnosis. 0082 was verified with an 11 MB file, which clears
+// both the old bucket limit AND the plan cap, so the test could not tell them
+// apart; a 111 MB video then failed instantly with a 413 that nothing surfaced.
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB, Supabase Free Plan
+
 // Kept for callers that predate the split.
 export const MAX_MEDIA_BYTES = MAX_IMAGE_BYTES;
 

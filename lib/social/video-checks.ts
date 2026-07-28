@@ -1,6 +1,5 @@
 import {
   ALLOWED_VIDEO_TYPES,
-  LARGE_VIDEO_WARN_BYTES,
   MAX_VIDEO_BYTES,
   REELS_ASPECT,
   REELS_ASPECT_TOLERANCE,
@@ -58,8 +57,11 @@ export function checkVideo(facts: VideoFacts): VideoCheck {
     blocking.push("Use an MP4 or MOV. Meta refuses other formats.");
   }
   if (facts.bytes > MAX_VIDEO_BYTES) {
+    // NAMES THE REASON, because "too large" invites the question "says who" and
+    // the answer is not us. Someone staring at a rejected 111 MB video should
+    // learn it is a plan limit, not go hunting for a setting to change.
     blocking.push(
-      `${megabytes(facts.bytes)} is too large — the limit is ${megabytes(MAX_VIDEO_BYTES)}.`
+      `${megabytes(facts.bytes)} is over the ${megabytes(MAX_VIDEO_BYTES)} limit on Supabase's Free Plan, which cannot be raised without upgrading. Trim it or export it smaller.`
     );
   }
   // A zero or NaN duration means the browser could not decode it, which is a
@@ -97,15 +99,11 @@ export function checkVideo(facts: VideoFacts): VideoCheck {
     }
   }
 
-  // Last, because it is about the upload rather than the video.
-  //
-  // IT NO LONGER CLAIMS THE UPLOAD CANNOT RESUME. That was true when every
-  // upload was one long request, and it stayed on screen after resumable
-  // uploads landed -- where it actively misled a diagnosis, because a stale
-  // warning reads as evidence about which code path ran.
-  if (facts.bytes > LARGE_VIDEO_WARN_BYTES && facts.bytes <= MAX_VIDEO_BYTES) {
-    warnings.push(`${megabytes(facts.bytes)} will take a few minutes to upload.`);
-  }
+  // THERE IS NO LONGER A "LARGE BUT LEGAL" WARNING. It said a big file would be
+  // slow, and before that it said the upload could not resume. Both described a
+  // 50-200 MB band that no longer exists: anything over 50 MB is now refused
+  // outright, and everything under it uploads in chunks with a progress bar.
+  // A warning about a band with nothing in it is noise.
 
   return { blocking, warnings };
 }

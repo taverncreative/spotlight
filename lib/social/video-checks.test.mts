@@ -32,10 +32,21 @@ test("a format Meta refuses is blocked here rather than three minutes in", () =>
   assert.deepEqual(checkVideo(facts({ type: "video/quicktime" })).blocking, []);
 });
 
-test("over the bucket ceiling is blocked, and says the ceiling", () => {
-  const result = checkVideo(facts({ bytes: 250 * 1024 * 1024 }));
-  assert.match(result.blocking.join(" "), /250 MB is too large/);
-  assert.match(result.blocking.join(" "), /200 MB/);
+test("over the plan cap is blocked, and names whose limit it is", () => {
+  // The real 111 MB case. "Too large" invites "says who", and the answer is
+  // Supabase's Free Plan, not us -- so the message says so rather than sending
+  // someone hunting for a setting to change.
+  const result = checkVideo(facts({ bytes: 111 * 1024 * 1024 }));
+  assert.match(result.blocking.join(" "), /111 MB/);
+  assert.match(result.blocking.join(" "), /50 MB/);
+  assert.match(result.blocking.join(" "), /Free Plan/);
+});
+
+test("just under and just over the cap fall on opposite sides", () => {
+  // 49 MB is accepted by the storage API and 51 MB is a 413, measured against
+  // the live endpoint. The check has to agree with that seam exactly.
+  assert.deepEqual(checkVideo(facts({ bytes: 49 * 1024 * 1024 })).blocking, []);
+  assert.equal(checkVideo(facts({ bytes: 51 * 1024 * 1024 })).blocking.length, 1);
 });
 
 test("under three seconds is blocked: Meta refuses it", () => {
@@ -84,19 +95,27 @@ test("below the Reels minimum resolution warns about softness", () => {
   assert.match(result.warnings.join(" "), /540x960/);
 });
 
-test("a large but legal file warns about the upload, not the video", () => {
-  const result = checkVideo(facts({ bytes: 120 * 1024 * 1024 }));
-  assert.deepEqual(result.blocking, []);
-  assert.match(result.warnings.join(" "), /take a few minutes/);
-  // And it comes last, because it is a caveat rather than the headline.
-  assert.match(result.warnings.at(-1)!, /take a few minutes/);
-  // It must NOT claim the upload cannot resume: above 6 MB it now can, and a
-  // stale warning reads as evidence about which code path ran.
-  assert.doesNotMatch(result.warnings.join(" "), /cannot resume/);
+test("no size WARNING survives: a file is either fine or refused", () => {
+  // The old warning covered a 50-200 MB band that no longer exists. Anything
+  // over 50 MB is refused outright; everything under it uploads in chunks with
+  // a progress bar. A warning about an empty band is noise.
+  for (const mb of [1, 20, 40, 49]) {
+    const result = checkVideo(facts({ bytes: mb * 1024 * 1024 }));
+    assert.deepEqual(result.warnings, [], `${mb} MB should say nothing`);
+    assert.deepEqual(result.blocking, []);
+  }
 });
 
-test("a file under the warning threshold says nothing about size", () => {
-  assert.deepEqual(checkVideo(facts({ bytes: 40 * 1024 * 1024 })).warnings, []);
+test("nothing anywhere still claims an upload cannot resume", () => {
+  // It stopped being true when resumable landed, and while it lingered it read
+  // as evidence about which code path had run.
+  for (const mb of [1, 40, 49, 51, 111]) {
+    const result = checkVideo(facts({ bytes: mb * 1024 * 1024 }));
+    assert.doesNotMatch(
+      [...result.blocking, ...result.warnings].join(" "),
+      /cannot resume/
+    );
+  }
 });
 
 // --- the two severities stay separate -------------------------------------
@@ -116,7 +135,6 @@ test("nothing that only warns ever ends up blocking", () => {
     facts({ seconds: 120 }),
     facts({ width: 1920, height: 1080 }),
     facts({ width: 360, height: 640 }),
-    facts({ bytes: 120 * 1024 * 1024 }),
   ]) {
     assert.deepEqual(checkVideo(f).blocking, []);
   }
