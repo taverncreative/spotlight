@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
-import { socialMediaPublicUrl } from "@/lib/social/media-paths";
+import { coverImageUrl } from "@/lib/social/media-paths";
 import { londonMonth, parseMonth } from "@/lib/calendar/grid";
 import { StatusPill } from "@/components/ui/status-pill";
 import { SocialCalendar } from "@/components/social/social-calendar";
@@ -93,7 +93,7 @@ export default async function SocialPage({
   const { data } = await supabase
     .from("social_posts")
     .select(
-      "id, caption, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path), social_post_targets(meta_account_id, meta_accounts(platform), social_post_insights(likes, comments, shares, fetched_at, last_error))"
+      "id, caption, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path, media_type, poster_path), social_post_targets(meta_account_id, meta_accounts(platform), social_post_insights(likes, comments, shares, fetched_at, last_error))"
     )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });
@@ -142,7 +142,7 @@ export default async function SocialPage({
             scheduled_at: post.scheduled_at,
             caption: post.caption,
             href: `/c/${clientSlug}/social/${post.id}/edit`,
-            thumbnail: cover ? socialMediaPublicUrl(cover.storage_path) : null,
+            thumbnail: cover ? coverImageUrl(cover) : null,
           };
         })}
       />
@@ -247,7 +247,7 @@ export default async function SocialPage({
                   {cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={socialMediaPublicUrl(cover.storage_path)}
+                      src={coverImageUrl(cover) ?? undefined}
                       alt=""
                       className="absolute inset-0 h-full w-full object-cover"
                     />

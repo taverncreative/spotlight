@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { socialMediaPublicUrl } from "@/lib/social/media-paths";
+import { coverImageUrl } from "@/lib/social/media-paths";
 import { londonParts } from "@/lib/social/london";
 import { firstWords, monthGrid } from "@/lib/calendar/grid";
 import {
@@ -17,7 +17,12 @@ export type CalendarPost = {
   status: string;
   scheduled_at: string | null;
   published_at: string | null;
-  social_post_media: { position: number; storage_path: string }[];
+  social_post_media: {
+    position: number;
+    storage_path: string;
+    media_type?: string | null;
+    poster_path?: string | null;
+  }[];
   social_post_targets?: {
     meta_accounts: { platform: string } | null;
   }[];
@@ -84,7 +89,7 @@ export function socialEntries(
       // room for it.
       chipLabel: firstWords(post.caption, 6) || "No caption",
       status: post.status,
-      thumbnail: cover ? socialMediaPublicUrl(cover.storage_path) : null,
+      thumbnail: cover ? coverImageUrl(cover) : null,
       href: LINKABLE.has(post.status)
         ? `/c/${clientSlug}/social/${post.id}/edit`
         : null,

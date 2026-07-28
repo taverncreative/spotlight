@@ -12,6 +12,7 @@ type MediaRow = {
   position: number;
   storage_path: string;
   media_type: "image" | "video";
+  poster_path: string | null;
   width: number | null;
   height: number | null;
 };
@@ -34,7 +35,7 @@ export default async function EditSocialPostPage({
   const { data: post } = await supabase
     .from("social_posts")
     .select(
-      "id, client_id, status, caption, scheduled_at, social_post_media(position, storage_path, media_type, width, height), social_post_targets(meta_account_id)"
+      "id, client_id, status, caption, scheduled_at, social_post_media(position, storage_path, media_type, width, height, poster_path), social_post_targets(meta_account_id)"
     )
     .eq("id", postId)
     .maybeSingle();
@@ -74,9 +75,11 @@ export default async function EditSocialPostPage({
     .map((m) => ({
       storage_path: m.storage_path,
       media_type: m.media_type,
+      poster_path: m.poster_path,
       width: m.width,
       height: m.height,
       url: socialMediaPublicUrl(m.storage_path),
+      posterUrl: m.poster_path ? socialMediaPublicUrl(m.poster_path) : null,
     }));
 
   const selectedTargetIds = (

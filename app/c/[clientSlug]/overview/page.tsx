@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { assessSite } from "@/lib/sites/monitoring";
 import { hostnameFromUrl } from "@/lib/sites/schemas";
-import { socialMediaPublicUrl } from "@/lib/social/media-paths";
+import { coverImageUrl } from "@/lib/social/media-paths";
 import { healthScore, SERVICE_LABELS } from "@/lib/clients/health";
 
 // The client Overview, rebuilt as a pinboard.
@@ -133,7 +133,7 @@ export default async function OverviewPage({
     supabase
       .from("social_posts")
       .select(
-        "id, caption, status, scheduled_at, social_post_media(position, storage_path)"
+        "id, caption, status, scheduled_at, social_post_media(position, storage_path, media_type, poster_path)"
       )
       .eq("client_id", client.id)
       .eq("status", "scheduled")
@@ -428,7 +428,7 @@ export default async function OverviewPage({
                 return (
                   <Thumb
                     key={post.id}
-                    src={cover ? socialMediaPublicUrl(cover.storage_path) : null}
+                    src={cover ? coverImageUrl(cover) : null}
                     label={post.caption ?? "No caption"}
                     caption={shortDate(post.scheduled_at)}
                   />

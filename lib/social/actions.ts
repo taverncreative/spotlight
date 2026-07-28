@@ -52,6 +52,14 @@ function parseMedia(raw: string): SocialMediaItem[] {
 // new posts insert, edits update (both RLS-scoped). Media rows are replaced from
 // the submitted list with contiguous 0-based positions, and any objects no
 // longer referenced are reaped (best-effort).
+// A poster is only an orphan when no submitted item still claims it.
+function posterStillUsed(
+  media: { poster_path?: string | null }[],
+  path: string
+): boolean {
+  return media.some((m) => m.poster_path === path);
+}
+
 export async function saveSocialPost(
   _previous: SocialPostFormState,
   formData: FormData
@@ -173,12 +181,15 @@ export async function saveSocialPost(
   // referenced (removed items), then rewrite the rows with contiguous positions.
   const { data: existing } = await supabase
     .from("social_post_media")
-    .select("storage_path")
+    .select("storage_path, poster_path")
     .eq("post_id", id);
   const submitted = new Set(media.map((m) => m.storage_path));
+  // A removed video takes its poster with it. Reaping the video and leaving the
+  // still behind would quietly fill the bucket with orphans nothing references.
   const orphans = (existing ?? [])
-    .map((r) => r.storage_path as string)
-    .filter((p) => !submitted.has(p));
+    .flatMap((r) => [r.storage_path as string, r.poster_path as string | null])
+    .filter((p): p is string => Boolean(p))
+    .filter((p) => !submitted.has(p) && !posterStillUsed(media, p));
   await reapSocialMedia(supabase, orphans);
 
   await supabase.from("social_post_media").delete().eq("post_id", id);
@@ -190,6 +201,7 @@ export async function saveSocialPost(
       media_type: m.media_type,
       width: m.width,
       height: m.height,
+      poster_path: m.poster_path ?? null,
     }));
     const { error: mediaError } = await supabase
       .from("social_post_media")

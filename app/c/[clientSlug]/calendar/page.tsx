@@ -40,7 +40,7 @@ export default async function ClientCalendarPage({
     supabase
       .from("social_posts")
       .select(
-        "id, caption, status, scheduled_at, published_at, social_post_media(position, storage_path), social_post_targets(meta_accounts(platform))"
+        "id, caption, status, scheduled_at, published_at, social_post_media(position, storage_path, media_type, poster_path), social_post_targets(meta_accounts(platform))"
       )
       .eq("client_id", client.id),
   ]);

@@ -29,3 +29,22 @@ export async function reapSocialMedia(
     // best-effort
   }
 }
+
+// The URL to SHOW for a media row.
+//
+// Every surface in this app renders media as an <img>: the post card, the
+// composer grid, the calendar tile, the day detail, the overview. An <img>
+// pointed at an mp4 is a broken image, so a video shows its poster instead.
+//
+// Null when a video has no poster -- an older row, or a frame grab that failed
+// -- so callers can draw an honest placeholder rather than a broken one.
+export function coverImageUrl(media: {
+  storage_path: string;
+  media_type?: string | null;
+  poster_path?: string | null;
+}): string | null {
+  if (media.media_type === "video") {
+    return media.poster_path ? socialMediaPublicUrl(media.poster_path) : null;
+  }
+  return socialMediaPublicUrl(media.storage_path);
+}

@@ -1,18 +1,29 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
 import {
+  ALLOWED_IMAGE_TYPES,
   ALLOWED_MEDIA_TYPES,
-  MAX_MEDIA_BYTES,
+  MAX_IMAGE_BYTES,
   SOCIAL_MEDIA_BUCKET,
   type SocialMediaItem,
 } from "@/lib/social/schemas";
+import { checkVideo, isVideoType } from "@/lib/social/video-checks";
+import { grabPosterFrame, readVideoFacts } from "@/lib/social/video-probe";
 
 // A media item plus its derived preview URL (the row stores only the path).
-export type UploaderItem = SocialMediaItem & { url: string };
+//
+// posterUrl is what the grid actually renders for a video: an <img> pointed at
+// a video file shows nothing, and every surface in the app renders media as an
+// <img>.
+export type UploaderItem = SocialMediaItem & {
+  url: string;
+  posterUrl?: string | null;
+};
 
 async function readDimensions(
   file: File
@@ -46,6 +57,10 @@ export function SocialMediaUploader({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState<string | null>(null);
+  // Kept separate from error: a warning is about where the file can GO, not
+  // whether it uploaded, and clearing it on the next success would hide the one
+  // thing the operator needs to act on.
+  const [warnings, setWarnings] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Validate and upload one file; null means it was skipped (error shown).
@@ -55,28 +70,53 @@ export function SocialMediaUploader({
   ): Promise<UploaderItem | null> {
     if (!ALLOWED_MEDIA_TYPES.includes(file.type)) {
       setError(
-        `${file.name}: unsupported image type (use PNG, JPEG, WebP or GIF).`
+        `${file.name}: unsupported file (use PNG, JPEG, WebP, GIF, MP4 or MOV).`
       );
       return null;
     }
-    if (file.size > MAX_MEDIA_BYTES) {
+    return isVideoType(file.type)
+      ? uploadVideo(supabase, file)
+      : uploadImage(supabase, file);
+  }
+
+  async function put(
+    supabase: ReturnType<typeof createClient>,
+    path: string,
+    body: Blob,
+    contentType: string
+  ): Promise<boolean> {
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from(SOCIAL_MEDIA_BUCKET)
+        .upload(path, body, { contentType, upsert: false });
+      return !uploadError;
+    } catch {
+      return false;
+    }
+  }
+
+  function pathFor(file: File, id: string): string {
+    const ext = (file.name.split(".").pop() ?? "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    return `${clientId}/${postId}/${id}${ext ? `.${ext}` : ""}`;
+  }
+
+  async function uploadImage(
+    supabase: ReturnType<typeof createClient>,
+    file: File
+  ): Promise<UploaderItem | null> {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setError(`${file.name}: unsupported image type.`);
+      return null;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
       setError(`${file.name}: image must be under 10 MB.`);
       return null;
     }
     const dims = await readDimensions(file);
-    const ext = (file.name.split(".").pop() ?? "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
-    const path = `${clientId}/${postId}/${crypto.randomUUID()}${ext ? `.${ext}` : ""}`;
-    try {
-      const { error: uploadError } = await supabase.storage
-        .from(SOCIAL_MEDIA_BUCKET)
-        .upload(path, file, { contentType: file.type, upsert: false });
-      if (uploadError) {
-        setError(`${file.name}: upload failed.`);
-        return null;
-      }
-    } catch {
+    const path = pathFor(file, crypto.randomUUID());
+    if (!(await put(supabase, path, file, file.type))) {
       setError(`${file.name}: upload failed.`);
       return null;
     }
@@ -85,7 +125,57 @@ export function SocialMediaUploader({
       media_type: "image",
       width: dims.width,
       height: dims.height,
+      poster_path: null,
       url: socialMediaPublicUrl(path),
+    };
+  }
+
+  // CHECKED BEFORE A BYTE IS SENT. The whole point of reading the file locally
+  // is that a 150 MB upload followed by a Graph rejection three minutes into a
+  // cron is the worst possible way to learn a video is two seconds too short.
+  async function uploadVideo(
+    supabase: ReturnType<typeof createClient>,
+    file: File
+  ): Promise<UploaderItem | null> {
+    const facts = await readVideoFacts(file);
+    const { blocking, warnings: found } = checkVideo(facts);
+    if (blocking.length > 0) {
+      setError(`${file.name}: ${blocking.join(" ")}`);
+      return null;
+    }
+    // Shown, not swallowed, and the upload proceeds: these are Reels rules and
+    // the file may be destined for the feed.
+    if (found.length > 0) {
+      setWarnings((current) => [...current, `${file.name}: ${found.join(" ")}`]);
+    }
+
+    const id = crypto.randomUUID();
+    const path = pathFor(file, id);
+    if (!(await put(supabase, path, file, file.type))) {
+      setError(`${file.name}: upload failed.`);
+      return null;
+    }
+
+    // The poster is best effort and is uploaded AFTER the video. A missing
+    // thumbnail is a worse-looking list; refusing the video over it would be the
+    // tail wagging the dog.
+    let posterPath: string | null = null;
+    const poster = await grabPosterFrame(file);
+    if (poster) {
+      const candidate = `${clientId}/${postId}/${id}.poster.jpg`;
+      if (await put(supabase, candidate, poster, "image/jpeg")) {
+        posterPath = candidate;
+      }
+    }
+
+    return {
+      storage_path: path,
+      media_type: "video",
+      width: facts.width || null,
+      height: facts.height || null,
+      poster_path: posterPath,
+      url: socialMediaPublicUrl(path),
+      posterUrl: posterPath ? socialMediaPublicUrl(posterPath) : null,
     };
   }
 
@@ -144,12 +234,28 @@ export function SocialMediaUploader({
               key={item.storage_path}
               className="relative overflow-hidden rounded-card border bg-card"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={item.url}
-                alt=""
-                className="aspect-square w-full object-cover"
-              />
+              {/* A video renders its POSTER. An <img> pointed at an mp4 shows
+                  a broken image, and every surface in this app -- card, grid,
+                  calendar tile, day detail -- renders media as an <img>. */}
+              {item.media_type === "video" && !item.posterUrl ? (
+                <div className="flex aspect-square w-full items-center justify-center bg-muted text-center text-[0.65rem] text-muted-foreground">
+                  Video
+                  <br />
+                  no preview
+                </div>
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={item.posterUrl ?? item.url}
+                  alt=""
+                  className="aspect-square w-full object-cover"
+                />
+              )}
+              {item.media_type === "video" ? (
+                <span className="absolute right-1 top-1 rounded bg-background/80 px-1.5 py-0.5 text-[0.65rem] font-medium">
+                  <Video aria-hidden="true" className="inline size-3" />
+                </span>
+              ) : null}
               {index === 0 ? (
                 <span className="absolute left-1 top-1 rounded bg-brand px-1.5 py-0.5 text-[0.65rem] font-medium text-brand-foreground">
                   Cover
@@ -200,14 +306,14 @@ export function SocialMediaUploader({
         {uploading
           ? `Uploading ${progress.done}/${progress.total}…`
           : items.length > 0
-            ? "Add more photos"
-            : "Add photos"}
+            ? "Add more"
+            : "Add photos or video"}
       </Button>
 
       <input
         ref={fileRef}
         type="file"
-        accept="image/*"
+        accept={ALLOWED_MEDIA_TYPES.join(",")}
         multiple
         className="hidden"
         onChange={(event) => {
@@ -216,6 +322,18 @@ export function SocialMediaUploader({
         }}
       />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {/* Separate from the error, and deliberately not cleared by a later
+          success: a warning is about where the file can GO, not whether it
+          uploaded, and it is the one thing the operator still has to act on. */}
+      {warnings.length > 0 ? (
+        <ul className="space-y-0.5">
+          {warnings.map((warning) => (
+            <li key={warning} className="text-xs text-status-warn">
+              {warning}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

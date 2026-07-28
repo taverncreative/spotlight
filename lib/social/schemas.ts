@@ -62,15 +62,50 @@ export type CaptionState =
 
 export const SOCIAL_MEDIA_BUCKET = "social-media";
 
-// Images only for now (the schema allows 'video' for later). Mirrors the
-// post-images limits, a touch larger for carousel photos.
-export const ALLOWED_MEDIA_TYPES = [
+// What the social-media bucket accepts, and it must stay in step with 0082:
+// the bucket enforces the same list, so a type allowed here and not there fails
+// at upload with a storage error instead of a sentence the operator can act on.
+export const ALLOWED_IMAGE_TYPES = [
   "image/png",
   "image/jpeg",
   "image/webp",
   "image/gif",
 ];
-export const MAX_MEDIA_BYTES = 10 * 1024 * 1024; // 10 MB
+// mp4 is what Meta recommends for Reels on both platforms; quicktime is what
+// phones produce. Nothing else: webm and mkv are refused by Meta, so accepting
+// them would move the rejection from here to an opaque Graph error minutes into
+// publishing.
+export const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/quicktime"];
+export const ALLOWED_MEDIA_TYPES = [
+  ...ALLOWED_IMAGE_TYPES,
+  ...ALLOWED_VIDEO_TYPES,
+];
+
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+// The bucket ceiling (0082). A 90-second Reel at 1080x1920 lands around
+// 50-150 MB, so this covers the format with headroom.
+export const MAX_VIDEO_BYTES = 200 * 1024 * 1024; // 200 MB
+// NOT A LIMIT, a warning threshold. Supabase's standard upload is one request,
+// and above roughly this a browser upload over a domestic connection gets slow
+// and fails whole rather than resuming. Resumable upload is its own slice; until
+// then the uploader says so rather than pretending 200 MB will be pleasant.
+export const LARGE_VIDEO_WARN_BYTES = 50 * 1024 * 1024; // 50 MB
+// Kept for callers that predate the split.
+export const MAX_MEDIA_BYTES = MAX_IMAGE_BYTES;
+
+// What Meta will accept, checked in the browser so a rejection arrives in
+// seconds rather than after a long upload and a publish attempt.
+//
+// REELS RULES ARE WARNINGS, NOT BLOCKS. 3-90 seconds and 9:16 are Reels
+// requirements; feed video allows longer and other ratios, and feed video is a
+// later slice. Blocking on them now would refuse footage that is perfectly
+// valid for where it is going.
+export const VIDEO_MIN_SECONDS = 3;
+export const REELS_MAX_SECONDS = 90;
+export const VIDEO_MAX_SECONDS = 15 * 60;
+// 9:16 is 0.5625. The tolerance covers 1080x1920 against 1079x1920 and the like.
+export const REELS_ASPECT = 9 / 16;
+export const REELS_ASPECT_TOLERANCE = 0.02;
 
 export const SOCIAL_STATUSES = [
   "draft",
@@ -90,4 +125,8 @@ export type SocialMediaItem = {
   media_type: "image" | "video";
   width: number | null;
   height: number | null;
+  // A still captured from the video at upload, so every surface that renders an
+  // <img> has something to show. Null for images, and for videos uploaded before
+  // 0083.
+  poster_path?: string | null;
 };
