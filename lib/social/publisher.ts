@@ -5,7 +5,8 @@ import { graphUrl } from "@/lib/oauth/meta";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
 import {
-  publishInstagramContainer,
+  createInstagramContainer,
+  finishInstagramContainer,
   type IgDeps,
 } from "@/lib/social/instagram-publish";
 import {
@@ -52,6 +53,7 @@ type AccountRow = {
 };
 
 type TargetRow = {
+  container_id: string | null;
   id: string;
   meta_account_id: string;
   platform_post_id: string | null;
@@ -222,7 +224,9 @@ async function publishInstagramTarget(
   supabase: SupabaseClient,
   account: AccountRow,
   caption: string,
-  media: MediaRow[]
+  media: MediaRow[],
+  targetId: string,
+  targetContainerId: string | null
 ): Promise<string> {
   const parentId = account.parent_account_id;
   if (!parentId) {
@@ -255,19 +259,51 @@ async function publishInstagramTarget(
     );
   }
 
-  // IG fetches each image from its public URL (deploy-gated; 127.0.0.1 locally).
-  const mediaUrls = media.map((m) => socialMediaPublicUrl(m.storage_path));
+  // IG fetches each item from its public URL (deploy-gated; 127.0.0.1 locally).
+  const items = media.map((m) => ({
+    url: socialMediaPublicUrl(m.storage_path),
+    isVideo: m.media_type === "video",
+  }));
+
   try {
-    return await publishInstagramContainer(
+    // RESUME, don't recreate. A stored container id means a previous tick
+    // already asked Meta to build this post; creating another would spend
+    // Instagram's 100-per-24-hours limit on containers nobody publishes.
+    let creationId = targetContainerId;
+    if (!creationId) {
+      creationId = await createInstagramContainer(
+        IG_DEPS,
+        account.external_id,
+        pageToken,
+        caption,
+        items
+      );
+      // Stored BEFORE the wait, so a process that dies mid-poll leaves an id to
+      // resume from rather than an orphan container and a fresh one next tick.
+      await supabase
+        .from("social_post_targets")
+        .update({ container_id: creationId })
+        .eq("id", targetId);
+    }
+
+    return await finishInstagramContainer(
       IG_DEPS,
       account.external_id,
       pageToken,
-      caption,
-      mediaUrls
+      creationId
     );
   } catch (e) {
     if (e instanceof PublishError && e.classification === "auth") {
       await flagParentReconnect(supabase, parentId);
+    }
+    // A container that Meta says is ERROR or EXPIRED is dead. Forgetting it is
+    // what stops the next tick polling a corpse forever; the post will build a
+    // fresh container if it is retried.
+    if (e instanceof PublishError && e.classification === "validation") {
+      await supabase
+        .from("social_post_targets")
+        .update({ container_id: null })
+        .eq("id", targetId);
     }
     throw e;
   }
@@ -279,13 +315,30 @@ async function publishTarget(
   supabase: SupabaseClient,
   account: AccountRow,
   caption: string,
-  media: MediaRow[]
+  media: MediaRow[],
+  target: { id: string; container_id: string | null }
 ): Promise<string> {
   if (account.platform === "facebook") {
+    // Facebook video is a different integration entirely -- a resumable binary
+    // upload to a different host -- and is not built. Refused by name rather
+    // than attempted through the photo endpoint, which would fail obscurely.
+    if (media.some((m) => m.media_type === "video")) {
+      throw new PublishError(
+        "Video to Facebook is not supported yet; post it to Instagram.",
+        "validation"
+      );
+    }
     return publishFacebookTarget(supabase, account, caption, media);
   }
   if (account.platform === "instagram") {
-    return publishInstagramTarget(supabase, account, caption, media);
+    return publishInstagramTarget(
+      supabase,
+      account,
+      caption,
+      media,
+      target.id,
+      target.container_id
+    );
   }
   throw new PublishError(
     `Unsupported platform: ${account.platform}.`,
@@ -303,7 +356,7 @@ export async function publishPost(
   const { data, error } = await supabase
     .from("social_posts")
     .select(
-      "id, caption, attempts, social_post_media(position, storage_path, media_type, width, height), social_post_targets(id, meta_account_id, platform_post_id, attempt_started_at, meta_accounts(id, platform, external_id, access_token, parent_account_id))"
+      "id, caption, attempts, social_post_media(position, storage_path, media_type, width, height), social_post_targets(id, meta_account_id, platform_post_id, attempt_started_at, container_id, meta_accounts(id, platform, external_id, access_token, parent_account_id))"
     )
     .eq("id", postId)
     .maybeSingle();
@@ -341,6 +394,11 @@ export async function publishPost(
   let skipped = 0;
   let sawTransient = false;
   let sawTerminal = false; // auth, validation, or interrupted
+  // PENDING IS NOT FAILURE. A container Meta is still processing means come back
+  // later, and coming back later should not cost one of three retries -- a Reel
+  // that takes twelve minutes to encode would otherwise be marked failed for the
+  // crime of being a video.
+  let sawPending = false;
 
   for (const target of targets) {
     // Idempotency: already published -> never touch it again.
@@ -390,7 +448,8 @@ export async function publishPost(
         supabase,
         account,
         post.caption ?? "",
-        media
+        media,
+        target
       );
       await supabase
         .from("social_post_targets")
@@ -398,6 +457,9 @@ export async function publishPost(
           platform_post_id: platformPostId,
           published_at: new Date().toISOString(),
           last_error: null,
+          // The container has done its job; keeping the id would only leave a
+          // dead reference on a published row.
+          container_id: null,
         })
         .eq("id", target.id);
       published += 1;
@@ -412,7 +474,8 @@ export async function publishPost(
           .update({ needs_reconnect: true })
           .eq("id", account.id);
       }
-      if (cls === "transient") sawTransient = true;
+      if (cls === "pending") sawPending = true;
+      else if (cls === "transient") sawTransient = true;
       else sawTerminal = true;
       // Clear the stamp so this is a clean (retryable, if transient) failure,
       // distinguishable from a true interruption.
@@ -425,15 +488,18 @@ export async function publishPost(
 
   const total = targets.length;
   const allPublished = total > 0 && published + skipped === total;
+  // Nothing went wrong; something is merely not ready.
+  const pendingOnly = sawPending && !sawTransient && !sawTerminal;
 
   let status: string;
   if (allPublished) {
     status = "published";
-  } else if (sawTerminal || attempts >= MAX_ATTEMPTS) {
+  } else if (sawTerminal || (attempts >= MAX_ATTEMPTS && !pendingOnly)) {
     // Give up now: terminal failure present, or transient retries exhausted.
+    // pendingOnly is exempt because nothing has failed -- we are waiting.
     status = published + skipped > 0 ? "partial" : "failed";
-  } else if (sawTransient) {
-    // Only transient failures and attempts remain -> retry next cron tick.
+  } else if (sawTransient || sawPending) {
+    // Retry next cron tick.
     status = "scheduled";
   } else {
     // No targets at all, or nothing actionable.
@@ -441,6 +507,11 @@ export async function publishPost(
   }
 
   const update: Record<string, unknown> = { status };
+  // Give the attempt back. Waiting for Meta's encoder is not an attempt, and
+  // charging it as one is what would make a slow Reel look like a broken post.
+  // Rolled back rather than never incremented, because the increment happens
+  // when the post is claimed, long before anyone knows what will happen.
+  if (pendingOnly) update.attempts = Math.max(0, attempts - 1);
   if (status === "published") {
     update.published_at = new Date().toISOString();
     update.last_error = null;

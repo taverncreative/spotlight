@@ -2,7 +2,12 @@
 // "server-only" and path-aliased imports so it can be unit-tested in isolation
 // with fixtures (Slice 20e Stage 1).
 
-export type ErrorClass = "transient" | "auth" | "validation";
+// pending is NOT a failure. It means Meta is still processing a container we
+// already created, and the only correct response is to look again next tick.
+// It is separate from transient because transient means "this attempt failed,
+// spend one of your retries", and waiting for someone else's encoder is not
+// something a retry budget should be spent on.
+export type ErrorClass = "transient" | "auth" | "validation" | "pending";
 
 // Raised by platform publishers so the engine can route retries. A bare throw
 // (e.g. a network error from fetch) is treated as transient by the engine.
@@ -16,6 +21,8 @@ export class PublishError extends Error {
 }
 
 // Classify a Meta Graph error into the retry policy.
+//   pending    -> not a failure at all: a container is still processing. Retried
+//                 next tick and does NOT consume an attempt.
 //   transient  -> retry next tick (network, 5xx, rate limits), capped by attempts
 //   auth       -> stop the target, flag the account needs_reconnect (terminal)
 //   validation -> terminal with the message, no retry (bad image/aspect ratio…)
