@@ -3,7 +3,7 @@ import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
 import { londonParts } from "@/lib/social/london";
-import { monthGrid } from "@/lib/calendar/grid";
+import { firstWords, monthGrid } from "@/lib/calendar/grid";
 import {
   MonthCalendar,
   type CalendarEntry,
@@ -79,6 +79,11 @@ export function SocialCalendar({
       date,
       time,
       label: post.caption,
+      // The opening words rather than the time, matching blog showing titles. A
+      // caption runs to paragraphs where a title does not, so it is cut on a
+      // word boundary; the time still shows in the day detail, where there is
+      // room for it.
+      chipLabel: firstWords(post.caption, 6) || "No caption",
       status: post.status,
       thumbnail: cover ? socialMediaPublicUrl(cover.storage_path) : null,
       href: LINKABLE.has(post.status)

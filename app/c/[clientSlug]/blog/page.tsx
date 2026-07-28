@@ -75,13 +75,13 @@ export default async function BlogPage({
   } = await searchParams;
   const { client } = await requireClient(clientSlug);
 
-  // CALENDAR IS THE DEFAULT, matching social. ?view=list opts out, so the old
-  // list URLs still resolve.
+  // LIST IS THE DEFAULT and the calendar is opt-in, matching social. A bare
+  // /blog lands on the list, so publishing is never one click from a month view.
   //
-  // A status filter forces the list, for the same reason it does on social: a
-  // dateless draft cannot appear on a calendar, so filtering to Drafts and being
-  // shown a grid that structurally cannot contain one would read as broken.
-  const isCalendar = view !== "list" && !statusParam;
+  // A status filter still forces the list: a dateless draft cannot appear on a
+  // calendar, so filtering to Drafts and being shown a grid that structurally
+  // cannot contain one would read as broken.
+  const isCalendar = view === "calendar" && !statusParam;
   const month = parseMonth(monthParam) ?? londonMonth(new Date().toISOString());
 
   const activeTab =
@@ -129,7 +129,7 @@ export default async function BlogPage({
               key={tab.label}
               href={
                 tab.key === null
-                  ? `/c/${clientSlug}/blog?view=list`
+                  ? `/c/${clientSlug}/blog`
                   : `/c/${clientSlug}/blog?status=${tab.key}`
               }
               aria-current={
@@ -148,11 +148,11 @@ export default async function BlogPage({
         </nav>
         <nav className="flex gap-1" aria-label="View">
           {[
-            { label: "Calendar", href: `/c/${clientSlug}/blog`, active: isCalendar },
+            { label: "List", href: `/c/${clientSlug}/blog`, active: !isCalendar },
             {
-              label: "List",
-              href: `/c/${clientSlug}/blog?view=list`,
-              active: !isCalendar,
+              label: "Calendar",
+              href: `/c/${clientSlug}/blog?view=calendar`,
+              active: isCalendar,
             },
           ].map((viewTab) => (
             <Link

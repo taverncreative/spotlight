@@ -69,8 +69,6 @@ export function BlogCalendar({
       date: at.date,
       time: at.time,
       label: post.title,
-      // The title, not the time: see placement() above.
-      chipLabel: post.title,
       status: post.status,
       thumbnail: post.featured_image,
       // Always openable, unlike social: editing a published blog post is
@@ -143,7 +141,7 @@ export function BlogCalendar({
   }
 
   const { prevMonth, nextMonth } = monthGrid(month);
-  const base = `/c/${clientSlug}/blog?month=`;
+  const base = `/c/${clientSlug}/blog?view=calendar&month=`;
 
   return (
     <MonthCalendar

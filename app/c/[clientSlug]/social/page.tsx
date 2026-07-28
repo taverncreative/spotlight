@@ -69,12 +69,15 @@ export default async function SocialPage({
     STATUS_TABS.find((tab) => tab.key !== null && tab.key === statusParam) ??
     STATUS_TABS[0];
 
-  // CALENDAR IS THE DEFAULT. ?view=list opts out, which also means a bare
-  // /social lands on the calendar and the old list URL still works.
+  // LIST IS THE DEFAULT and the calendar is opt-in, so a bare /social lands on
+  // the list. Publishing and cancelling are then never one click from a month
+  // view -- reaching them takes a deliberate step into the calendar and a day
+  // detail, which is the right amount of friction for actions that change what a
+  // client's audience sees.
   //
-  // A status filter forces the list: filtering to Drafts and getting a calendar
-  // that by definition cannot show a draft would read as a broken page.
-  const isCalendar = view !== "list" && !statusParam;
+  // A status filter still forces the list: filtering to Drafts and getting a
+  // calendar that by definition cannot show a draft would read as broken.
+  const isCalendar = view === "calendar" && !statusParam;
   const month =
     parseMonth(monthParam) ?? londonMonth(new Date().toISOString());
 
@@ -147,7 +150,7 @@ export default async function SocialPage({
                 key={tab.label}
                 href={
                   tab.key === null
-                    ? `/c/${clientSlug}/social?view=list`
+                    ? `/c/${clientSlug}/social`
                     : `/c/${clientSlug}/social?status=${tab.key}`
                 }
                 aria-current={
@@ -167,14 +170,14 @@ export default async function SocialPage({
         <nav className="flex gap-1" aria-label="View">
           {[
             {
-              label: "Calendar",
+              label: "List",
               href: `/c/${clientSlug}/social`,
-              active: isCalendar,
+              active: !isCalendar,
             },
             {
-              label: "List",
-              href: `/c/${clientSlug}/social?view=list`,
-              active: !isCalendar,
+              label: "Calendar",
+              href: `/c/${clientSlug}/social?view=calendar`,
+              active: isCalendar,
             },
           ].map((viewTab) => (
             <Link

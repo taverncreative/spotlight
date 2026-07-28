@@ -3,9 +3,11 @@ import assert from "node:assert/strict";
 import {
   agendaDays,
   bucketByDay,
+  firstWords,
   formatDayLabel,
   londonMonth,
   monthGrid,
+  mosaicLayout,
   parseMonth,
   type CalendarItem,
 } from "@/lib/calendar/grid";
@@ -176,6 +178,100 @@ test("the agenda keeps every item on a shared day", () => {
 test("nothing upcoming gives an empty agenda, not a crash", () => {
   assert.deepEqual(agendaDays([], "2026-07-27"), []);
   assert.deepEqual(agendaDays([item({ id: "old", date: "2020-01-01" })], "2026-07-27"), []);
+});
+
+// --- mosaic ---------------------------------------------------------------
+
+test("one post fills the cell", () => {
+  assert.deepEqual(mosaicLayout(1), {
+    shown: 1,
+    spans: ["full"],
+    overflow: 0,
+  });
+});
+
+test("two posts stack full width", () => {
+  assert.deepEqual(mosaicLayout(2), {
+    shown: 2,
+    spans: ["wide", "wide"],
+    overflow: 0,
+  });
+});
+
+test("three is one wide across the top plus two below", () => {
+  assert.deepEqual(mosaicLayout(3), {
+    shown: 3,
+    spans: ["wide", "quarter", "quarter"],
+    overflow: 0,
+  });
+});
+
+test("four quarters the cell evenly, with no overflow tile", () => {
+  const mosaic = mosaicLayout(4);
+  assert.equal(mosaic.shown, 4);
+  assert.equal(mosaic.overflow, 0);
+  assert.deepEqual(mosaic.spans, ["quarter", "quarter", "quarter", "quarter"]);
+});
+
+test("five or more shows three posts and a +N tile", () => {
+  const five = mosaicLayout(5);
+  assert.equal(five.shown, 3);
+  assert.equal(five.overflow, 2);
+  // Four tiles: three posts, then the counter.
+  assert.equal(five.spans.length, 4);
+
+  const twenty = mosaicLayout(20);
+  assert.equal(twenty.shown, 3);
+  assert.equal(twenty.overflow, 17);
+});
+
+test("every post is either shown or counted, never dropped", () => {
+  // The bug this guards is a cell that silently swallows a post.
+  for (let count = 0; count <= 30; count++) {
+    const mosaic = mosaicLayout(count);
+    assert.equal(
+      mosaic.shown + mosaic.overflow,
+      count,
+      `${count} posts: ${mosaic.shown} shown + ${mosaic.overflow} counted`
+    );
+  }
+});
+
+test("there is always exactly one tile per span, and never more than four", () => {
+  for (let count = 0; count <= 30; count++) {
+    const mosaic = mosaicLayout(count);
+    const tiles = mosaic.shown + (mosaic.overflow > 0 ? 1 : 0);
+    assert.equal(mosaic.spans.length, tiles, `${count} posts`);
+    assert.ok(mosaic.spans.length <= 4, `${count} posts overflowed the grid`);
+  }
+});
+
+test("an empty day tiles nothing", () => {
+  assert.deepEqual(mosaicLayout(0), { shown: 0, spans: [], overflow: 0 });
+  assert.deepEqual(mosaicLayout(-1), { shown: 0, spans: [], overflow: 0 });
+});
+
+// --- tile labels ----------------------------------------------------------
+
+test("a caption is cut to whole words, with an ellipsis", () => {
+  assert.equal(
+    firstWords("Book your appointment before the Christmas rush begins", 4),
+    "Book your appointment before…"
+  );
+});
+
+test("a short caption is left alone, with no ellipsis", () => {
+  assert.equal(firstWords("Book now", 6), "Book now");
+  assert.equal(firstWords("Exactly six words in this one", 6), "Exactly six words in this one");
+});
+
+test("messy whitespace collapses rather than counting as words", () => {
+  assert.equal(firstWords("  Book   your\n\nappointment  ", 2), "Book your…");
+});
+
+test("an empty caption yields an empty label, not an ellipsis", () => {
+  assert.equal(firstWords("", 5), "");
+  assert.equal(firstWords("   ", 5), "");
 });
 
 // --- labels ---------------------------------------------------------------

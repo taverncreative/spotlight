@@ -135,6 +135,55 @@ export function agendaDays(
     .map(([date, dayItems]) => ({ date, items: dayItems }));
 }
 
+// How a day's posts tile inside one cell.
+//
+// A day cell is a fixed rectangle, so the posts in it split that rectangle
+// rather than queueing down a list: one fills it, two stack, three is one wide
+// across the top with two beneath, four quarters it evenly. Five or more shows
+// three and gives the fourth quarter to a "+N" tile that opens the day detail,
+// because a fifth tile at this size would be a smear rather than an image.
+//
+// Pure and here rather than in the component, so the rule can be tested at every
+// count instead of eyeballed at the two that happen to exist in the data.
+export type MosaicSpan = "full" | "wide" | "quarter";
+
+export type Mosaic = {
+  // How many posts get a tile of their own.
+  shown: number;
+  // One span per tile, in order. Length is shown, plus one when overflow > 0 --
+  // that last entry is the "+N" tile, which is not a post.
+  spans: MosaicSpan[];
+  // How many posts are represented by the "+N" tile. 0 when everything fits.
+  overflow: number;
+};
+
+const QUARTERS: MosaicSpan[] = ["quarter", "quarter", "quarter", "quarter"];
+
+export function mosaicLayout(count: number): Mosaic {
+  if (count <= 0) return { shown: 0, spans: [], overflow: 0 };
+  if (count === 1) return { shown: 1, spans: ["full"], overflow: 0 };
+  if (count === 2) return { shown: 2, spans: ["wide", "wide"], overflow: 0 };
+  if (count === 3) {
+    return { shown: 3, spans: ["wide", "quarter", "quarter"], overflow: 0 };
+  }
+  if (count === 4) return { shown: 4, spans: QUARTERS, overflow: 0 };
+  // Three posts and a counter, filling the same four quarters.
+  return { shown: 3, spans: QUARTERS, overflow: count - 3 };
+}
+
+// The first few words of a caption, for a tile label.
+//
+// Social captions run to paragraphs and blog titles do not, so a caption needs
+// trimming to sit where a title sits. Cut on a word boundary rather than a
+// character count: "Book your appoint" reads as a bug, "Book your…" reads as a
+// summary.
+export function firstWords(text: string, limit: number): string {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "";
+  if (words.length <= limit) return words.join(" ");
+  return `${words.slice(0, limit).join(" ")}…`;
+}
+
 // "Mon 27 July" for an agenda heading and a day-detail title. UTC-formatted from
 // a wall-clock string that is already London, so no second conversion happens.
 export function formatDayLabel(dayKey: string): string {

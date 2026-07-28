@@ -9,7 +9,9 @@ import {
   bucketByDay,
   formatDayLabel,
   monthGrid,
+  mosaicLayout,
   type CalendarItem,
+  type MosaicSpan,
 } from "@/lib/calendar/grid";
 
 // The shared calendar, module-agnostic.
@@ -22,19 +24,32 @@ import {
 // A SERVER component apart from the day-detail dialog, matching the calendar it
 // replaces. Only open/closed state needs the client, so only that crosses.
 //
-// TWO LAYOUTS, ONE DATA SET. Above sm a month grid; below it an agenda. The grid
-// it replaces was min-w-[640px] inside overflow-x-auto, so on a phone you
-// side-scrolled a squeezed seven-column grid to read one post a day. A calendar
-// crushed to 45px columns is not a calendar. Both are rendered and toggled with
-// CSS rather than a media query hook, so there is no hydration mismatch and no
-// layout flash on first paint.
+// TWO LAYOUTS, ONE DATA SET. Above lg a month grid; below it an agenda. Both are
+// rendered and toggled in CSS rather than through a media query hook, so there
+// is no hydration mismatch and no layout flash on first paint.
+//
+// THE BREAKPOINT IS lg, NOT sm, and that was measured rather than guessed. A
+// seven-column grid divides the viewport by seven and a quartered cell halves it
+// again, so the tile width is roughly viewport/14. At 660px that is a 42px tile
+// whose label box measures 24px -- about three characters, which is not a label.
+// At 1024px the tile is ~68px and the two lines of text land. Below lg the
+// agenda is simply the better shape, which is why it exists.
+//
+// The cost: a tablet no longer gets the month grid. That is deliberate. A grid
+// too small to read is worse than a list, and the previous version's answer --
+// min-w-[640px] inside overflow-x-auto -- just made you side-scroll it.
 
-// Four, because four is the real crowded case: blog published four posts on
-// 26 July. Social has never exceeded one a day. A cell that holds four covers
-// both without an overflow chip appearing for the common case.
-const VISIBLE_CHIPS = 4;
-// When there are more than four, three chips leave room for the overflow row.
-const CHIPS_WITH_OVERFLOW = 3;
+// Cell height, and the number this whole layout stands or falls on.
+//
+// A quartered cell divides this by two, so 36 (144px) gives each quarter ~71px
+// of height: enough for a recognisable image with two lines of 11px text over
+// it. At the previous 28 (112px) a quarter was 55px, where the gradient and two
+// text lines leave almost no picture, and the tiles stop being worth having.
+//
+// The cost is real and worth stating: a six-week month is now roughly 900px of
+// grid rather than 700. That does not fit one screen, and it is the deliberate
+// trade -- this view exists to be looked at rather than counted.
+const CELL_HEIGHT = "min-h-36";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -78,11 +93,13 @@ const DOT: Record<string, string> = {
 
 // An item plus the parts only the module can supply.
 export type CalendarEntry = CalendarItem & {
-  // What the grid chip shows beside the thumbnail, when the time is not the
-  // useful discriminator. Social uses the time, because a day holds one post and
-  // when it goes out is the question. Blog uses the title: a planned draft has a
-  // DATE and no time at all, so a chip reading "00:00" would be inventing
-  // precision the data does not have.
+  // What a grid tile shows over the image, when the full label is too long for
+  // it. Blog omits this: a title already fits. Social sets the opening words of
+  // the caption, which runs to paragraphs.
+  //
+  // Neither shows a TIME any more. A planned blog draft has a date and no time
+  // at all, so a tile reading "00:00" would invent precision the data does not
+  // have; the time lives in the day detail, where there is room for it.
   chipLabel?: string | null;
   // A second line in the day detail: platforms for social, status for blog.
   meta?: string | null;
@@ -90,13 +107,22 @@ export type CalendarEntry = CalendarItem & {
   actions?: ReactNode;
 };
 
-function Dot({ status }: { status: string }) {
+function Dot({ status, onImage }: { status: string; onImage?: boolean }) {
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "size-1.5 shrink-0 rounded-full",
-        DOT[status] ?? "bg-muted-foreground"
+        "mt-1 size-1.5 shrink-0 rounded-full",
+        // Over a photo the palette dots lose their meaning: a muted brown on a
+        // dark gradient is invisible, and the point of the dot is the
+        // planned-versus-published distinction. White fill for a fact, white
+        // outline for an intention, which is the same grammar as the palette
+        // version and survives any photo underneath.
+        onImage
+          ? status === "draft"
+            ? "border border-white/80 bg-transparent"
+            : "bg-white/80"
+          : DOT[status] ?? "bg-muted-foreground"
       )}
     />
   );
@@ -115,27 +141,74 @@ function Thumb({ src, size }: { src: string | null; size: string }) {
   );
 }
 
-// One chip in a grid cell. Deliberately small: a dot, a thumbnail and a time is
-// all that fits honestly at this size, and the day detail carries the rest.
-function Chip({ entry }: { entry: CalendarEntry }) {
+// One post as a TILE filling its share of a day cell.
+//
+// The image is the content, not a decoration beside it: at a glance a month
+// should read as the pictures going out, and a 20px thumbnail beside a timestamp
+// never did that. So the picture fills the tile and the words sit on top.
+//
+// TWO TREATMENTS, not one. Over a photo the label needs a dark gradient to stay
+// legible against whatever the photo happens to be, and white text on that
+// gradient is readable over anything. Without a photo there is nothing to fight,
+// so the tile is a plain neutral panel with ordinary foreground text -- forcing
+// white-on-muted there would be worse in both themes for no reason. A post with
+// no image is never a gap.
+const SPAN_CLASS: Record<MosaicSpan, string> = {
+  full: "col-span-2 row-span-2",
+  wide: "col-span-2",
+  quarter: "",
+};
+
+function Tile({ entry, span }: { entry: CalendarEntry; span: MosaicSpan }) {
+  const label = entry.chipLabel ?? entry.label;
+  const hasImage = Boolean(entry.thumbnail);
+
   const inner = (
     <>
-      <Dot status={entry.status} />
-      <Thumb src={entry.thumbnail} size="size-5" />
-      <span
-        className={cn("truncate", !entry.chipLabel && "tabular-nums")}
-      >
-        {entry.chipLabel ?? entry.time}
-      </span>
+      {hasImage ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={entry.thumbnail!}
+            alt=""
+            className="absolute inset-0 size-full object-cover"
+          />
+          <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-1 pt-3 pb-1">
+            <span className="flex items-start gap-1">
+              <Dot status={entry.status} onImage />
+              <span className="line-clamp-2 text-[11px] leading-tight text-white">
+                {label}
+              </span>
+            </span>
+          </span>
+        </>
+      ) : (
+        /* The ring is load-bearing, not decoration: bg-muted sits so close to
+           bg-card in the dark theme that without an edge the tile reads as empty
+           space with text floating in it, rather than as a post that happens to
+           have no picture. Absence has to look deliberate. */
+        <span className="absolute inset-0 flex items-end rounded-sm bg-muted px-1 pb-1 ring-1 ring-border ring-inset">
+          <span className="flex items-start gap-1">
+            <Dot status={entry.status} />
+            <span className="line-clamp-3 text-[11px] leading-tight">
+              {label}
+            </span>
+          </span>
+        </span>
+      )}
     </>
   );
-  const className = "flex w-full items-center gap-1 rounded-sm px-1 py-0.5 text-xs";
+
+  const className = cn(
+    "relative overflow-hidden rounded-sm bg-card",
+    SPAN_CLASS[span]
+  );
 
   return entry.href ? (
     <Link
       href={entry.href}
       title={entry.label}
-      className={cn(className, "hover:bg-muted")}
+      className={cn(className, "transition-opacity hover:opacity-80")}
     >
       {inner}
     </Link>
@@ -232,7 +305,7 @@ export function MonthCalendar({
           today forward, which is the useful thing on a phone -- so a "July 2026"
           heading with an August entry under it would be a contradiction. Day
           headings in the agenda name their own month instead. */}
-      <div className="hidden items-center justify-between gap-2 sm:flex">
+      <div className="hidden items-center justify-between gap-2 lg:flex">
         <p className="text-sm font-medium">{grid.label}</p>
         <div className="flex items-center gap-1">
           <Button
@@ -257,7 +330,7 @@ export function MonthCalendar({
       </div>
 
       {/* Agenda: phones only. Upcoming days from today, no horizontal scroll. */}
-      <div className="space-y-4 sm:hidden">
+      <div className="space-y-4 lg:hidden">
         {agenda.length === 0 ? (
           <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
             {emptyMessage}
@@ -282,7 +355,7 @@ export function MonthCalendar({
 
       {/* Grid: sm and up. No min-width, so it fits its container rather than
           forcing the page to scroll sideways. */}
-      <div className="hidden overflow-hidden rounded-card border sm:block">
+      <div className="hidden overflow-hidden rounded-card border lg:block">
         <div className="grid grid-cols-7 gap-px bg-border">
           {WEEKDAYS.map((day) => (
             <div
@@ -294,56 +367,67 @@ export function MonthCalendar({
           ))}
           {grid.cells.map((cell, index) => {
             if (!cell) {
-              return <div key={index} className="min-h-28 bg-card/50" />;
+              return <div key={index} className={cn(CELL_HEIGHT, "bg-card/50")} />;
             }
             const dayEntries = byDay.get(cell.dayKey) ?? [];
-            const overflowing = dayEntries.length > VISIBLE_CHIPS;
-            const shown = overflowing
-              ? dayEntries.slice(0, CHIPS_WITH_OVERFLOW)
-              : dayEntries;
-            const hidden = dayEntries.length - shown.length;
+            const mosaic = mosaicLayout(dayEntries.length);
             const dayLabel = formatDayLabel(cell.dayKey);
 
             return (
               <div
                 key={index}
                 className={cn(
-                  "min-h-28 space-y-1 bg-card p-1",
+                  "relative bg-card",
+                  CELL_HEIGHT,
                   cell.dayKey === today && "ring-1 ring-primary ring-inset"
                 )}
               >
-                {/* The day number opens the detail whenever there is anything
-                    to open, so the actions are reachable even on a day that
-                    fits without an overflow row. */}
+                {/* Absolute, so the tiles get the whole cell and the mosaic is
+                    not pushed down by a header row. */}
+                {mosaic.spans.length > 0 ? (
+                  <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px p-px">
+                    {dayEntries.slice(0, mosaic.shown).map((entry, slot) => (
+                      <Tile
+                        key={entry.id}
+                        entry={entry}
+                        span={mosaic.spans[slot]}
+                      />
+                    ))}
+                    {mosaic.overflow > 0 ? (
+                      <DayDetail
+                        title={dayLabel}
+                        triggerLabel={`Show all ${dayEntries.length} on ${dayLabel}`}
+                        triggerClassName={cn(
+                          "flex items-center justify-center rounded-sm bg-muted text-xs font-medium text-muted-foreground hover:text-foreground",
+                          SPAN_CLASS[mosaic.spans[mosaic.spans.length - 1]]
+                        )}
+                        trigger={`+${mosaic.overflow}`}
+                      >
+                        <DayList entries={dayEntries} />
+                      </DayDetail>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {/* The day number sits ON the mosaic, so it needs its own
+                    backdrop to stay readable over a photo. It opens the day
+                    detail whenever there is anything to open, which is how the
+                    actions stay reachable on a day that fits without a +N
+                    tile. */}
                 {dayEntries.length > 0 ? (
                   <DayDetail
                     title={dayLabel}
                     triggerLabel={`${dayLabel}: ${dayEntries.length} item${dayEntries.length === 1 ? "" : "s"}`}
-                    triggerClassName="ml-auto block px-1 text-xs text-muted-foreground tabular-nums hover:text-foreground"
+                    triggerClassName="absolute right-1 top-1 z-10 rounded bg-background/75 px-1 text-xs tabular-nums backdrop-blur-xs hover:bg-background"
                     trigger={cell.dayNum}
                   >
                     <DayList entries={dayEntries} />
                   </DayDetail>
                 ) : (
-                  <p className="px-1 text-right text-xs text-muted-foreground tabular-nums">
+                  <p className="absolute right-1 top-1 text-xs text-muted-foreground tabular-nums">
                     {cell.dayNum}
                   </p>
                 )}
-
-                {shown.map((entry) => (
-                  <Chip key={entry.id} entry={entry} />
-                ))}
-
-                {hidden > 0 ? (
-                  <DayDetail
-                    title={dayLabel}
-                    triggerLabel={`Show all ${dayEntries.length} on ${dayLabel}`}
-                    triggerClassName="block w-full px-1 text-left text-xs text-muted-foreground hover:text-foreground"
-                    trigger={`+${hidden} more`}
-                  >
-                    <DayList entries={dayEntries} />
-                  </DayDetail>
-                ) : null}
               </div>
             );
           })}
