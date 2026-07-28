@@ -46,15 +46,13 @@ function calendarInstant(post: CalendarPost): string | null {
 // are inert -- there is nothing left to change.
 const LINKABLE = new Set(["scheduled", "failed", "partial"]);
 
-export function SocialCalendar({
-  posts,
-  clientSlug,
-  month,
-}: {
-  posts: CalendarPost[];
-  clientSlug: string;
-  month: string;
-}) {
+// Exported for the combined client calendar, for the same reason blogEntries is:
+// one definition of what a social post looks like on a grid, not two.
+export function socialEntries(
+  posts: CalendarPost[],
+  clientSlug: string,
+  withModule = false
+): CalendarEntry[] {
   const entries: CalendarEntry[] = [];
 
   for (const post of posts) {
@@ -75,6 +73,7 @@ export function SocialCalendar({
     const editable = post.status === "draft" || post.status === "scheduled";
 
     entries.push({
+      ...(withModule ? { module: "social" as const } : {}),
       id: post.id,
       date,
       time,
@@ -118,6 +117,19 @@ export function SocialCalendar({
     });
   }
 
+  return entries;
+}
+
+export function SocialCalendar({
+  posts,
+  clientSlug,
+  month,
+}: {
+  posts: CalendarPost[];
+  clientSlug: string;
+  month: string;
+}) {
+  const entries = socialEntries(posts, clientSlug);
   // monthGrid is the single place that knows how a month rolls over a year
   // boundary; this only borrows the two neighbours to build hrefs.
   const { prevMonth, nextMonth } = monthGrid(month);

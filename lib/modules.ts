@@ -5,6 +5,11 @@ export type ClientModule = { segment: string; label: string };
 
 export const CLIENT_MODULES: ClientModule[] = [
   { segment: "overview", label: "Overview" },
+  // Second, next to Overview, because it answers the same kind of question --
+  // what is happening with this client -- rather than belonging to blog or
+  // social. It is its own route for that reason: a month grid is far too big to
+  // sit as a panel on the Overview pinboard.
+  { segment: "calendar", label: "Calendar" },
   { segment: "tasks", label: "Tasks" },
   { segment: "seo", label: "SEO" },
   { segment: "analytics", label: "Analytics" },

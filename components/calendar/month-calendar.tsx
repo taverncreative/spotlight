@@ -103,6 +103,10 @@ export type CalendarEntry = CalendarItem & {
   chipLabel?: string | null;
   // A second line in the day detail: platforms for social, status for blog.
   meta?: string | null;
+  // Which module this came from, on the combined client calendar. Undefined on
+  // a single-module calendar, where saying "Blog" on every tile of the blog
+  // calendar would be noise.
+  module?: "blog" | "social";
   // Module-specific buttons, rendered on the server and passed through.
   actions?: ReactNode;
   // Already out: a published blog post, a posted social post. Set by the module,
@@ -110,6 +114,22 @@ export type CalendarEntry = CalendarItem & {
   // know any module's lifecycle. Note that a PARTIAL social post is deliberately
   // not done -- some targets failed, so it still needs someone.
   done?: boolean;
+};
+
+// MODULE COLOUR, and it deliberately does not touch the dots.
+//
+// The dot already carries calendar emphasis (loud for what has not happened,
+// quiet for what has). Overloading it with module would cost the distinction
+// that emphasis exists for. So module is a separate channel: an accent strip
+// down the edge of a tile, plus a named heading in the day detail, plus a
+// legend. Colour is never the only carrier.
+const MODULE_ACCENT: Record<string, string> = {
+  blog: "bg-primary",
+  social: "bg-counter-ok",
+};
+const MODULE_LABEL: Record<string, string> = {
+  blog: "Blog",
+  social: "Social",
 };
 
 function Dot({ status, onImage }: { status: string; onImage?: boolean }) {
@@ -189,8 +209,18 @@ function Tile({ entry, span }: { entry: CalendarEntry; span: MosaicSpan }) {
   const hasImage = Boolean(entry.thumbnail);
   const done = Boolean(entry.done);
 
+  const accent = entry.module ? MODULE_ACCENT[entry.module] : null;
+
   const inner = (
     <>
+      {/* Full-height strip down the leading edge. Above the photo, outside the
+          gradient, so it reads at any tile size and against any image. */}
+      {accent ? (
+        <span
+          aria-hidden="true"
+          className={cn("absolute inset-y-0 left-0 z-10 w-1", accent)}
+        />
+      ) : null}
       {hasImage ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -338,13 +368,75 @@ function DetailRow({ entry }: { entry: CalendarEntry }) {
   );
 }
 
+// GROUPED BY MODULE when a day holds both, flat when it holds one.
+//
+// Blog and social do not offer the same actions -- blog has share, publish,
+// preview; social has cancel -- so an ungrouped day would put two different icon
+// vocabularies in adjacent rows and make you read each one to know which set you
+// were looking at. A heading answers that once for the whole group.
+//
+// Flat when there is only one module, because "Blog" above a list of only blog
+// posts is a label nobody needed.
 function DayList({ entries }: { entries: CalendarEntry[] }) {
+  const modules = [...new Set(entries.map((entry) => entry.module).filter(Boolean))];
+
+  if (modules.length < 2) {
+    return (
+      <ul className="space-y-2">
+        {entries.map((entry) => (
+          <DetailRow key={entry.id} entry={entry} />
+        ))}
+      </ul>
+    );
+  }
+
   return (
-    <ul className="space-y-2">
-      {entries.map((entry) => (
-        <DetailRow key={entry.id} entry={entry} />
+    <div className="space-y-3">
+      {modules.map((module) => (
+        <section key={module} className="space-y-1.5">
+          <h4 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <span
+              aria-hidden="true"
+              className={cn(
+                "size-2 rounded-sm",
+                MODULE_ACCENT[module as string] ?? "bg-muted-foreground"
+              )}
+            />
+            {MODULE_LABEL[module as string] ?? module}
+          </h4>
+          <ul className="space-y-2">
+            {entries
+              .filter((entry) => entry.module === module)
+              .map((entry) => (
+                <DetailRow key={entry.id} entry={entry} />
+              ))}
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
+  );
+}
+
+// Shown only on a calendar that actually mixes modules, so a single-module
+// calendar is not carrying a legend explaining one thing.
+function Legend({ entries }: { entries: CalendarEntry[] }) {
+  const modules = [...new Set(entries.map((entry) => entry.module).filter(Boolean))];
+  if (modules.length < 2) return null;
+  return (
+    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+      {modules.map((module) => (
+        <span key={module} className="flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-2 rounded-sm",
+              MODULE_ACCENT[module as string] ?? "bg-muted-foreground"
+            )}
+          />
+          {MODULE_LABEL[module as string] ?? module}
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -374,7 +466,10 @@ export function MonthCalendar({
           heading with an August entry under it would be a contradiction. Day
           headings in the agenda name their own month instead. */}
       <div className="hidden items-center justify-between gap-2 lg:flex">
-        <p className="text-sm font-medium">{grid.label}</p>
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-medium">{grid.label}</p>
+          <Legend entries={entries} />
+        </div>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -399,6 +494,7 @@ export function MonthCalendar({
 
       {/* Agenda: phones only. Upcoming days from today, no horizontal scroll. */}
       <div className="space-y-4 lg:hidden">
+        <Legend entries={entries} />
         {agenda.length === 0 ? (
           <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
             {emptyMessage}

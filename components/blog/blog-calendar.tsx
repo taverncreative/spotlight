@@ -49,15 +49,17 @@ function placement(
   return post.planned_for ? { date: post.planned_for, time: "" } : null;
 }
 
-export function BlogCalendar({
-  posts,
-  clientSlug,
-  month,
-}: {
-  posts: CalendarBlogPost[];
-  clientSlug: string;
-  month: string;
-}) {
+// Exported so the combined client calendar builds blog entries the same way
+// this module's own calendar does, rather than growing a second, drifting copy
+// of what a blog post looks like on a grid.
+//
+// withModule tags each entry for the combined view's colour coding and day
+// detail grouping. Off here: "Blog" on every tile of the blog calendar is noise.
+export function blogEntries(
+  posts: CalendarBlogPost[],
+  clientSlug: string,
+  withModule = false
+): CalendarEntry[] {
   const entries: CalendarEntry[] = [];
 
   for (const post of posts) {
@@ -65,6 +67,7 @@ export function BlogCalendar({
     if (!at) continue;
 
     entries.push({
+      ...(withModule ? { module: "blog" as const } : {}),
       id: post.id,
       date: at.date,
       time: at.time,
@@ -142,6 +145,19 @@ export function BlogCalendar({
     });
   }
 
+  return entries;
+}
+
+export function BlogCalendar({
+  posts,
+  clientSlug,
+  month,
+}: {
+  posts: CalendarBlogPost[];
+  clientSlug: string;
+  month: string;
+}) {
+  const entries = blogEntries(posts, clientSlug);
   const { prevMonth, nextMonth } = monthGrid(month);
   const base = `/c/${clientSlug}/blog?view=calendar&month=`;
 
