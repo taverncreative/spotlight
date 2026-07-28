@@ -1,0 +1,456 @@
+"use client";
+
+import { useActionState, useMemo, useState } from "react";
+import localFont from "next/font/local";
+import { Button } from "@/components/ui/button";
+import { fieldInputClass } from "@/components/form-field";
+import { cn } from "@/lib/utils";
+import { socialMediaPublicUrl } from "@/lib/social/media-paths";
+import { resolveStyle } from "@/lib/social/image-style";
+import {
+  CANVAS,
+  CAP_OVER_EM,
+  type ScrimColour,
+  type TemplateStyle,
+} from "@/lib/social/render-template-style";
+import {
+  saveImageRecipe,
+  type ImageRecipeState,
+} from "@/lib/social/image-actions";
+
+// THE PREVIEW IS CSS, NOT SATORI, and that is a reversal of what the recon
+// recommended. The recon was right for a general template engine and wrong for
+// this one, because the template shape removed the reasons:
+//
+//   * every line is its own div with whiteSpace: pre, so nothing wraps, and
+//     wrapping is where Satori and a browser most visibly disagree
+//   * vertical layout comes entirely from OUR numbers -- capHeight sets the font
+//     size through CAP_OVER_EM, leading sets the line box -- so both engines are
+//     applying the same arithmetic rather than each deciding for themselves
+//   * the browser loads the SAME Anton file the renderer embeds, so glyph
+//     advances match, and advances are all that set the ragged highlight edge
+//
+// What is left to drift is sub-pixel rounding, against roughly a megabyte of
+// Satori and a WASM layout engine in the page. The trade only holds while those
+// three conditions hold: add wrapping, auto-fitting, or a second font that the
+// browser does not have, and this becomes an approximation again.
+//
+// "See the real render" is next to Save so drift is checkable rather than
+// assumed.
+const anton = localFont({
+  src: "../../assets/fonts/Anton-Regular.ttf",
+  weight: "400",
+  display: "block",
+});
+
+export type EditorTemplate = {
+  id: string;
+  name: string;
+  style: Partial<TemplateStyle>;
+};
+
+export type EditorPhoto = { storagePath: string };
+
+const SWATCHES = ["#111111", "#FFFFFF"];
+
+export function ImageEditor({
+  clientSlug,
+  postId,
+  templates,
+  photos,
+  initial,
+}: {
+  clientSlug: string;
+  postId: string;
+  templates: EditorTemplate[];
+  photos: EditorPhoto[];
+  initial: {
+    recipeId: string | null;
+    templateId: string | null;
+    photoPath: string | null;
+    text: string;
+    overrides: Partial<TemplateStyle>;
+  };
+}) {
+  const [state, formAction, pending] = useActionState<ImageRecipeState, FormData>(
+    saveImageRecipe,
+    null
+  );
+
+  const [templateId, setTemplateId] = useState(
+    initial.templateId ?? templates[0]?.id ?? ""
+  );
+  const [photoPath, setPhotoPath] = useState(
+    initial.photoPath ?? photos[0]?.storagePath ?? ""
+  );
+  const [text, setText] = useState(initial.text);
+
+  const template = templates.find((t) => t.id === templateId) ?? templates[0];
+
+  // The editor works with a fully RESOLVED style because it has to draw
+  // something. What gets stored is the diff against the template, worked out
+  // server-side -- see image-actions.ts. Storing the resolved copy would freeze
+  // every value nobody touched and quietly detach the post from its template.
+  const [style, setStyle] = useState<TemplateStyle>(() =>
+    resolveStyle(template?.style ?? {}, initial.overrides)
+  );
+  const set = <K extends keyof TemplateStyle>(key: K, value: TemplateStyle[K]) =>
+    setStyle((current) => ({ ...current, [key]: value }));
+
+  // Preview geometry. Everything is a fraction of the canvas, so drawing at any
+  // display width is exact rather than a scaled approximation.
+  const W = 340;
+  const H = Math.round((W * CANVAS.height) / CANVAS.width);
+  const capPx = style.capHeight * W;
+  const fontSize = capPx / CAP_OVER_EM;
+  const padX = style.highlight ? style.highlightPadX * capPx : 0;
+  const lines = text.split("\n");
+
+  const photoUrl = photoPath ? socialMediaPublicUrl(photoPath) : null;
+
+  // The same values the server route takes, so "see the real render" is the
+  // same picture rather than a near miss.
+  const renderHref = useMemo(() => {
+    if (!photoUrl) return null;
+    const p = new URLSearchParams({
+      photo: photoUrl,
+      text,
+      colour: style.colour,
+      x: String(style.x),
+      y: String(style.y),
+      width: String(style.width),
+      capHeight: String(style.capHeight),
+      leading: String(style.leading),
+      scrim: style.scrim,
+      scrimOpacity: String(style.scrimOpacity),
+      highlight: style.highlight ? "1" : "0",
+      highlightColour: style.highlightColour,
+      highlightOpacity: String(style.highlightOpacity),
+      highlightPadX: String(style.highlightPadX),
+    });
+    return `/api/render/social?${p.toString()}`;
+  }, [photoUrl, text, style]);
+
+  const scrimRgba =
+    style.scrim === "none"
+      ? null
+      : style.scrim === "black"
+        ? `rgba(0,0,0,${style.scrimOpacity})`
+        : `rgba(255,255,255,${style.scrimOpacity})`;
+
+  return (
+    <form action={formAction} className="grid gap-6 lg:grid-cols-[auto_1fr]">
+      <input type="hidden" name="post_id" value={postId} />
+      <input type="hidden" name="client_slug" value={clientSlug} />
+      <input type="hidden" name="recipe_id" value={initial.recipeId ?? ""} />
+      <input type="hidden" name="template_id" value={templateId} />
+      <input type="hidden" name="photo_path" value={photoPath} />
+      <input type="hidden" name="text" value={text} />
+      <input type="hidden" name="style" value={JSON.stringify(style)} />
+
+      {/* --- preview --- */}
+      <div className="space-y-2">
+        <div
+          className="relative overflow-hidden rounded-card border bg-muted"
+          style={{ width: W, height: H }}
+        >
+          {photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoUrl}
+              alt=""
+              className="absolute inset-0 size-full object-cover"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
+              No photo on this post yet
+            </div>
+          )}
+          {scrimRgba ? (
+            <div
+              className="absolute inset-0"
+              style={{ backgroundColor: scrimRgba }}
+            />
+          ) : null}
+          <div
+            className="absolute flex flex-col items-start"
+            style={{
+              left: style.x * W - padX,
+              top: style.y * H,
+              width: style.width * W + padX * 2,
+            }}
+          >
+            {lines.map((line, index) => (
+              <div
+                key={index}
+                className={anton.className}
+                style={{
+                  fontSize,
+                  lineHeight: (style.leading * capPx) / fontSize,
+                  color: style.colour,
+                  textTransform: "uppercase",
+                  whiteSpace: "pre",
+                  paddingLeft: padX,
+                  paddingRight: padX,
+                  backgroundColor: style.highlight
+                    ? hexToRgba(style.highlightColour, style.highlightOpacity)
+                    : undefined,
+                }}
+              >
+                {line === "" ? " " : line}
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Preview at {W}px. Output is {CANVAS.width}&times;{CANVAS.height}.
+        </p>
+      </div>
+
+      {/* --- controls --- */}
+      <div className="space-y-4">
+        <Field label="Headline">
+          <textarea
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            rows={5}
+            placeholder={"MORE\nWEBSITE\nTRAFFIC"}
+            className={cn(fieldInputClass, "font-mono text-sm")}
+          />
+          <Hint>
+            One line per line. The breaks are yours and are never re-wrapped.
+          </Hint>
+        </Field>
+
+        {templates.length > 1 ? (
+          <Field label="Template">
+            <select
+              value={templateId}
+              onChange={(event) => {
+                setTemplateId(event.target.value);
+                const next = templates.find((t) => t.id === event.target.value);
+                // Switching template re-resolves from ITS style, so the new
+                // template's look actually arrives instead of being masked by
+                // the old one's values carried across as overrides.
+                setStyle(resolveStyle(next?.style ?? {}, {}));
+              }}
+              className={fieldInputClass}
+            >
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : null}
+
+        {photos.length > 0 ? (
+          <Field label="Photo">
+            <div className="flex flex-wrap gap-2">
+              {photos.map((photo) => (
+                <button
+                  key={photo.storagePath}
+                  type="button"
+                  onClick={() => setPhotoPath(photo.storagePath)}
+                  className={cn(
+                    "size-14 overflow-hidden rounded-md border-2",
+                    photo.storagePath === photoPath
+                      ? "border-primary"
+                      : "border-transparent"
+                  )}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={socialMediaPublicUrl(photo.storagePath)}
+                    alt=""
+                    className="size-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+            <Hint>Photos already uploaded to this post.</Hint>
+          </Field>
+        ) : (
+          <Hint>
+            Upload a photo to this post first, then come back and place the
+            words on it.
+          </Hint>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Slider label="Size" value={style.capHeight} min={0.05} max={0.25} step={0.001}
+            onChange={(v) => set("capHeight", v)} />
+          <Slider label="Leading" value={style.leading} min={0.85} max={1.6} step={0.01}
+            onChange={(v) => set("leading", v)} />
+          <Slider label="Across" value={style.x} min={0} max={0.6} step={0.002}
+            onChange={(v) => set("x", v)} />
+          <Slider label="Down" value={style.y} min={0} max={0.85} step={0.002}
+            onChange={(v) => set("y", v)} />
+        </div>
+
+        <Field label="Text colour">
+          <Swatches
+            value={style.colour}
+            onChange={(v) => set("colour", v)}
+          />
+        </Field>
+
+        <Field label="Highlight">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={style.highlight}
+              onChange={(event) => set("highlight", event.target.checked)}
+            />
+            Block behind the words
+          </label>
+          {style.highlight ? (
+            <div className="mt-2 space-y-2">
+              <Swatches
+                value={style.highlightColour}
+                onChange={(v) => set("highlightColour", v)}
+              />
+              <Slider label="Opacity" value={style.highlightOpacity} min={0.2} max={1} step={0.05}
+                onChange={(v) => set("highlightOpacity", v)} />
+            </div>
+          ) : null}
+        </Field>
+
+        <Field label="Scrim">
+          <select
+            value={style.scrim}
+            onChange={(event) => set("scrim", event.target.value as ScrimColour)}
+            className={fieldInputClass}
+          >
+            <option value="none">None</option>
+            <option value="black">Black</option>
+            <option value="white">White</option>
+          </select>
+          {style.scrim !== "none" ? (
+            <div className="mt-2">
+              <Slider label="Opacity" value={style.scrimOpacity} min={0.05} max={0.85} step={0.05}
+                onChange={(v) => set("scrimOpacity", v)} />
+            </div>
+          ) : null}
+          <Hint>Dims the whole photo. The highlight usually beats it.</Hint>
+        </Field>
+
+        {state?.error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {state.error}
+          </p>
+        ) : null}
+        {state?.ok ? (
+          <p className="text-sm text-counter-ok">Saved.</p>
+        ) : null}
+
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm" disabled={pending || !photoPath}>
+            {pending ? "Saving…" : "Save"}
+          </Button>
+          {renderHref ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              render={<a href={renderHref} target="_blank" rel="noopener noreferrer" />}
+            >
+              See the real render
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </form>
+  );
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
+  const value = Number.parseInt(full, 16);
+  if (full.length !== 6 || Number.isNaN(value)) return `rgba(255,255,255,${alpha})`;
+  return `rgba(${(value >> 16) & 255},${(value >> 8) & 255},${value & 255},${alpha})`;
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs text-muted-foreground">{children}</p>;
+}
+
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="flex items-baseline justify-between text-xs">
+        <span className="font-medium">{label}</span>
+        <span className="text-muted-foreground tabular-nums">
+          {value.toFixed(3)}
+        </span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="w-full"
+      />
+    </label>
+  );
+}
+
+function Swatches({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {SWATCHES.map((swatch) => (
+        <button
+          key={swatch}
+          type="button"
+          onClick={() => onChange(swatch)}
+          aria-label={swatch}
+          className={cn(
+            "size-7 rounded-md border-2",
+            value.toUpperCase() === swatch ? "border-primary" : "border-border"
+          )}
+          style={{ backgroundColor: swatch }}
+        />
+      ))}
+      <input
+        type="color"
+        value={value}
+        onChange={(event) => onChange(event.target.value.toUpperCase())}
+        className="h-7 w-10 cursor-pointer rounded-md border bg-transparent"
+        aria-label="Custom colour"
+      />
+    </div>
+  );
+}

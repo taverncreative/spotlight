@@ -6,6 +6,18 @@
 // the merge rules (testable, and later the browser preview) can share one
 // definition rather than keeping two in step.
 
+// 4:5, the ratio BSK uses most, and Instagram's tallest feed size.
+export const CANVAS = { width: 1122, height: 1402 };
+
+// Anton's cap height as a fraction of its em, read from the font's own OS/2
+// table: sCapHeight 1760 over unitsPerEm 2048.
+//
+// This is what converts a measured design into a font size. A font size is the
+// em, and the em is invisible; what the eye reads, and what can be measured off
+// a finished image, is the CAP HEIGHT. Sizing by em is how the first attempt
+// came out 43% too small.
+export const CAP_OVER_EM = 1760 / 2048;
+
 export type ScrimColour = "none" | "black" | "white";
 
 // Everything a template decides. Content (the photo, the words) is separate on

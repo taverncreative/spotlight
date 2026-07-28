@@ -2,11 +2,16 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ReactElement } from "react";
-import type { RenderInput } from "@/lib/social/render-template-style";
+import {
+  CANVAS,
+  CAP_OVER_EM,
+  type RenderInput,
+} from "@/lib/social/render-template-style";
 
 // Re-exported so callers that only want to draw something do not need to know
 // the type and the renderer live in two files.
 export {
+  CANVAS,
   DEFAULTS,
   type RenderInput,
   type ScrimColour,
@@ -31,18 +36,6 @@ export {
 // The originals use no scrim and no highlight, because they were composed onto
 // photos with a quiet area -- a yellow wall, an empty sky. Both exist here for
 // the photos that have no such area, which is most of them.
-
-// 4:5, the ratio BSK uses most, and Instagram's tallest feed size.
-export const CANVAS = { width: 1122, height: 1402 };
-
-// Anton's cap height as a fraction of its em, read from the font's own OS/2
-// table: sCapHeight 1760 over unitsPerEm 2048.
-//
-// This is what converts a measured design into a font size. A font size is the
-// em, and the em is invisible; what the eye reads, and what can be measured off
-// a finished image, is the CAP HEIGHT. Sizing by em is how the first attempt
-// came out 43% too small.
-const CAP_OVER_EM = 1760 / 2048;
 
 // Anton, SIL Open Font License 1.1 (assets/fonts/Anton-OFL.txt). A stand-in for
 // whatever BSK's real face is: condensed, heavy, and free to embed in a
