@@ -180,8 +180,8 @@ export function SocialComposer({
         />
         <p className="mt-1 text-xs text-muted-foreground">
           {igSelected
-            ? "Instagram requires at least one photo."
-            : "Photos are optional for Facebook-only posts."}
+            ? "Instagram needs a photo or a video. One video posts as a Reel."
+            : "Media is optional for Facebook-only posts. One video posts as a Reel."}
         </p>
         {/* THE WAY IN TO THE IMAGE EDITOR.
             Here rather than on the post card in the list, because this is where

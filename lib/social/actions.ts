@@ -104,7 +104,10 @@ export async function saveSocialPost(
       return {
         ok: false,
         fieldErrors: {
-          media: ["Add at least one photo to post to Instagram."],
+          // A Reel is a video with no photo, so this asks for MEDIA. The check
+          // below it always did; only the sentence said otherwise, which is the
+          // kind of wrong that makes someone believe the feature is missing.
+          media: ["Add a photo or a video to post to Instagram."],
         },
       };
     }
@@ -112,7 +115,7 @@ export async function saveSocialPost(
     if (media.length === 0 && caption.trim() === "") {
       return {
         ok: false,
-        fieldErrors: { media: ["Add a caption or at least one photo."] },
+        fieldErrors: { media: ["Add a caption, a photo or a video."] },
       };
     }
   }
