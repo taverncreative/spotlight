@@ -9,12 +9,15 @@ import { publishPost, unpublishPost } from "@/lib/posts/actions";
 import { shareToSocial } from "@/lib/social/actions";
 import { ShareToSocialButton } from "@/components/share-to-social-button";
 import { PostDeleteButton } from "@/components/post-delete-button";
+import { BlogCalendar } from "@/components/blog/blog-calendar";
+import { londonMonth, parseMonth } from "@/lib/calendar/grid";
 
 type PostRow = {
   id: string;
   title: string;
   status: string;
   published_at: string | null;
+  planned_for: string | null;
   updated_at: string;
   featured_image: string | null;
   meta_description: string | null;
@@ -62,11 +65,24 @@ export default async function BlogPage({
   searchParams,
 }: {
   params: Promise<{ clientSlug: string }>;
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; view?: string; month?: string }>;
 }) {
   const { clientSlug } = await params;
-  const { status: statusParam } = await searchParams;
+  const {
+    status: statusParam,
+    view,
+    month: monthParam,
+  } = await searchParams;
   const { client } = await requireClient(clientSlug);
+
+  // CALENDAR IS THE DEFAULT, matching social. ?view=list opts out, so the old
+  // list URLs still resolve.
+  //
+  // A status filter forces the list, for the same reason it does on social: a
+  // dateless draft cannot appear on a calendar, so filtering to Drafts and being
+  // shown a grid that structurally cannot contain one would read as broken.
+  const isCalendar = view !== "list" && !statusParam;
+  const month = parseMonth(monthParam) ?? londonMonth(new Date().toISOString());
 
   const activeTab =
     STATUS_TABS.find((tab) => tab.key !== null && tab.key === statusParam) ??
@@ -76,7 +92,7 @@ export default async function BlogPage({
   const { data } = await supabase
     .from("posts")
     .select(
-      "id, title, status, published_at, updated_at, featured_image, meta_description"
+      "id, title, status, published_at, planned_for, updated_at, featured_image, meta_description"
     )
     .eq("client_id", client.id)
     .order("updated_at", { ascending: false });
@@ -102,29 +118,63 @@ export default async function BlogPage({
         </Button>
       </div>
 
-      <nav className="flex flex-wrap gap-1" aria-label="Filter by status">
-        {STATUS_TABS.map((tab) => (
-          <Link
-            key={tab.label}
-            href={
-              tab.key === null
-                ? `/c/${clientSlug}/blog`
-                : `/c/${clientSlug}/blog?status=${tab.key}`
-            }
-            aria-current={tab.key === activeTab.key ? "page" : undefined}
-            className={cn(
-              "rounded-md px-2.5 py-1 text-sm transition-colors",
-              tab.key === activeTab.key
-                ? "bg-accent font-medium text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Always shown, in both views. A draft with no planned date exists
+            nowhere but here, and today every draft is dateless. Picking one
+            switches to the list, since that is the only view that can honour
+            it. */}
+        <nav className="flex flex-wrap gap-1" aria-label="Filter by status">
+          {STATUS_TABS.map((tab) => (
+            <Link
+              key={tab.label}
+              href={
+                tab.key === null
+                  ? `/c/${clientSlug}/blog?view=list`
+                  : `/c/${clientSlug}/blog?status=${tab.key}`
+              }
+              aria-current={
+                !isCalendar && tab.key === activeTab.key ? "page" : undefined
+              }
+              className={cn(
+                "rounded-md px-2.5 py-1 text-sm transition-colors",
+                !isCalendar && tab.key === activeTab.key
+                  ? "bg-accent font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+            </Link>
+          ))}
+        </nav>
+        <nav className="flex gap-1" aria-label="View">
+          {[
+            { label: "Calendar", href: `/c/${clientSlug}/blog`, active: isCalendar },
+            {
+              label: "List",
+              href: `/c/${clientSlug}/blog?view=list`,
+              active: !isCalendar,
+            },
+          ].map((viewTab) => (
+            <Link
+              key={viewTab.label}
+              href={viewTab.href}
+              aria-current={viewTab.active ? "page" : undefined}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-sm transition-colors",
+                viewTab.active
+                  ? "bg-accent font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {viewTab.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
 
-      {posts.length === 0 ? (
+      {isCalendar ? (
+        <BlogCalendar posts={posts} clientSlug={clientSlug} month={month} />
+      ) : posts.length === 0 ? (
         <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No posts yet. Write your first post.
         </p>

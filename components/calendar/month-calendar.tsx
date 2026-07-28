@@ -78,6 +78,12 @@ const DOT: Record<string, string> = {
 
 // An item plus the parts only the module can supply.
 export type CalendarEntry = CalendarItem & {
+  // What the grid chip shows beside the thumbnail, when the time is not the
+  // useful discriminator. Social uses the time, because a day holds one post and
+  // when it goes out is the question. Blog uses the title: a planned draft has a
+  // DATE and no time at all, so a chip reading "00:00" would be inventing
+  // precision the data does not have.
+  chipLabel?: string | null;
   // A second line in the day detail: platforms for social, status for blog.
   meta?: string | null;
   // Module-specific buttons, rendered on the server and passed through.
@@ -116,7 +122,11 @@ function Chip({ entry }: { entry: CalendarEntry }) {
     <>
       <Dot status={entry.status} />
       <Thumb src={entry.thumbnail} size="size-5" />
-      <span className="truncate tabular-nums">{entry.time}</span>
+      <span
+        className={cn("truncate", !entry.chipLabel && "tabular-nums")}
+      >
+        {entry.chipLabel ?? entry.time}
+      </span>
     </>
   );
   const className = "flex w-full items-center gap-1 rounded-sm px-1 py-0.5 text-xs";
@@ -146,9 +156,11 @@ function DetailRow({ entry }: { entry: CalendarEntry }) {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <Dot status={entry.status} />
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {entry.time}
-          </span>
+          {entry.time ? (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {entry.time}
+            </span>
+          ) : null}
           {entry.meta ? (
             <span className="truncate text-xs text-muted-foreground capitalize">
               {entry.meta}
