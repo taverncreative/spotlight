@@ -13,6 +13,10 @@ import {
   type SocialMediaItem,
 } from "@/lib/social/schemas";
 import { checkVideo, isVideoType } from "@/lib/social/video-checks";
+import {
+  shouldUseResumable,
+  uploadResumable,
+} from "@/lib/social/resumable-upload";
 import { grabPosterFrame, readVideoFacts } from "@/lib/social/video-probe";
 
 // A media item plus its derived preview URL (the row stores only the path).
@@ -61,6 +65,12 @@ export function SocialMediaUploader({
   // whether it uploaded, and clearing it on the next success would hide the one
   // thing the operator needs to act on.
   const [warnings, setWarnings] = useState<string[]>([]);
+  // Bytes, not files. A 111 MB video on the file counter reads as "Uploading
+  // 1/1…" and a frozen screen for two minutes, which is indistinguishable from
+  // a hang. Null when nothing large is in flight.
+  const [bytes, setBytes] = useState<{ sent: number; total: number } | null>(
+    null
+  );
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Validate and upload one file; null means it was skipped (error shown).
@@ -92,6 +102,39 @@ export function SocialMediaUploader({
       return !uploadError;
     } catch {
       return false;
+    }
+  }
+
+  // The large-file path. Chunked, retried, and reporting bytes.
+  //
+  // TUS is a bare HTTP protocol with no Supabase client wrapped around it, so
+  // the session token has to be fetched and passed explicitly -- the plain
+  // upload gets this for free from the browser client.
+  async function putResumable(
+    supabase: ReturnType<typeof createClient>,
+    path: string,
+    file: File
+  ): Promise<boolean> {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) {
+      setError("Your session expired. Reload the page and try again.");
+      return false;
+    }
+    try {
+      await uploadResumable({
+        accessToken,
+        apiKey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        path,
+        file,
+        onProgress: ({ sent, total }) => setBytes({ sent, total }),
+      });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setBytes(null);
     }
   }
 
@@ -151,7 +194,12 @@ export function SocialMediaUploader({
 
     const id = crypto.randomUUID();
     const path = pathFor(file, id);
-    if (!(await put(supabase, path, file, file.type))) {
+    // Above the threshold the plain upload is one long request that fails whole
+    // on any wobble -- which is exactly how a 111 MB video was lost.
+    const ok = shouldUseResumable(file)
+      ? await putResumable(supabase, path, file)
+      : await put(supabase, path, file, file.type);
+    if (!ok) {
       setError(`${file.name}: upload failed.`);
       return null;
     }
@@ -304,7 +352,9 @@ export function SocialMediaUploader({
         disabled={uploading}
       >
         {uploading
-          ? `Uploading ${progress.done}/${progress.total}…`
+          ? bytes
+            ? `Uploading ${Math.round((bytes.sent / bytes.total) * 100)}% of ${Math.round(bytes.total / (1024 * 1024))} MB…`
+            : `Uploading ${progress.done}/${progress.total}…`
           : items.length > 0
             ? "Add more"
             : "Add photos or video"}
@@ -321,6 +371,24 @@ export function SocialMediaUploader({
           event.target.value = "";
         }}
       />
+      {/* The bar is the honest part: a percentage that ticks proves the upload
+          is alive, which is the whole complaint a one-long-request upload could
+          not answer. */}
+      {bytes ? (
+        <div
+          className="h-1 w-full overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-valuenow={Math.round((bytes.sent / bytes.total) * 100)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Upload progress"
+        >
+          <div
+            className="h-full bg-primary transition-[width] duration-200"
+            style={{ width: `${(bytes.sent / bytes.total) * 100}%` }}
+          />
+        </div>
+      ) : null}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {/* Separate from the error, and deliberately not cleared by a later
           success: a warning is about where the file can GO, not whether it
