@@ -13,14 +13,26 @@
 // sCapHeight/unitsPerEm, which is a property of the face, not a constant. Read
 // from each font's own OS/2 table:
 //
-//   Anton           1760 / 2048 = 0.85938
-//   Oswald           810 / 1000 = 0.81000
-//   Bebas Neue       700 / 1000 = 0.70000
-//   Archivo Narrow   686 / 1000 = 0.68600
+//   Anton             1760 / 2048 = 0.85938
+//   Oswald             810 / 1000 = 0.81000
+//   Alfa Slab One      778 / 1000 = 0.77800
+//   Playfair Display   708 / 1000 = 0.70800
+//   Bebas Neue         700 / 1000 = 0.70000
+//   Abril Fatface      700 / 1000 = 0.70000
+//   Space Grotesk      700 / 1000 = 0.70000
+//   Archivo Black      688 / 1000 = 0.68800
+//   Archivo Narrow     686 / 1000 = 0.68600
 //
 // They are not close. Reusing Anton's number for Archivo Narrow would render it
 // 25% too small, which is the same class of mistake that made the first render
-// 43% too small and took a measurement rather than an eye to find.
+// 43% too small and took a measurement rather than an eye to find. Some faces do
+// share a ratio -- three sit at exactly 0.700 -- so a test asserting they are all
+// distinct would be asserting a coincidence; the test instead reads each number
+// back out of its own font file.
+//
+// VARIETY IS THE POINT of the wider set. Nine condensed grotesques would let one
+// client look like another, so the list runs from a compressed headline face to
+// a high-contrast serif on purpose.
 //
 // STATIC INSTANCES, NOT VARIABLE FONTS. Google ships Oswald and Archivo Narrow
 // only as variable files, and Satori renders a variable font's default instance
@@ -33,7 +45,16 @@
 // redistribution. The OFL permits it; most commercial and Canva-bundled licences
 // do not. Each licence is vendored beside its font.
 
-export type FontId = "anton" | "oswald" | "bebas-neue" | "archivo-narrow";
+export type FontId =
+  | "anton"
+  | "oswald"
+  | "bebas-neue"
+  | "archivo-narrow"
+  | "archivo-black"
+  | "alfa-slab-one"
+  | "abril-fatface"
+  | "playfair-display"
+  | "space-grotesk";
 
 export type FontFace = {
   id: FontId;
@@ -82,6 +103,47 @@ export const FONTS: Record<FontId, FontFace> = {
       700: "assets/fonts/ArchivoNarrow-Bold.ttf",
     },
     note: "Squarer and less shouty. Good when the photo is doing the work.",
+  },
+  "archivo-black": {
+    id: "archivo-black",
+    family: "Archivo Black",
+    capOverEm: 688 / 1000,
+    files: { 400: "assets/fonts/ArchivoBlack-Regular.ttf" },
+    note: "Wide and heavy. The opposite of condensed -- fewer words per line.",
+  },
+  "alfa-slab-one": {
+    id: "alfa-slab-one",
+    family: "Alfa Slab One",
+    capOverEm: 778 / 1000,
+    files: { 400: "assets/fonts/AlfaSlabOne-Regular.ttf" },
+    note: "Heavy slab serif. Warmer and older than the grotesques.",
+  },
+  "abril-fatface": {
+    id: "abril-fatface",
+    family: "Abril Fatface",
+    capOverEm: 700 / 1000,
+    files: { 400: "assets/fonts/AbrilFatface-Regular.ttf" },
+    note: "High-contrast display serif. Magazine cover, not shopfront.",
+  },
+  "playfair-display": {
+    id: "playfair-display",
+    family: "Playfair Display",
+    capOverEm: 708 / 1000,
+    files: {
+      700: "assets/fonts/PlayfairDisplay-Bold.ttf",
+      900: "assets/fonts/PlayfairDisplay-Black.ttf",
+    },
+    note: "Elegant serif with real weight. The least shouty face here.",
+  },
+  "space-grotesk": {
+    id: "space-grotesk",
+    family: "Space Grotesk",
+    capOverEm: 700 / 1000,
+    files: {
+      400: "assets/fonts/SpaceGrotesk-Regular.ttf",
+      700: "assets/fonts/SpaceGrotesk-Bold.ttf",
+    },
+    note: "Geometric and modern, with odd details. Reads as a tech brand.",
   },
 };
 

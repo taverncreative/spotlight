@@ -108,6 +108,7 @@ export async function GET(request: Request) {
       DEFAULTS.highlightOpacity
     ),
     highlightPadX: num(params.get("highlightPadX"), DEFAULTS.highlightPadX),
+    highlightPadY: num(params.get("highlightPadY"), DEFAULTS.highlightPadY),
   };
 
   const face = fontOrDefault(input.font);

@@ -117,6 +117,7 @@ export function templateElement(input: RenderInput): ReactElement {
   const lines = input.text.replace(/\\n/g, "\n").split("\n");
 
   const padX = input.highlight ? input.highlightPadX * capPx : 0;
+  const padY = input.highlight ? input.highlightPadY * capPx : 0;
   const scrimColour =
     input.scrim === "black"
       ? "#000000"
@@ -203,6 +204,14 @@ export function templateElement(input: RenderInput): ReactElement {
               whiteSpace: "pre",
               paddingLeft: padX,
               paddingRight: padX,
+              // Padding grows the block; the equal negative margin gives the
+              // growth back to the layout, so the block gets taller and nothing
+              // moves. Together they are why the measured leading survives
+              // vertical breathing room.
+              paddingTop: padY,
+              paddingBottom: padY,
+              marginTop: -padY,
+              marginBottom: -padY,
               ...(input.highlight
                 ? {
                     backgroundColor: rgba(

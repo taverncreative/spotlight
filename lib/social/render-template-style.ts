@@ -57,11 +57,16 @@ export type TemplateStyle = {
   highlight: boolean;
   highlightColour: string;
   highlightOpacity: number;
-  // Horizontal breathing room, as a multiple of cap height. HORIZONTAL ONLY:
-  // vertical padding would grow each line box and push the lines apart, quietly
-  // breaking the measured leading. The vertical breathing room comes free,
-  // because the line box is already `leading` taller than the caps.
+  // Breathing room around the words, as multiples of cap height.
+  //
+  // BOTH AXES, but they work differently. Horizontal padding simply widens the
+  // block. Vertical padding is paired with an equal NEGATIVE margin, so the
+  // block grows upward and downward while contributing nothing to layout: the
+  // text does not move and the line pitch stays exactly as measured. Plain
+  // vertical padding would push the lines apart and quietly break the leading,
+  // which is why there was none until now.
   highlightPadX: number;
+  highlightPadY: number;
 };
 
 export type RenderInput = TemplateStyle & {
@@ -97,4 +102,8 @@ export const DEFAULTS: TemplateStyle = {
   highlightColour: "#FFFFFF",
   highlightOpacity: 1,
   highlightPadX: 0.12,
+  // Enough that the caps are not touching the edge. Smaller than the horizontal
+  // padding on purpose: the line box already carries some room above and below
+  // the caps, so equal numbers read as too much.
+  highlightPadY: 0.06,
 };

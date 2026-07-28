@@ -80,11 +80,46 @@ const archivo = localFont({
   display: "block",
 });
 
+const archivoBlack = localFont({
+  src: "../../assets/fonts/ArchivoBlack-Regular.ttf",
+  weight: "400",
+  display: "block",
+});
+const alfaSlab = localFont({
+  src: "../../assets/fonts/AlfaSlabOne-Regular.ttf",
+  weight: "400",
+  display: "block",
+});
+const abril = localFont({
+  src: "../../assets/fonts/AbrilFatface-Regular.ttf",
+  weight: "400",
+  display: "block",
+});
+const playfair = localFont({
+  src: [
+    { path: "../../assets/fonts/PlayfairDisplay-Bold.ttf", weight: "700" },
+    { path: "../../assets/fonts/PlayfairDisplay-Black.ttf", weight: "900" },
+  ],
+  display: "block",
+});
+const spaceGrotesk = localFont({
+  src: [
+    { path: "../../assets/fonts/SpaceGrotesk-Regular.ttf", weight: "400" },
+    { path: "../../assets/fonts/SpaceGrotesk-Bold.ttf", weight: "700" },
+  ],
+  display: "block",
+});
+
 export const PREVIEW_FONTS: Record<FontId, { className: string }> = {
   anton,
   oswald,
   "bebas-neue": bebas,
   "archivo-narrow": archivo,
+  "archivo-black": archivoBlack,
+  "alfa-slab-one": alfaSlab,
+  "abril-fatface": abril,
+  "playfair-display": playfair,
+  "space-grotesk": spaceGrotesk,
 };
 
 export type EditorTemplate = ControlTemplate;
@@ -156,6 +191,7 @@ export function ImageEditor({
   // all of them is a wrong size rather than a rounding difference.
   const fontSize = capPx / face.capOverEm;
   const padX = style.highlight ? style.highlightPadX * capPx : 0;
+  const padY = style.highlight ? style.highlightPadY * capPx : 0;
   const lines = text.split("\n");
 
   const photoUrl = photoPath ? socialMediaPublicUrl(photoPath) : null;
@@ -181,6 +217,7 @@ export function ImageEditor({
       highlightColour: style.highlightColour,
       highlightOpacity: String(style.highlightOpacity),
       highlightPadX: String(style.highlightPadX),
+      highlightPadY: String(style.highlightPadY),
     });
     return `/api/render/social?${p.toString()}`;
   }, [photoUrl, text, style, face.id, weight]);
@@ -247,6 +284,10 @@ export function ImageEditor({
                   whiteSpace: "pre",
                   paddingLeft: padX,
                   paddingRight: padX,
+                  paddingTop: padY,
+                  paddingBottom: padY,
+                  marginTop: -padY,
+                  marginBottom: -padY,
                   backgroundColor: style.highlight
                     ? hexToRgba(style.highlightColour, style.highlightOpacity)
                     : undefined,
@@ -375,7 +416,7 @@ export function ImageEditor({
             >
               {weightsOf(face).map((option) => (
                 <option key={option} value={option}>
-                  {option === 700 ? "Bold" : "Regular"}
+                  {option === 900 ? "Black" : option === 700 ? "Bold" : "Regular"}
                 </option>
               ))}
             </select>
@@ -408,6 +449,16 @@ export function ImageEditor({
               />
               <Slider label="Opacity" value={style.highlightOpacity} min={0.2} max={1} step={0.05}
                 onChange={(v) => set("highlightOpacity", v)} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Slider label="Padding across" value={style.highlightPadX} min={0} max={0.4} step={0.01}
+                  onChange={(v) => set("highlightPadX", v)} />
+                <Slider label="Padding down" value={style.highlightPadY} min={0} max={0.3} step={0.01}
+                  onChange={(v) => set("highlightPadY", v)} />
+              </div>
+              <Hint>
+                Vertical padding grows the blocks without moving the text: the
+                line pitch stays exactly where the Leading slider put it.
+              </Hint>
             </div>
           ) : null}
         </Field>
