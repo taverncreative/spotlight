@@ -543,7 +543,18 @@ export function MonthCalendar({
                 className={cn(
                   "relative bg-card",
                   CELL_HEIGHT,
-                  cell.dayKey === today && "ring-1 ring-primary ring-inset"
+                  // TODAY IS A NEUTRAL RING, not the brand terracotta.
+                  //
+                  // It marks POSITION, not importance. Once blog tiles carry a
+                  // terracotta accent strip, a terracotta ring put two marks of
+                  // the same colour in one cell meaning entirely different
+                  // things -- "this is today" and "this is a blog post" -- and
+                  // on a day that was both, they competed.
+                  //
+                  // Not ring-ring either: --ring is aliased to --brand, so it is
+                  // the same colour by another name.
+                  cell.dayKey === today &&
+                    "ring-1 ring-muted-foreground ring-inset"
                 )}
               >
                 {/* Absolute, so the tiles get the whole cell and the mosaic is
