@@ -18,6 +18,10 @@ import {
   saveImageRecipe,
   type ImageRecipeState,
 } from "@/lib/social/image-actions";
+import {
+  TemplateControls,
+  type ControlTemplate,
+} from "@/components/social/template-controls";
 
 // THE PREVIEW IS CSS, NOT SATORI, and that is a reversal of what the recon
 // recommended. The recon was right for a general template engine and wrong for
@@ -44,11 +48,7 @@ const anton = localFont({
   display: "block",
 });
 
-export type EditorTemplate = {
-  id: string;
-  name: string;
-  style: Partial<TemplateStyle>;
-};
+export type EditorTemplate = ControlTemplate;
 
 export type EditorPhoto = { storagePath: string };
 
@@ -231,28 +231,20 @@ export function ImageEditor({
           </Hint>
         </Field>
 
-        {templates.length > 1 ? (
-          <Field label="Template">
-            <select
-              value={templateId}
-              onChange={(event) => {
-                setTemplateId(event.target.value);
-                const next = templates.find((t) => t.id === event.target.value);
-                // Switching template re-resolves from ITS style, so the new
-                // template's look actually arrives instead of being masked by
-                // the old one's values carried across as overrides.
-                setStyle(resolveStyle(next?.style ?? {}, {}));
-              }}
-              className={fieldInputClass}
-            >
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        ) : null}
+        <TemplateControls
+          templates={templates}
+          templateId={templateId}
+          style={style}
+          clientSlug={clientSlug}
+          postId={postId}
+          onPick={(id, templateStyle) => {
+            setTemplateId(id);
+            // Re-resolve from the picked template with NO overrides. Carrying
+            // the previous template's values across would mean switching
+            // template appeared to do nothing.
+            setStyle(resolveStyle(templateStyle, {}));
+          }}
+        />
 
         {photos.length > 0 ? (
           <Field label="Photo">

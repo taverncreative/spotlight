@@ -38,6 +38,18 @@ export default async function SocialImagePage({
     recipesForPost(postId),
   ]);
 
+  // How many saved recipes point at each template, so "Update this template"
+  // can say what it is about to change rather than asking to be trusted. RLS
+  // scopes this to the operator's own recipes, which is the same set the update
+  // would reach.
+  const { data: usage } = await supabase
+    .from("social_post_images")
+    .select("template_id");
+  const usedBy = new Map<string, number>();
+  for (const row of (usage ?? []) as { template_id: string }[]) {
+    usedBy.set(row.template_id, (usedBy.get(row.template_id) ?? 0) + 1);
+  }
+
   // SOURCE PHOTOS ONLY. Once a recipe is rendered, the render takes over the
   // media slot, so the media list would otherwise offer the composed image back
   // as the source for the next render -- words composited onto words. The
@@ -105,6 +117,7 @@ export default async function SocialImagePage({
           id: template.id,
           name: template.name,
           style: template.style,
+          usedBy: usedBy.get(template.id) ?? 0,
         }))}
         photos={photos}
         initial={{
