@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Video } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
@@ -72,6 +73,11 @@ export function SocialMediaUploader({
     null
   );
   const fileRef = useRef<HTMLInputElement>(null);
+  // Drop-target highlight. A counter rather than a boolean: dragging over a
+  // child fires dragleave on the parent, so a boolean flickers off the moment
+  // the pointer crosses a thumbnail or a button inside the zone.
+  const [dragDepth, setDragDepth] = useState(0);
+  const dragging = dragDepth > 0;
 
   // Validate and upload one file; null means it was skipped (error shown).
   async function uploadOne(
@@ -271,6 +277,16 @@ export function SocialMediaUploader({
     }
   }
 
+  // A drop goes through the SAME handleFiles as the picker, so every validation
+  // the picker enforces -- type, size, the video checks that run before a byte
+  // is sent -- applies identically. A dropped file is not a trusted file.
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    setDragDepth(0);
+    if (uploading) return;
+    if (event.dataTransfer.files?.length) handleFiles(event.dataTransfer.files);
+  }
+
   function move(index: number, dir: -1 | 1) {
     const target = index + dir;
     if (target < 0 || target >= items.length) return;
@@ -284,7 +300,23 @@ export function SocialMediaUploader({
   }
 
   return (
-    <div className="space-y-1.5">
+    <div
+      className="space-y-1.5"
+      onDragEnter={(event) => {
+        // Only for a real file drag. Reordering thumbnails or dragging selected
+        // caption text across the composer must not light up an upload target.
+        if (!event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        setDragDepth((depth) => depth + 1);
+      }}
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return;
+        // Without this the browser navigates to the dropped file.
+        event.preventDefault();
+      }}
+      onDragLeave={() => setDragDepth((depth) => Math.max(0, depth - 1))}
+      onDrop={handleDrop}
+    >
       <label className="text-sm font-medium">
         Photos{" "}
         <span className="text-muted-foreground">
@@ -361,21 +393,41 @@ export function SocialMediaUploader({
         </ul>
       ) : null}
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => fileRef.current?.click()}
-        disabled={uploading}
+      {/* The drop zone wraps the button rather than replacing it, so the picker
+          stays exactly where it was and dropping is the addition. Dashed only
+          when empty: once there are thumbnails the grid above is the visible
+          target and a second dashed box below it is noise. */}
+      <div
+        className={cn(
+          "flex flex-col items-start gap-2 transition-colors",
+          items.length === 0 && "rounded-card border border-dashed p-4",
+          items.length === 0 && !dragging && "bg-card/50",
+          dragging && "rounded-card border border-dashed border-primary bg-primary/5 p-4"
+        )}
       >
-        {uploading
-          ? bytes
-            ? `Uploading ${Math.round((bytes.sent / bytes.total) * 100)}% of ${Math.round(bytes.total / (1024 * 1024))} MB…`
-            : `Uploading ${progress.done}/${progress.total}…`
-          : items.length > 0
-            ? "Add more"
-            : "Add photos or video"}
-      </Button>
+        <p className="text-sm text-muted-foreground">
+          {dragging
+            ? "Drop to upload"
+            : items.length === 0
+              ? "Drag photos or a video here, or"
+              : "Drag more here, or"}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading
+            ? bytes
+              ? `Uploading ${Math.round((bytes.sent / bytes.total) * 100)}% of ${Math.round(bytes.total / (1024 * 1024))} MB…`
+              : `Uploading ${progress.done}/${progress.total}…`
+            : items.length > 0
+              ? "Add more"
+              : "Add photos or video"}
+        </Button>
+      </div>
 
       <input
         ref={fileRef}

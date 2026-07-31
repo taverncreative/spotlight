@@ -1,16 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { fieldInputClass } from "@/components/form-field";
 import { uploadPostImage } from "@/lib/posts/image-upload";
-import { unsplashSearchUrl } from "@/lib/posts/unsplash";
 
-// Featured image control: upload, preview, replace, remove, plus alt text once
-// an image is set. The resolved public URL and the alt are mirrored into hidden
-// inputs so they persist with the post on save. Remove clears both from the
-// post (the storage object is left in place).
+// Featured image control: upload (picker or drop), preview, replace, remove,
+// plus alt text once an image is set. The resolved public URL and the alt are
+// mirrored into hidden inputs so they persist with the post on save. Remove
+// clears both from the post (the storage object is left in place).
 // onChange reports the current image and alt upward, so the SEO checklist can
 // score them live rather than from the values this component was mounted with.
 // The hidden inputs below are still what the form submits; this is a read-only
@@ -20,18 +19,11 @@ export function FeaturedImageInput({
   initialUrl,
   initialAlt,
   onChange,
-  // The live focus keyword and title, for the Unsplash search link. Passed down
-  // rather than mirrored here: they belong to the form, and a second copy would
-  // be a second thing to keep in step.
-  focusKeyword,
-  title,
 }: {
   clientId: string;
   initialUrl: string | null;
   initialAlt: string | null;
   onChange?: (state: { url: string | null; alt: string }) => void;
-  focusKeyword?: string | null;
-  title?: string | null;
 }) {
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [alt, setAlt] = useState(initialAlt ?? "");
@@ -48,6 +40,11 @@ export function FeaturedImageInput({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Drop-target highlight. A counter rather than a boolean: dragging over a
+  // child fires dragleave on the parent, so a boolean flickers off the moment
+  // the pointer crosses the preview image or a button inside the zone.
+  const [dragDepth, setDragDepth] = useState(0);
+  const dragging = dragDepth > 0;
 
   async function handleFile(file: File) {
     setUploading(true);
@@ -61,8 +58,41 @@ export function FeaturedImageInput({
     }
   }
 
+  // One image, so a multi-file drop takes the first rather than silently
+  // discarding the lot. A non-image drop (a PDF, a dragged link) is rejected
+  // here with a message: uploadPostImage would reject it too, but "that is not
+  // an image" is a better answer than a generic upload failure.
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    setDragDepth(0);
+    if (uploading) return;
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError(`${file.name}: not an image.`);
+      return;
+    }
+    handleFile(file);
+  }
+
   return (
-    <div className="space-y-1.5">
+    <div
+      className="space-y-1.5"
+      onDragEnter={(event) => {
+        // Only for a real file drag. Selecting text and dragging it across the
+        // form should not light up an upload target.
+        if (!event.dataTransfer.types.includes("Files")) return;
+        event.preventDefault();
+        setDragDepth((depth) => depth + 1);
+      }}
+      onDragOver={(event) => {
+        if (!event.dataTransfer.types.includes("Files")) return;
+        // Without this the browser navigates to the dropped file.
+        event.preventDefault();
+      }}
+      onDragLeave={() => setDragDepth((depth) => Math.max(0, depth - 1))}
+      onDrop={handleDrop}
+    >
       <label className="text-sm font-medium">
         Featured image <span className="text-muted-foreground">(optional)</span>
       </label>
@@ -116,11 +146,22 @@ export function FeaturedImageInput({
             >
               Remove
             </Button>
-            <UnsplashLink focusKeyword={focusKeyword} title={title} />
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
+        /* The empty state IS the drop zone, so the target is visible before
+           anything is dragged rather than appearing only once a drag starts.
+           With an image already set the whole block still accepts a drop to
+           replace it, which is why the handlers live on the wrapper above. */
+        <div
+          className={cn(
+            "flex flex-col items-start gap-2 rounded-card border border-dashed p-4 transition-colors",
+            dragging ? "border-primary bg-primary/5" : "bg-card/50"
+          )}
+        >
+          <p className="text-sm text-muted-foreground">
+            {dragging ? "Drop to upload" : "Drag an image here, or"}
+          </p>
           <Button
             type="button"
             variant="outline"
@@ -130,7 +171,6 @@ export function FeaturedImageInput({
           >
             {uploading ? "Uploading…" : "Upload image"}
           </Button>
-          <UnsplashLink focusKeyword={focusKeyword} title={title} />
         </div>
       )}
 
@@ -147,49 +187,5 @@ export function FeaturedImageInput({
       />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </div>
-  );
-}
-
-// Opens Unsplash pre-searched on the focus keyword, or the title if there is no
-// keyword. A LINK, not an integration: you still download and upload, which is
-// what keeps the image in the post-images bucket where og:image and the client
-// templates expect it, and what keeps the Unsplash API's hotlinking and
-// attribution requirements out of scope entirely. The licence itself asks for
-// nothing.
-//
-// Disabled rather than hidden when there is nothing to search for, so the button
-// does not appear and vanish as the title is typed. The hint says which field it
-// is about to use, because "why did it search for that" is otherwise a mystery.
-function UnsplashLink({
-  focusKeyword,
-  title,
-}: {
-  focusKeyword?: string | null;
-  title?: string | null;
-}) {
-  const href = unsplashSearchUrl(focusKeyword ?? null, title ?? null);
-
-  if (!href) {
-    return (
-      <span className="text-xs text-muted-foreground">
-        Add a title or focus keyword to search Unsplash.
-      </span>
-    );
-  }
-
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      render={
-        // noreferrer alongside noopener: this is an outbound link from a page
-        // whose URL contains a client id.
-        <a href={href} target="_blank" rel="noopener noreferrer" />
-      }
-    >
-      Find on Unsplash
-      <ExternalLink aria-hidden="true" className="size-3.5" />
-    </Button>
   );
 }

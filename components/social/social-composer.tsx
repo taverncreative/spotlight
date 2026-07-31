@@ -14,7 +14,6 @@ import {
   SocialMediaUploader,
   type UploaderItem,
 } from "@/components/social/social-media-uploader";
-import { GenerateCaptionButton } from "@/components/social/generate-caption-button";
 import { saveSocialPost } from "@/lib/social/actions";
 import { londonParts } from "@/lib/social/london";
 import type { SocialPostFormState } from "@/lib/social/schemas";
@@ -34,6 +33,7 @@ export function SocialComposer({
   initialMedia,
   accounts,
   selectedTargetIds,
+  defaultTime = null,
   initialCaptionError = null,
   hasStyledImage = false,
 }: {
@@ -45,6 +45,11 @@ export function SocialComposer({
   initialMedia: UploaderItem[];
   accounts: MetaAccount[];
   selectedTargetIds: string[];
+  // This client's usual posting time (London HH:MM), derived from their most
+  // recently scheduled post. Prefills the time on a NEW post only, so an
+  // existing post always shows its own time and editing one never silently
+  // moves it.
+  defaultTime?: string | null;
   // Set when a share seeded this draft but the caption generation failed, so the
   // caption is the safe fallback and the operator needs to know why.
   initialCaptionError?: string | null;
@@ -58,15 +63,16 @@ export function SocialComposer({
   >(saveSocialPost, null);
 
   const [caption, setCaption] = useState(post?.caption ?? "");
-  // Generator failures only: shown under the textarea, never clearing the box.
-  const [captionError, setCaptionError] =
-    useState<string | null>(initialCaptionError);
   const [media, setMedia] = useState<UploaderItem[]>(initialMedia);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedTargetIds);
   const prefill = post?.scheduled_at ? londonParts(post.scheduled_at) : null;
   const [date, setDate] = useState(prefill?.date ?? "");
-  const [time, setTime] = useState(prefill?.time ?? "");
+  // The post's own time wins; the client's usual time only fills a blank. The
+  // date is deliberately NOT defaulted -- a time is a habit, a date is a
+  // decision, and prefilling today's date would make "Schedule" one click from
+  // publishing something the operator never chose a day for.
+  const [time, setTime] = useState(prefill?.time ?? defaultTime ?? "");
 
   // Which submit button fired, for its pending label ("Publishing…" etc).
   const [intent, setIntent] = useState<"draft" | "schedule" | "publish" | null>(
@@ -154,16 +160,9 @@ export function SocialComposer({
       </div>
 
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <label htmlFor="social-caption" className="text-sm font-medium">
-            Caption
-          </label>
-          <GenerateCaptionButton
-            value={caption}
-            onGenerated={setCaption}
-            onError={setCaptionError}
-          />
-        </div>
+        <label htmlFor="social-caption" className="text-sm font-medium">
+          Caption
+        </label>
         <textarea
           id="social-caption"
           name="caption"
@@ -173,8 +172,14 @@ export function SocialComposer({
           placeholder="Write your caption…"
           className={fieldInputClass}
         />
-        {captionError ? (
-          <p className="text-sm text-destructive">{captionError}</p>
+        {/* Share-to-social seeding only. The composer no longer generates
+            captions on demand, but shareToSocial still runs a blog post through
+            the generator to seed this box, and when that fails the caption is
+            the safe title-plus-meta fallback. Saying so is the difference
+            between "this is the caption" and "this is what you get because
+            something went wrong". */}
+        {initialCaptionError ? (
+          <p className="text-sm text-destructive">{initialCaptionError}</p>
         ) : null}
       </div>
 
