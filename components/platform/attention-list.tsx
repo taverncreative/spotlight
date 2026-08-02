@@ -150,15 +150,7 @@ function WorkspaceRow({
   );
 }
 
-export function AttentionList({
-  workspaces,
-  signInNote,
-}: {
-  workspaces: PlatformWorkspace[];
-  // BSK View's own wording for the sign-in caveat, rendered rather than
-  // paraphrased so it travels with the data and cannot drift from the source.
-  signInNote: string;
-}) {
+export function AttentionList({ workspaces }: { workspaces: PlatformWorkspace[] }) {
   const rows = buildAttentionList(workspaces);
 
   return (
@@ -191,13 +183,17 @@ export function AttentionList({
         </ul>
       )}
 
-      <p className="max-w-prose border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">
-        <span className="font-medium text-foreground">
-          &ldquo;Last signed in properly&rdquo;
-        </span>{" "}
-        is <span className="font-mono">last_credential_sign_in_at</span>.{" "}
-        {signInNote}
-      </p>
+      {/* The one note that stays. Everything else on this screen means what it
+          looks like it means; this field does not. It moves on a real sign-in
+          only, so a client working in BSK View daily can show months of
+          nothing, and read as "last active" it would point the chase at exactly
+          the wrong people. */}
+      {rows.length > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          &ldquo;Last signed in properly&rdquo; moves only on a real sign-in, not
+          on a visit. Low is not idle. Last work is the reliable one.
+        </p>
+      ) : null}
     </section>
   );
 }

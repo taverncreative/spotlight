@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ChevronDown,
   FileText,
+  Gauge,
   Inbox,
   ListTodo,
   Printer,
@@ -604,7 +605,16 @@ export function ClientGrid({
             Everyone you look after.
           </p>
         </div>
-        <Button onClick={openAdd}>Add client</Button>
+        <div className="flex items-center gap-2">
+          {/* BSK View is a different kind of thing from a client: a whole
+              platform of them, none of which Spotlight manages directly. It
+              gets a link from the roster rather than a tile in it. */}
+          <Button variant="outline" render={<Link href="/platform" />}>
+            <Gauge />
+            BSK View platform
+          </Button>
+          <Button onClick={openAdd}>Add client</Button>
+        </div>
       </div>
 
       <UnassignedStrip unassigned={unassigned} />

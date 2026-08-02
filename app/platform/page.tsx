@@ -1,4 +1,5 @@
-import { AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { isBehindSchema, readPlatformMetrics } from "@/lib/platform/client";
 import { readAge, shortDate, snapshotIsStale } from "@/lib/platform/format";
 import { PLATFORM_SCHEMA_VERSION } from "@/lib/platform/types";
@@ -15,9 +16,10 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "BSK View platform" };
 
-// A one-line banner about the data itself, not about a workspace. Used for the
-// two ways the payload can be quietly less trustworthy than it looks.
-function Caveat({ children }: { children: React.ReactNode }) {
+// A banner about the data itself. NOT a standing caveat: each of these renders
+// only when the condition is actually true, so a normal page shows neither.
+// They are alarms, and an alarm that is always on is not an alarm.
+function Alarm({ children }: { children: React.ReactNode }) {
   return (
     <p className="flex items-start gap-2 rounded-card border border-status-warn/30 bg-status-warn-surface p-3 text-xs leading-relaxed text-status-warn">
       <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
@@ -45,7 +47,7 @@ export default async function PlatformPage() {
   }
 
   const { metrics, readAt } = read;
-  const { platform, field_notes: notes } = metrics;
+  const { platform } = metrics;
   const empty = platform.workspaces_total === 0;
   const staleSnapshot = snapshotIsStale(
     platform.sign_in_snapshot_latest_observed_on
@@ -56,24 +58,25 @@ export default async function PlatformPage() {
       <Header />
 
       <p className="text-xs text-muted-foreground">
-        Read {readAge(readAt)} · generated {shortDate(metrics.generated_at)} ·
-        schema v{metrics.schema_version}
+        Read {readAge(readAt)} · schema v{metrics.schema_version}
         {platform.sign_in_snapshot_latest_observed_on
           ? ` · sign-in snapshot ${shortDate(platform.sign_in_snapshot_latest_observed_on)}`
           : ""}
       </p>
 
       {isBehindSchema(metrics) ? (
-        <Caveat>
+        <Alarm>
           BSK View is reporting schema v{metrics.schema_version}, older than the
-          v{PLATFORM_SCHEMA_VERSION} this console was built against. Anything
-          missing below is something that deployment cannot report, which is not
-          the same as it being zero.
-        </Caveat>
+          v{PLATFORM_SCHEMA_VERSION} this console expects. Anything missing below
+          is something that deployment cannot report, not something that is zero.
+        </Alarm>
       ) : null}
 
       {staleSnapshot ? (
-        <Caveat>{notes.sign_in_snapshot_observed_on}</Caveat>
+        <Alarm>
+          The daily sign-in snapshot has stopped advancing, so every sign-in
+          value below is frozen rather than genuinely unchanged.
+        </Alarm>
       ) : null}
 
       {/* The honest zero: a successful read that genuinely found nobody. It
@@ -81,35 +84,35 @@ export default async function PlatformPage() {
           read, unlike the ones a failed read would have invented. */}
       {empty ? <ConnectionState state="empty" /> : null}
 
-      {!empty ? (
-        <AttentionList
-          workspaces={metrics.workspaces}
-          signInNote={notes.last_credential_sign_in_at}
-        />
-      ) : null}
+      {!empty ? <AttentionList workspaces={metrics.workspaces} /> : null}
 
-      <Aggregates platform={platform} notes={notes} />
+      <Aggregates platform={platform} />
 
-      <ModuleAdoption platform={platform} notes={notes} />
-
-      <p className="max-w-prose border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">
-        {notes.counts} This endpoint returns no client PII at all: no customer
-        records, no quote or invoice contents or totals, no request bodies, and
-        no email address except the workspace owner&rsquo;s.
-      </p>
+      <ModuleAdoption platform={platform} />
     </div>
   );
 }
 
 function Header() {
   return (
-    <div className="space-y-1">
-      <h1 className="text-xl font-semibold tracking-tight">
-        BSK View platform
-      </h1>
-      <p className="text-sm text-muted-foreground">
-        Who needs chasing, read live from BSK View.
-      </p>
+    <div className="space-y-2">
+      {/* The way back. The wordmark goes home too, but this is the one that
+          reads as "leave this screen" rather than "go to the top". */}
+      <Link
+        href="/home"
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="size-3.5" aria-hidden />
+        Clients
+      </Link>
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold tracking-tight">
+          BSK View platform
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Who needs chasing, read live from BSK View.
+        </p>
+      </div>
     </div>
   );
 }

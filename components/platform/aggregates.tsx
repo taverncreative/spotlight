@@ -1,8 +1,15 @@
 import { pounds, shortDate } from "@/lib/platform/format";
-import type { PlatformAggregates, PlatformFieldNotes } from "@/lib/platform/types";
+import type { PlatformAggregates } from "@/lib/platform/types";
 
 // The totals. Deliberately below the attention list and deliberately plainer:
 // they are context for the chase, not the point of the screen.
+//
+// The field_notes prose that used to sit under each section is gone: John knows
+// what these numbers mean and does not need it restated every time he opens the
+// page. What survives is carried by the labels themselves, which is where it
+// belonged anyway. "MRR (estimated)" says estimated in the label. Conversions
+// and churn are titled with the period they actually cover, so they cannot
+// imply all time. Those are names, not commentary.
 
 function Stat({
   label,
@@ -22,21 +29,7 @@ function Stat({
   );
 }
 
-function Note({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="max-w-prose border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">
-      {children}
-    </p>
-  );
-}
-
-export function Aggregates({
-  platform,
-  notes,
-}: {
-  platform: PlatformAggregates;
-  notes: PlatformFieldNotes;
-}) {
+export function Aggregates({ platform }: { platform: PlatformAggregates }) {
   const requestStatuses = Object.entries(platform.requests_by_status);
 
   return (
@@ -53,17 +46,15 @@ export function Aggregates({
           <Stat
             label="MRR (estimated)"
             value={pounds(platform.mrr_pence_estimated_from_plan_prices)}
-            note="From our plan list prices, not Stripe"
           />
           <Stat
             label="At-risk MRR"
             value={pounds(platform.at_risk_mrr_pence)}
-            note={`${platform.subscriptions_past_due} past due, held out of MRR`}
+            note={`${platform.subscriptions_past_due} past due`}
           />
           <Stat
             label="New in 30 days"
             value={platform.workspaces_created_last_30d}
-            note="workspaces created"
           />
         </div>
 
@@ -73,80 +64,53 @@ export function Aggregates({
             value={platform.subscriptions_trialing}
             note={`${platform.trials_expiring_within_7d} lapse within 7 days`}
           />
-          <Stat
-            label="Trials overrun"
-            value={platform.trials_overdue}
-            note="still trialing past the end date"
-          />
-          <Stat
-            label="No subscription"
-            value={platform.subscriptions_none}
-            note="provisioned, never given a plan"
-          />
+          <Stat label="Trials overrun" value={platform.trials_overdue} />
+          <Stat label="No subscription" value={platform.subscriptions_none} />
           <Stat
             label="Subscribed"
             value={platform.subscriptions_active}
             note={`${platform.subscriptions_canceled} cancelled`}
           />
         </div>
-
-        <Note>{notes.mrr_pence_estimated_from_plan_prices}</Note>
       </section>
 
       <section className="space-y-3">
         <div className="flex items-baseline gap-2">
           <h2 className="text-sm font-semibold">Conversions and churn</h2>
+          {/* The period is the section's subtitle rather than a footnote. It is
+              what the figures are, not a caveat about them. */}
           <span className="text-xs text-muted-foreground">
             {platform.billing_events_since
               ? `since ${shortDate(platform.billing_events_since)}`
-              : "no billing rows held yet"}
+              : "no billing rows yet"}
           </span>
         </div>
 
         {platform.billing_events_since === null ? (
-          // No billing rows at all. Showing four zeros here would read as "we
-          // measured, nobody converted"; the truth is there is no period to
-          // report on yet.
+          // Still not four zeros. With no billing rows there is nothing to
+          // count from, and a grid of zeros would read as "measured, nobody
+          // converted". One line, not a paragraph.
           <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
-            No billing rows exist yet, so these figures cover no period at all.
-            They are not zero conversions and zero churn; they are nothing to
-            count from. This fills in once Stripe writes its first billing event.
+            Nothing to count from yet.
           </p>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
               label="Conversions, 30 days"
               value={platform.conversions_last_30d}
-              note="at least — see below"
             />
             <Stat
               label="Conversions, 90 days"
               value={platform.conversions_last_90d}
-              note="at least — see below"
             />
-            <Stat
-              label="Churn, 30 days"
-              value={platform.churn_last_30d}
-              note="at least — see below"
-            />
-            <Stat
-              label="Churn, 90 days"
-              value={platform.churn_last_90d}
-              note="at least — see below"
-            />
+            <Stat label="Churn, 30 days" value={platform.churn_last_30d} />
+            <Stat label="Churn, 90 days" value={platform.churn_last_90d} />
           </div>
         )}
-
-        <Note>{notes.conversions_and_churn}</Note>
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-sm font-semibold">Requests</h2>
-          <span className="text-xs text-muted-foreground">
-            across every workspace
-          </span>
-        </div>
+        <h2 className="text-sm font-semibold">Requests</h2>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <Stat
             label="Awaiting agency"
@@ -166,7 +130,7 @@ export function Aggregates({
                 ? requestStatuses
                     .map(([status, n]) => `${status.replace(/_/g, " ")} ${n}`)
                     .join(" · ")
-                : "no requests raised yet"
+                : "none raised yet"
             }
           />
         </div>
