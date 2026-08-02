@@ -35,6 +35,9 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
         ) : null}
       </div>
       <nav className="flex shrink-0 items-center gap-1">
+        <Button variant="ghost" size="sm" render={<Link href="/platform" />}>
+          Platform
+        </Button>
         <Button variant="ghost" size="sm" render={<Link href="/due" />}>
           Due
         </Button>
