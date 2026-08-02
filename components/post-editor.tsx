@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import LinkExtension from "@tiptap/extension-link";
 import ImageExtension from "@tiptap/extension-image";
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uploadPostImage } from "@/lib/posts/image-upload";
+import { parseHtmlToBody } from "@/lib/posts/paste-html";
 
 // WYSIWYG body editor (Tiptap) that stores and round-trips clean Markdown via
 // tiptap-markdown. immediatelyRender: false avoids SSR/hydration mismatch under
@@ -48,6 +50,45 @@ export function PostEditor({
     editorProps: {
       attributes: {
         class: "post-editor min-h-64 px-3 py-2 text-sm focus:outline-none",
+      },
+      // Paste of HTML SOURCE.
+      //
+      // Copying from a rendered page puts text/html on the clipboard and Tiptap
+      // already converts it properly, so that path is left completely alone
+      // below. What was broken is pasting the markup itself, which arrives as
+      // text/plain only: ProseMirror inserted the angle brackets as literal
+      // text, which is right for text and wrong for a blog body.
+      //
+      // Returning false anywhere here means "not mine, carry on as before", so
+      // every paste this does not positively recognise behaves exactly as it
+      // did.
+      handlePaste: (view, event) => {
+        const clipboard = event.clipboardData;
+        if (!clipboard) return false;
+
+        // A richer flavour exists: leave it to Tiptap, which handles it well.
+        if (clipboard.getData("text/html").trim()) return false;
+
+        const text = clipboard.getData("text/plain");
+        if (!text.trim()) return false;
+
+        // Inside a code block, markup is the content. Converting it there would
+        // destroy exactly what the author meant to keep.
+        const { $from } = view.state.selection;
+        if ($from.parent.type.spec.code) return false;
+
+        const body = parseHtmlToBody(text);
+        if (!body) return false;
+
+        // Parsed against the editor's own schema, so anything the schema does
+        // not know (script, style, iframe, stray attributes) is dropped rather
+        // than carried into the document.
+        const slice = ProseMirrorDOMParser.fromSchema(
+          view.state.schema
+        ).parseSlice(body, { preserveWhitespace: false });
+
+        view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+        return true;
       },
     },
     onUpdate: ({ editor }) => {
