@@ -3,13 +3,20 @@ import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { SocialComposer } from "@/components/social/social-composer";
 import { lastScheduledTime } from "@/lib/social/default-schedule";
+import { parseDay } from "@/lib/calendar/grid";
 
 export default async function NewSocialPostPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ clientSlug: string }>;
+  // ?date=YYYY-MM-DD, set when the operator got here by clicking a day on the
+  // calendar. Validated for shape, so a hand-typed "?date=soon" lands on an
+  // empty date field rather than in the composer.
+  searchParams: Promise<{ date?: string }>;
 }) {
   const { clientSlug } = await params;
+  const { date } = await searchParams;
   const { client } = await requireClient(clientSlug);
 
   const supabase = await createClient();
@@ -45,6 +52,7 @@ export default async function NewSocialPostPage({
         accounts={accounts ?? []}
         selectedTargetIds={allTargetIds}
         defaultTime={defaultTime}
+        defaultDate={parseDay(date)}
       />
     </div>
   );

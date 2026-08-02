@@ -77,15 +77,22 @@ export default async function SocialPage({
     STATUS_TABS.find((tab) => tab.key !== null && tab.key === statusParam) ??
     STATUS_TABS[0];
 
-  // LIST IS THE DEFAULT and the calendar is opt-in, so a bare /social lands on
-  // the list. Publishing and cancelling are then never one click from a month
-  // view -- reaching them takes a deliberate step into the calendar and a day
-  // detail, which is the right amount of friction for actions that change what a
-  // client's audience sees.
+  // CALENDAR IS THE DEFAULT and the list is the opt-out, so a bare /social lands
+  // on the month.
   //
-  // A status filter still forces the list: filtering to Drafts and getting a
-  // calendar that by definition cannot show a draft would read as broken.
-  const isCalendar = view === "calendar" && !statusParam;
+  // Publishing and cancelling are still not one click from the month view:
+  // reaching them takes a step into a day, which is the right amount of friction
+  // for actions that change what a client's audience sees. That property was the
+  // reason the list led before, and it survives the flip intact.
+  //
+  // What made the flip safe is the undated-drafts strip above the grid. A draft
+  // has no schedule and so has no cell; twelve of this client's twenty-nine
+  // posts are drafts, and defaulting to a view that could not show any of them
+  // would have read as losing them.
+  //
+  // A status filter still forces the list, unchanged: filtering to Drafts and
+  // getting a calendar that by definition cannot show one would read as broken.
+  const isCalendar = view !== "list" && !statusParam;
   const month =
     parseMonth(monthParam) ?? londonMonth(new Date().toISOString());
 
@@ -158,7 +165,11 @@ export default async function SocialPage({
                 key={tab.label}
                 href={
                   tab.key === null
-                    ? `/c/${clientSlug}/social`
+                    ? // Clearing the filter drops the status, not the view you
+                      // were reading.
+                      isCalendar
+                      ? `/c/${clientSlug}/social`
+                      : `/c/${clientSlug}/social?view=list`
                     : `/c/${clientSlug}/social?status=${tab.key}`
                 }
                 aria-current={
@@ -178,14 +189,14 @@ export default async function SocialPage({
         <nav className="flex gap-1" aria-label="View">
           {[
             {
-              label: "List",
+              label: "Calendar",
               href: `/c/${clientSlug}/social`,
-              active: !isCalendar,
+              active: isCalendar,
             },
             {
-              label: "Calendar",
-              href: `/c/${clientSlug}/social?view=calendar`,
-              active: isCalendar,
+              label: "List",
+              href: `/c/${clientSlug}/social?view=list`,
+              active: !isCalendar,
             },
           ].map((viewTab) => (
             <Link

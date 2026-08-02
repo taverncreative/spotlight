@@ -56,12 +56,15 @@ export function PostForm({
   // a clock here so the scorer stays pure and a post scores the same every time
   // it renders. Only decides whether the "is this still accurate" prompt shows.
   ageDays = null,
+  defaultPlannedFor = null,
 }: {
   clientId: string;
   clientSlug: string;
   post: PostFormData | null;
   seoContext: SeoContext;
   ageDays?: number | null;
+  // A day the operator chose by clicking it on the calendar (YYYY-MM-DD).
+  defaultPlannedFor?: string | null;
 }) {
   const isEdit = post !== null;
   const action = isEdit ? updatePost : createPost;
@@ -79,7 +82,12 @@ export function PostForm({
   );
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? "");
   const [focusKeyword, setFocusKeyword] = useState(post?.focus_keyword ?? "");
-  const [plannedFor, setPlannedFor] = useState(post?.planned_for ?? "");
+  // The post's own planned date wins. defaultPlannedFor only fills a blank on a
+  // NEW post, and only ever carries a day the operator clicked on the calendar,
+  // so editing an existing post never silently moves it.
+  const [plannedFor, setPlannedFor] = useState(
+    post?.planned_for ?? defaultPlannedFor ?? ""
+  );
   const [faq, setFaq] = useState<FaqEntry[]>(() =>
     faqEntries(parseSchemas(post?.schemas))
   );

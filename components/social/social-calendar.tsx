@@ -8,6 +8,10 @@ import {
   MonthCalendar,
   type CalendarEntry,
 } from "@/components/calendar/month-calendar";
+import {
+  UndatedDrafts,
+  type UndatedDraft,
+} from "@/components/calendar/undated-drafts";
 import { SocialCancelButton } from "@/components/social/social-cancel-button";
 import { SocialDeleteButton } from "@/components/social/social-delete-button";
 
@@ -125,6 +129,25 @@ export function socialEntries(
   return entries;
 }
 
+// A draft, which by definition has no schedule: calendarInstant returns null for
+// every one of them, so the grid cannot place any. This is the bigger of the two
+// strips - twelve of this client's twenty-nine posts are drafts - and without it
+// the calendar becoming the default would hide most of the module.
+function undatedDrafts(
+  posts: CalendarPost[],
+  clientSlug: string
+): UndatedDraft[] {
+  return posts
+    .filter((post) => post.status === "draft")
+    .map((post) => ({
+      id: post.id,
+      // A caption runs to paragraphs, so the chip gets the opening words, the
+      // same treatment a grid tile gets.
+      label: firstWords(post.caption, 40),
+      href: `/c/${clientSlug}/social/${post.id}/edit`,
+    }));
+}
+
 export function SocialCalendar({
   posts,
   clientSlug,
@@ -141,12 +164,16 @@ export function SocialCalendar({
   const base = `/c/${clientSlug}/social?view=calendar&month=`;
 
   return (
-    <MonthCalendar
-      entries={entries}
-      month={month}
-      today={londonParts(new Date().toISOString()).date}
-      monthHref={{ prev: `${base}${prevMonth}`, next: `${base}${nextMonth}` }}
-      emptyMessage="Nothing scheduled from today onwards. Drafts live under the Drafts tab."
-    />
+    <div className="space-y-3">
+      <UndatedDrafts drafts={undatedDrafts(posts, clientSlug)} />
+      <MonthCalendar
+        entries={entries}
+        month={month}
+        today={londonParts(new Date().toISOString()).date}
+        monthHref={{ prev: `${base}${prevMonth}`, next: `${base}${nextMonth}` }}
+        emptyMessage="Nothing scheduled from today onwards. Undated drafts are listed above."
+        newPostHrefBase={`/c/${clientSlug}/social/new?date=`}
+      />
+    </div>
   );
 }

@@ -184,6 +184,19 @@ export function firstWords(text: string, limit: number): string {
   return `${words.slice(0, limit).join(" ")}…`;
 }
 
+const DAY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+
+// A YYYY-MM-DD we are willing to prefill a composer with, or null.
+//
+// The sibling of parseMonth, and it exists for the same reason: a day now
+// arrives from the query string when the calendar sends you to the composer
+// with a date already chosen, and "?date=lol" must land on an empty date field
+// rather than in a form input or a database column. Shape only -- 31 February
+// parses here and is a date the calendar will simply never link to.
+export function parseDay(value: string | null | undefined): string | null {
+  return value && DAY_PATTERN.test(value) ? value : null;
+}
+
 // "Mon 27 July" for an agenda heading and a day-detail title. UTC-formatted from
 // a wall-clock string that is already London, so no second conversion happens.
 export function formatDayLabel(dayKey: string): string {

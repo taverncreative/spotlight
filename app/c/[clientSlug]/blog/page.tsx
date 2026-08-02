@@ -75,13 +75,17 @@ export default async function BlogPage({
   } = await searchParams;
   const { client } = await requireClient(clientSlug);
 
-  // LIST IS THE DEFAULT and the calendar is opt-in, matching social. A bare
-  // /blog lands on the list, so publishing is never one click from a month view.
+  // CALENDAR IS THE DEFAULT and the list is the opt-out. A bare /blog lands on
+  // the month.
   //
-  // A status filter still forces the list: a dateless draft cannot appear on a
-  // calendar, so filtering to Drafts and being shown a grid that structurally
-  // cannot contain one would read as broken.
-  const isCalendar = view === "calendar" && !statusParam;
+  // This flip was only safe once undated drafts had somewhere to go. A calendar
+  // buckets by day and a dateless draft has no bucket, so before the strip above
+  // the grid existed, defaulting here would have opened the module on a view
+  // that structurally could not show most of its work.
+  //
+  // A status filter still forces the list, unchanged: filtering to Drafts and
+  // being handed a grid that cannot contain one would read as broken.
+  const isCalendar = view !== "list" && !statusParam;
   const month = parseMonth(monthParam) ?? londonMonth(new Date().toISOString());
 
   const activeTab =
@@ -129,7 +133,13 @@ export default async function BlogPage({
               key={tab.label}
               href={
                 tab.key === null
-                  ? `/c/${clientSlug}/blog`
+                  ? // Clearing the filter drops the status, not the view you
+                    // were reading. Landing back on the calendar because you
+                    // wanted to stop filtering would be a second, unasked-for
+                    // change.
+                    isCalendar
+                    ? `/c/${clientSlug}/blog`
+                    : `/c/${clientSlug}/blog?view=list`
                   : `/c/${clientSlug}/blog?status=${tab.key}`
               }
               aria-current={
@@ -148,11 +158,15 @@ export default async function BlogPage({
         </nav>
         <nav className="flex gap-1" aria-label="View">
           {[
-            { label: "List", href: `/c/${clientSlug}/blog`, active: !isCalendar },
             {
               label: "Calendar",
-              href: `/c/${clientSlug}/blog?view=calendar`,
+              href: `/c/${clientSlug}/blog`,
               active: isCalendar,
+            },
+            {
+              label: "List",
+              href: `/c/${clientSlug}/blog?view=list`,
+              active: !isCalendar,
             },
           ].map((viewTab) => (
             <Link

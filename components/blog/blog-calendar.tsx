@@ -7,6 +7,10 @@ import {
   MonthCalendar,
   type CalendarEntry,
 } from "@/components/calendar/month-calendar";
+import {
+  UndatedDrafts,
+  type UndatedDraft,
+} from "@/components/calendar/undated-drafts";
 import { publishPost, unpublishPost } from "@/lib/posts/actions";
 import { shareToSocial } from "@/lib/social/actions";
 import { ShareToSocialButton } from "@/components/share-to-social-button";
@@ -148,6 +152,21 @@ export function blogEntries(
   return entries;
 }
 
+// A draft with no planned_for. placement() returns null for these, so the grid
+// cannot draw them anywhere; the strip above the calendar is where they live.
+function undatedDrafts(
+  posts: CalendarBlogPost[],
+  clientSlug: string
+): UndatedDraft[] {
+  return posts
+    .filter((post) => post.status === "draft" && !post.planned_for)
+    .map((post) => ({
+      id: post.id,
+      label: post.title,
+      href: `/c/${clientSlug}/blog/${post.id}/edit`,
+    }));
+}
+
 export function BlogCalendar({
   posts,
   clientSlug,
@@ -162,12 +181,16 @@ export function BlogCalendar({
   const base = `/c/${clientSlug}/blog?view=calendar&month=`;
 
   return (
-    <MonthCalendar
-      entries={entries}
-      month={month}
-      today={londonParts(new Date().toISOString()).date}
-      monthHref={{ prev: `${base}${prevMonth}`, next: `${base}${nextMonth}` }}
-      emptyMessage="Nothing planned from today onwards. Give a draft a date to see it here."
-    />
+    <div className="space-y-3">
+      <UndatedDrafts drafts={undatedDrafts(posts, clientSlug)} />
+      <MonthCalendar
+        entries={entries}
+        month={month}
+        today={londonParts(new Date().toISOString()).date}
+        monthHref={{ prev: `${base}${prevMonth}`, next: `${base}${nextMonth}` }}
+        emptyMessage="Nothing planned from today onwards. Give a draft a date to see it here."
+        newPostHrefBase={`/c/${clientSlug}/blog/new?date=`}
+      />
+    </div>
   );
 }

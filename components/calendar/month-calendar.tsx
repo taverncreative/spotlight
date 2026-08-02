@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { DayDetail } from "@/components/calendar/day-detail";
+import { DayCell } from "@/components/calendar/day-cell";
 import {
   agendaDays,
   bucketByDay,
@@ -448,13 +448,25 @@ export function MonthCalendar({
   // boundary and each module owns its own URL shape.
   monthHref,
   emptyMessage,
+  newPostHrefBase,
 }: {
   entries: CalendarEntry[];
   month: string;
   today: string; // London YYYY-MM-DD
   monthHref: { prev: string; next: string };
   emptyMessage: string;
+  // A URL with the day appended, e.g. "/c/acme/blog/new?date=". A base rather
+  // than a function because a function cannot cross into the client cell, and
+  // each module owns its own URL shape - the same reason monthHref is built by
+  // the caller.
+  //
+  // Omitted by the combined client calendar, which spans blog and social and so
+  // has no single answer to what "new post" means. There the day dialog is the
+  // read-only thing it has always been.
+  newPostHrefBase?: string;
 }) {
+  const newPostHref = (day: string) =>
+    newPostHrefBase ? `${newPostHrefBase}${day}` : undefined;
   const grid = monthGrid(month);
   const byDay = bucketByDay(entries);
   const agenda = agendaDays(entries, today);
@@ -511,6 +523,18 @@ export function MonthCalendar({
                 {formatDayLabel(day.date)}
                 {day.date === today ? " · today" : ""}
               </h3>
+              {/* Below lg there is no grid, so there is no cell to click. The
+                  day heading is the only thing standing in for a day, so the
+                  affordance hangs off that instead. */}
+              {newPostHrefBase ? (
+                <Link
+                  href={newPostHref(day.date)!}
+                  className="flex items-center gap-1.5 rounded-md border border-dashed p-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Plus className="size-3.5" />
+                  New post on this day
+                </Link>
+              ) : null}
               <DayList entries={day.items} />
             </section>
           ))
@@ -538,72 +562,46 @@ export function MonthCalendar({
             const dayLabel = formatDayLabel(cell.dayKey);
 
             return (
-              <div
+              <DayCell
                 key={index}
-                className={cn(
-                  "relative bg-card",
-                  CELL_HEIGHT,
-                  // TODAY IS A NEUTRAL RING, not the brand terracotta.
+                dayLabel={dayLabel}
+                dayNum={cell.dayNum}
+                isToday={cell.dayKey === today}
+                count={dayEntries.length}
+                newPostHref={newPostHref(cell.dayKey)}
+                className={CELL_HEIGHT}
+                dayList={<DayList entries={dayEntries} />}
+                mosaic={
+                  // Absolute inside the cell, so the tiles get the whole of it
+                  // and the mosaic is not pushed down by a header row.
                   //
-                  // It marks POSITION, not importance. Once blog tiles carry a
-                  // terracotta accent strip, a terracotta ring put two marks of
-                  // the same colour in one cell meaning entirely different
-                  // things -- "this is today" and "this is a blog post" -- and
-                  // on a day that was both, they competed.
-                  //
-                  // Not ring-ring either: --ring is aliased to --brand, so it is
-                  // the same colour by another name.
-                  cell.dayKey === today &&
-                    "ring-1 ring-muted-foreground ring-inset"
-                )}
-              >
-                {/* Absolute, so the tiles get the whole cell and the mosaic is
-                    not pushed down by a header row. */}
-                {mosaic.spans.length > 0 ? (
-                  <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px p-px">
-                    {dayEntries.slice(0, mosaic.shown).map((entry, slot) => (
-                      <Tile
-                        key={entry.id}
-                        entry={entry}
-                        span={mosaic.spans[slot]}
-                      />
-                    ))}
-                    {mosaic.overflow > 0 ? (
-                      <DayDetail
-                        title={dayLabel}
-                        triggerLabel={`Show all ${dayEntries.length} on ${dayLabel}`}
-                        triggerClassName={cn(
-                          "flex items-center justify-center rounded-sm bg-muted text-xs font-medium text-muted-foreground hover:text-foreground",
-                          SPAN_CLASS[mosaic.spans[mosaic.spans.length - 1]]
-                        )}
-                        trigger={`+${mosaic.overflow}`}
-                      >
-                        <DayList entries={dayEntries} />
-                      </DayDetail>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {/* The day number sits ON the mosaic, so it needs its own
-                    backdrop to stay readable over a photo. It opens the day
-                    detail whenever there is anything to open, which is how the
-                    actions stay reachable on a day that fits without a +N
-                    tile. */}
-                {dayEntries.length > 0 ? (
-                  <DayDetail
-                    title={dayLabel}
-                    triggerLabel={`${dayLabel}: ${dayEntries.length} item${dayEntries.length === 1 ? "" : "s"}`}
-                    triggerClassName="absolute right-1 top-1 z-10 rounded bg-background/75 px-1 text-xs tabular-nums backdrop-blur-xs hover:bg-background"
-                    trigger={cell.dayNum}
-                  >
-                    <DayList entries={dayEntries} />
-                  </DayDetail>
-                ) : (
-                  <p className="absolute right-1 top-1 text-xs text-muted-foreground tabular-nums">
-                    {cell.dayNum}
-                  </p>
-                )}
-              </div>
+                  // The +N tile is now a plain marker rather than its own
+                  // dialog trigger: the whole cell opens the day, so a second
+                  // trigger inside it would be a button inside a button.
+                  mosaic.spans.length > 0 ? (
+                    <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px p-px">
+                      {dayEntries.slice(0, mosaic.shown).map((entry, slot) => (
+                        <Tile
+                          key={entry.id}
+                          entry={entry}
+                          span={mosaic.spans[slot]}
+                        />
+                      ))}
+                      {mosaic.overflow > 0 ? (
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            "flex items-center justify-center rounded-sm bg-muted text-xs font-medium text-muted-foreground",
+                            SPAN_CLASS[mosaic.spans[mosaic.spans.length - 1]]
+                          )}
+                        >
+                          +{mosaic.overflow}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null
+                }
+              />
             );
           })}
         </div>

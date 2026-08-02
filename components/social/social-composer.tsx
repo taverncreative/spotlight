@@ -34,6 +34,7 @@ export function SocialComposer({
   accounts,
   selectedTargetIds,
   defaultTime = null,
+  defaultDate = null,
   initialCaptionError = null,
   hasStyledImage = false,
 }: {
@@ -50,6 +51,11 @@ export function SocialComposer({
   // existing post always shows its own time and editing one never silently
   // moves it.
   defaultTime?: string | null;
+  // A day the operator CHOSE, by clicking it on the calendar (London
+  // YYYY-MM-DD). Prefills the date on a NEW post only, for the same reason
+  // defaultTime does: an existing post always shows its own date, so editing one
+  // never silently moves it.
+  defaultDate?: string | null;
   // Set when a share seeded this draft but the caption generation failed, so the
   // caption is the safe fallback and the operator needs to know why.
   initialCaptionError?: string | null;
@@ -67,11 +73,14 @@ export function SocialComposer({
   const [mediaUploading, setMediaUploading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedTargetIds);
   const prefill = post?.scheduled_at ? londonParts(post.scheduled_at) : null;
-  const [date, setDate] = useState(prefill?.date ?? "");
-  // The post's own time wins; the client's usual time only fills a blank. The
-  // date is deliberately NOT defaulted -- a time is a habit, a date is a
-  // decision, and prefilling today's date would make "Schedule" one click from
-  // publishing something the operator never chose a day for.
+  const [date, setDate] = useState(prefill?.date ?? defaultDate ?? "");
+  // The post's own time wins; the client's usual time only fills a blank.
+  //
+  // The date still has no automatic default -- a time is a habit, a date is a
+  // decision, and prefilling today would make "Schedule" one click from
+  // publishing on a day nobody chose. defaultDate is not that: it arrives only
+  // when the operator clicked a specific day on the calendar, which IS the
+  // decision. Carrying it here is honouring a choice already made, not guessing.
   const [time, setTime] = useState(prefill?.time ?? defaultTime ?? "");
 
   // Which submit button fired, for its pending label ("Publishing…" etc).

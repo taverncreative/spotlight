@@ -8,6 +8,7 @@ import {
   londonMonth,
   monthGrid,
   mosaicLayout,
+  parseDay,
   parseMonth,
   type CalendarItem,
 } from "@/lib/calendar/grid";
@@ -286,4 +287,34 @@ test("day labels never shift by a timezone", () => {
   // which is what would turn the 1st into the 31st.
   assert.match(formatDayLabel("2026-07-01"), /1 July/);
   assert.match(formatDayLabel("2026-12-31"), /31 December/);
+});
+
+test("a day is accepted only in the shape the calendar links to", () => {
+  assert.equal(parseDay("2026-07-27"), "2026-07-27");
+  assert.equal(parseDay("2026-12-31"), "2026-12-31");
+  assert.equal(parseDay("2026-01-01"), "2026-01-01");
+  for (const bad of [
+    "2026-13-01",
+    "2026-00-01",
+    "2026-07-32",
+    "2026-07-00",
+    "2026-7-27",
+    "2026-07-2",
+    "26-07-27",
+    "2026-07",
+    "soon",
+    "",
+    null,
+    undefined,
+  ]) {
+    assert.equal(parseDay(bad), null, `${bad} should be rejected`);
+  }
+});
+
+test("shape only: an impossible date the calendar never links to still parses", () => {
+  // Deliberate. This guards a query string, not a calendar: the day always
+  // arrives from a cell that exists, and the composer's own date input is the
+  // thing that has to reject 31 February. Rejecting it here would imply a
+  // validation this function does not do.
+  assert.equal(parseDay("2026-02-31"), "2026-02-31");
 });
