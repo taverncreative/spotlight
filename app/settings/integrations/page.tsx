@@ -278,7 +278,7 @@ export default async function IntegrationsPage({
   const { data: inboundSources } = await supabase
     .from("inbound_sources")
     .select(
-      "id, source_app, label, secret_prefix, created_at, last_used_at, revoked_at"
+      "id, source_app, label, secret_prefix, created_at, last_used_at, revoked_at, default_client_id"
     )
     .order("created_at", { ascending: false });
 
@@ -336,7 +336,10 @@ export default async function IntegrationsPage({
         ))}
       </ul>
 
-      <InboundSources sources={(inboundSources ?? []) as InboundSourceRow[]} />
+      <InboundSources
+        sources={(inboundSources ?? []) as InboundSourceRow[]}
+        clients={(clients ?? []) as { id: string; name: string }[]}
+      />
     </div>
   );
 }

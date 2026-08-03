@@ -23,6 +23,7 @@ import {
   generateInboundSource,
   revokeInboundSource,
 } from "@/lib/inbound/actions";
+import { SourceDefaultClient } from "@/components/integrations/source-default-client";
 
 export type InboundSourceRow = {
   id: string;
@@ -32,6 +33,9 @@ export type InboundSourceRow = {
   created_at: string;
   last_used_at: string | null;
   revoked_at: string | null;
+  // Where this source's requests are filed automatically. Null means the source
+  // still asks, which is every source until one is chosen.
+  default_client_id: string | null;
 };
 
 function formatDate(iso: string): string {
@@ -54,7 +58,13 @@ function formatDate(iso: string): string {
 // Revoked rows stay listed rather than being filtered out: revoked_at is a
 // timestamp instead of a delete precisely so it stays auditable, and "when did we
 // cut this off, and had it ever been used" is a real question.
-export function InboundSources({ sources }: { sources: InboundSourceRow[] }) {
+export function InboundSources({
+  sources,
+  clients,
+}: {
+  sources: InboundSourceRow[];
+  clients: { id: string; name: string }[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [sourceApp, setSourceApp] = useState("");
@@ -164,6 +174,18 @@ export function InboundSources({ sources }: { sources: InboundSourceRow[] }) {
                   <p className="truncate font-mono text-xs text-muted-foreground">
                     {source.secret_prefix}…
                   </p>
+                  {/* The remembered rule, where it can be seen and changed.
+                      The offer on /requests is how it usually gets set; this is
+                      how anyone finds out it exists. Not shown on a revoked
+                      source: it authenticates nothing, so its default routes
+                      nothing. */}
+                  {!revoked ? (
+                    <SourceDefaultClient
+                      sourceApp={source.source_app}
+                      defaultClientId={source.default_client_id}
+                      clients={clients}
+                    />
+                  ) : null}
                   <p className="text-xs text-muted-foreground">
                     Created {formatDate(source.created_at)} ·{" "}
                     {source.last_used_at

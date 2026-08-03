@@ -99,3 +99,67 @@ export async function revokeInboundSource(
   revalidatePath("/settings/integrations");
   return { ok: true };
 }
+
+export type SourceDefaultResult = { ok: boolean; error?: string };
+
+// Remember which client a source's requests belong to.
+//
+// APPLIED TO EVERY LIVE ROW SHARING THE source_app, not to one row. Several live
+// rows for one source_app is the supported shape (0043 allows it so a secret can
+// be rotated with an overlap window), and they are one sender. Setting the
+// default on whichever row the operator happened to be looking at would mean the
+// answer changed when the sender cut over to the new secret.
+//
+// Revoked rows are left alone: they authenticate nothing, and rewriting them
+// would edit history.
+//
+// The client is read FIRST under the operator's session. RLS on inbound_sources
+// governs which source may be written, but says nothing about which client_id
+// may be written INTO it -- the same reasoning assignRequestToClient uses -- so
+// reading the client through RLS is what stops a crafted id pointing a source at
+// another operator's client.
+export async function setSourceDefaultClient(
+  sourceApp: string,
+  clientId: string | null
+): Promise<SourceDefaultResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sign in to manage inbound sources." };
+  if (!sourceApp) return { ok: false, error: "Missing source." };
+
+  if (clientId) {
+    const { data: client } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("id", clientId)
+      .maybeSingle();
+    if (!client) return { ok: false, error: "That client no longer exists." };
+  }
+
+  const { error } = await supabase
+    .from("inbound_sources")
+    .update({ default_client_id: clientId })
+    .eq("source_app", sourceApp)
+    .is("revoked_at", null);
+  if (error) return { ok: false, error: "Could not save the default client." };
+
+  revalidatePath("/settings/integrations");
+  revalidatePath("/requests");
+  return { ok: true };
+}
+
+// Does this source already know where its requests belong? Used to decide
+// whether assigning one is worth offering to remember.
+export async function sourceHasDefault(sourceApp: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("inbound_sources")
+    .select("default_client_id")
+    .eq("source_app", sourceApp)
+    .is("revoked_at", null)
+    .not("default_client_id", "is", null)
+    .limit(1);
+  return (data ?? []).length > 0;
+}

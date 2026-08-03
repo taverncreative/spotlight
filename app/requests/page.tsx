@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { RequestRow } from "@/components/request-row";
 import { RequestDeleteButton } from "@/components/request-delete-button";
 import { RequestsBulkDelete } from "@/components/requests-bulk-delete";
+import { RememberSourceDefault } from "@/components/remember-source-default";
 import { createClient } from "@/lib/supabase/server";
 import {
   assignRequestToClient,
@@ -89,9 +90,21 @@ function MoveButton({
 export default async function RequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; source?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    source?: string;
+    // Carried back by assignRequestToClient when the source it came from has no
+    // default client yet, so the page can offer to remember.
+    remember?: string;
+    client?: string;
+  }>;
 }) {
-  const { status: statusParam, source: sourceParam } = await searchParams;
+  const {
+    status: statusParam,
+    source: sourceParam,
+    remember: rememberParam,
+    client: rememberClientId,
+  } = await searchParams;
 
   const supabase = await createClient();
   // The client list rides along for the assign control on unassigned rows.
@@ -154,6 +167,21 @@ export default async function RequestsPage({
 
   const newCount = requests.filter((r) => r.status === "new").length;
 
+  // The offer, resolved server-side. The client is read through RLS from its id
+  // rather than taken from the URL, so the banner can only ever name a client
+  // this operator owns -- and a stale or forged param simply shows nothing.
+  const offerClient =
+    rememberParam && rememberClientId
+      ? clients.find((client) => client.id === rememberClientId)
+      : undefined;
+  const rememberSource = offerClient
+    ? {
+        sourceApp: rememberParam!,
+        clientId: offerClient.id,
+        clientName: offerClient.name,
+      }
+    : null;
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-start justify-between gap-3">
@@ -175,6 +203,18 @@ export default async function RequestsPage({
           assignedCount={assignedCount ?? 0}
         />
       </div>
+
+      {/* Shown only straight after an assignment, and only for a source that
+          does not already know where its requests go. The client name is looked
+          up rather than trusted from the query string, so a hand-edited URL
+          cannot put another operator's client name on the offer. */}
+      {rememberSource ? (
+        <RememberSourceDefault
+          sourceApp={rememberSource.sourceApp}
+          clientId={rememberSource.clientId}
+          clientName={rememberSource.clientName}
+        />
+      ) : null}
 
       <div className="space-y-2">
         <nav className="flex flex-wrap gap-1" aria-label="Filter by status">

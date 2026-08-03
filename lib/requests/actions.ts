@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { sourceHasDefault } from "@/lib/inbound/actions";
 
 // Triage status moves for the inbound requests inbox.
 //
@@ -69,6 +71,14 @@ export async function assignRequestToClient(formData: FormData): Promise<void> {
     .maybeSingle();
   if (!client) return;
 
+  // Read the source before the update, because assigning moves the row off this
+  // page and there is no second chance to know where it came from.
+  const { data: request } = await supabase
+    .from("client_requests")
+    .select("source_app")
+    .eq("id", id)
+    .maybeSingle();
+
   await supabase
     .from("client_requests")
     .update({ client_id: clientId })
@@ -77,6 +87,18 @@ export async function assignRequestToClient(formData: FormData): Promise<void> {
   revalidatePath("/requests");
   // The home grid counts and the unassigned strip both move with this.
   revalidatePath("/home");
+
+  // OFFER TO REMEMBER, rather than learning silently.
+  //
+  // One assignment quietly rewriting where every future request from that source
+  // lands would be a routing change nobody chose and nowhere obvious to see it.
+  // So the offer is carried back as a query param and the page asks. Only when
+  // the source has no default yet: once it knows, there is nothing to offer.
+  if (request?.source_app && !(await sourceHasDefault(request.source_app))) {
+    redirect(
+      `/requests?remember=${encodeURIComponent(request.source_app)}&client=${clientId}`
+    );
+  }
 }
 
 // Delete an inbound request, and only one that reached no client.
