@@ -343,7 +343,7 @@ export function SocialComposer({
         />
         <p className="mt-1 text-xs text-muted-foreground">
           {isStory
-            ? "One photo or one video, 9:16, up to 60 seconds."
+            ? "One photo or one video. 9:16 fills the screen; anything else is letterboxed. Video up to 60 seconds."
             : igSelected
               ? "Instagram needs a photo or a video. One video posts as a Reel."
               : "Media is optional for Facebook-only posts. One video posts as a Reel."}

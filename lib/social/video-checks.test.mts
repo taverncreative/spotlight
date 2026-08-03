@@ -165,15 +165,24 @@ test("isVideoType recognises exactly what the bucket accepts", () => {
 
 // --- stories: the same facts, a different severity -------------------------
 
-test("a story blocks on 9:16 where a feed post only warns", () => {
+test("a story WARNS on 9:16 rather than blocking: Instagram letterboxes it", () => {
+  // Deliberately not a block. Instagram accepts non-9:16 story video, so
+  // refusing it would be us overruling Meta rather than reporting it.
   const square = facts({ width: 1080, height: 1080 });
   const feed = checkVideo(square, "feed");
   assert.deepEqual(feed.blocking, []);
   assert.equal(feed.warnings.length, 1);
 
   const story = checkVideo(square, "story");
-  assert.equal(story.blocking.length, 1);
-  assert.match(story.blocking[0], /has to be 9:16/);
+  assert.deepEqual(story.blocking, []);
+  assert.equal(story.warnings.length, 1);
+  assert.match(story.warnings[0], /letterbox/);
+});
+
+test("the ratio warning names the platform behaviour each format actually gets", () => {
+  const square = facts({ width: 1080, height: 1080 });
+  assert.match(checkVideo(square, "feed").warnings[0], /crop or pillarbox/);
+  assert.match(checkVideo(square, "story").warnings[0], /letterbox/);
 });
 
 test("a story caps at 60 seconds, where a feed post allows 90 as a Reel", () => {

@@ -51,15 +51,15 @@ function megabytes(bytes: number): string {
   return `${Math.round(bytes / (1024 * 1024))} MB`;
 }
 
-// `format` decides how strict this is, and the difference is not a preference.
+// `format` changes the DURATION rule and the wording, and nothing else.
 //
-// On a FEED post, 9:16 and the duration cap are Reels rules, and the same
-// footage may be headed for feed video instead -- so they are warnings, and
-// blocking would refuse something valid.
+// The line between blocking and warning is whose rule it is. Meta enforces a
+// 60-second story, so exceeding it blocks: the upload would finish and the
+// publish would fail inside a cron hours later. Meta does not enforce 9:16 on a
+// story -- it letterboxes instead -- so that warns, on both formats.
 //
-// On a STORY there is no alternative destination. 9:16 and 60 seconds ARE the
-// format, so the same facts become blocking. Letting them through would buy the
-// operator a long upload and a publish that fails later inside a cron.
+// A feed post keeps the Reels duration rule as a warning, because the same
+// footage may be headed for feed video, which allows longer.
 export function checkVideo(
   facts: VideoFacts,
   format: PostFormat = "feed"
@@ -67,9 +67,6 @@ export function checkVideo(
   const blocking: string[] = [];
   const warnings: string[] = [];
   const isStory = format === "story";
-  // Where a story-only rule sends its message. Same sentence, different
-  // severity, so the two paths cannot drift in wording.
-  const storyRule = isStory ? blocking : warnings;
 
   if (!ALLOWED_VIDEO_TYPES.includes(facts.type)) {
     blocking.push("Use an MP4 or MOV. Meta refuses other formats.");
@@ -114,9 +111,20 @@ export function checkVideo(
   if (facts.width > 0 && facts.height > 0) {
     const ratio = facts.width / facts.height;
     if (Math.abs(ratio - REELS_ASPECT) > REELS_ASPECT_TOLERANCE) {
-      storyRule.push(
+      // A WARNING ON BOTH PATHS, including stories.
+      //
+      // This used to block a story, on the reasoning that 9:16 IS the format so
+      // there was nowhere else the file could go. That was us overruling Meta:
+      // Instagram accepts non-9:16 story video and letterboxes it rather than
+      // refusing it, so blocking refused something the platform would have
+      // taken. Saying what will happen and letting the operator decide is the
+      // honest version.
+      //
+      // The duration cap above stays blocking, because that one Meta genuinely
+      // enforces -- the difference is whether the rule is ours or theirs.
+      warnings.push(
         isStory
-          ? `${facts.width}x${facts.height} is not 9:16. A story has to be 9:16.`
+          ? `${facts.width}x${facts.height} is not 9:16. Instagram will letterbox it in the story.`
           : `${facts.width}x${facts.height} is not 9:16. Reels will crop or pillarbox it.`
       );
     }

@@ -114,14 +114,18 @@ export const VIDEO_MAX_SECONDS = 15 * 60;
 export const REELS_ASPECT = 9 / 16;
 export const REELS_ASPECT_TOLERANCE = 0.02;
 
-// STORY RULES ARE BLOCKS, NOT WARNINGS, and that is the opposite of the Reels
-// rules above for a reason that is not inconsistency.
+// THE TEST FOR BLOCKING IS WHOSE RULE IT IS, not how strongly we feel about it.
 //
-// A Reel's constraints are warnings because the same footage might be destined
-// for feed video, which allows longer and other ratios, so refusing it would
-// refuse something valid. A story has no such alternative: 9:16 and the duration
-// cap ARE the format, and there is nowhere else the file could be going. Letting
-// it through would mean a long upload and a publish that fails inside a cron.
+// A story's duration cap blocks because META enforces it: send 75 seconds and
+// the publish fails, so letting it through buys a long upload and a failure
+// inside a cron hours later.
+//
+// A story's 9:16 only warns, because Meta does NOT enforce it: Instagram accepts
+// other ratios and letterboxes them. This was blocking at first, on the
+// reasoning that 9:16 IS the format -- which was us refusing something the
+// platform would have taken. Reporting what will happen and leaving the choice
+// is the honest version, and it is the same reason the sub-540x960 rule has
+// always been a warning.
 //
 // 60 seconds, not the Reels 90. Meta caps a story at 60 on both platforms.
 export const STORY_MAX_SECONDS = 60;
