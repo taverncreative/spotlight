@@ -15,8 +15,8 @@ import { PostInsights } from "@/components/social/post-insights";
 
 type MediaRow = { position: number; storage_path: string };
 type TargetRow = {
-  meta_account_id: string;
-  meta_accounts: { platform: string } | null;
+  account_id: string;
+  social_accounts: { platform: string } | null;
   social_post_insights:
     | {
         likes: number | null;
@@ -102,7 +102,7 @@ export default async function SocialPage({
   const { data } = await supabase
     .from("social_posts")
     .select(
-      "id, caption, format, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path, media_type, poster_path), social_post_targets(meta_account_id, meta_accounts(platform), social_post_insights(likes, comments, shares, fetched_at, last_error))"
+      "id, caption, format, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path, media_type, poster_path), social_post_targets(account_id, social_accounts(platform), social_post_insights(likes, comments, shares, fetched_at, last_error))"
     )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });
@@ -256,7 +256,7 @@ export default async function SocialPage({
             const platforms = Array.from(
               new Set(
                 (post.social_post_targets ?? [])
-                  .map((t) => t.meta_accounts?.platform)
+                  .map((t) => t.social_accounts?.platform)
                   .filter((p): p is string => !!p)
               )
             );
@@ -327,7 +327,7 @@ export default async function SocialPage({
                         .map((target) => {
                           const row = target.social_post_insights?.[0];
                           return {
-                            platform: target.meta_accounts?.platform ?? "",
+                            platform: target.social_accounts?.platform ?? "",
                             likes: row?.likes ?? null,
                             comments: row?.comments ?? null,
                             shares: row?.shares ?? null,

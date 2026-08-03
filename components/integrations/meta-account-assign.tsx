@@ -8,7 +8,7 @@ type ClientOption = { id: string; name: string };
 
 // Per-account client assignment selector on the Integrations Meta card. Changing
 // it submits the operator-scoped assignMetaAccountClient action, which writes
-// meta_accounts.client_id — the exact column the Social composer's "Post to"
+// social_accounts.client_id — the exact column the Social composer's "Post to"
 // selector filters on. Uncontrolled (defaultValue): the parent remounts this via
 // a key that includes the current client_id, so a revalidated assignment (e.g. an
 // Instagram row cascaded from its Page) is reflected without a full reload.

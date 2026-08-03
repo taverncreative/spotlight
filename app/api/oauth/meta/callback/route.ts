@@ -22,7 +22,7 @@ const STATE_COOKIE = "meta_oauth_state";
 // exchange the code for a long-lived user token, then discover and store the
 // operator's Pages and their linked Instagram accounts. The user token is stored
 // encrypted in oauth_connections (provider "facebook"); each Page becomes a
-// facebook meta_accounts row with its encrypted Page token, and each linked
+// facebook social_accounts row with its encrypted Page token, and each linked
 // Instagram becomes an instagram row pointing at its Page via parent_account_id.
 // Token/discovery errors redirect back with an error flag, never 500.
 export async function GET(request: Request) {
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
 
     for (const page of pages) {
       const { data: fbRow, error: fbError } = await supabase
-        .from("meta_accounts")
+        .from("social_accounts")
         .upsert(
           {
             operator_id: user.id,
@@ -116,7 +116,7 @@ export async function GET(request: Request) {
       // The Instagram business account publishes through its Page token, so we
       // store that token on the IG row too and link it to the Page.
       const ig = await fetchInstagramAccount(igId, page.access_token);
-      await supabase.from("meta_accounts").upsert(
+      await supabase.from("social_accounts").upsert(
         {
           operator_id: user.id,
           platform: "instagram",

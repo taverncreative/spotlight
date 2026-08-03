@@ -1,12 +1,13 @@
 import Link from "next/link";
 
-export type MetaAccount = {
+export type SocialAccount = {
   id: string;
   platform: string;
   display_name: string | null;
 };
 
-// "Post to" target selector. Accounts are the client's assigned Meta accounts;
+// "Post to" target selector. Accounts are the client's assigned publishing
+// accounts, whichever platform they belong to;
 // `selected` holds the checked target ids (controlled by the composer, so it
 // can react to the selection, e.g. the photo requirement). When the client has
 // no assigned accounts this is the connect state.
@@ -15,7 +16,7 @@ export function SocialTargets({
   selected,
   onToggle,
 }: {
-  accounts: MetaAccount[];
+  accounts: SocialAccount[];
   selected: string[];
   onToggle: (id: string, checked: boolean) => void;
 }) {

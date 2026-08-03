@@ -23,7 +23,7 @@ export default async function NewSocialPostPage({
   const supabase = await createClient();
   const [{ data: accounts }, defaultTime] = await Promise.all([
     supabase
-      .from("meta_accounts")
+      .from("social_accounts")
       .select("id, platform, display_name")
       .eq("client_id", client.id)
       .order("created_at", { ascending: true }),

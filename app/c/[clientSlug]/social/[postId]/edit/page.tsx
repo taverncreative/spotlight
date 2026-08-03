@@ -35,7 +35,7 @@ export default async function EditSocialPostPage({
   const { data: post } = await supabase
     .from("social_posts")
     .select(
-      "id, client_id, status, caption, format, scheduled_at, social_post_media(position, storage_path, media_type, width, height, poster_path), social_post_targets(meta_account_id)"
+      "id, client_id, status, caption, format, scheduled_at, social_post_media(position, storage_path, media_type, width, height, poster_path), social_post_targets(account_id)"
     )
     .eq("id", postId)
     .maybeSingle();
@@ -64,7 +64,7 @@ export default async function EditSocialPostPage({
   }
 
   const { data: accounts } = await supabase
-    .from("meta_accounts")
+    .from("social_accounts")
     .select("id, platform, display_name")
     .eq("client_id", client.id)
     .order("created_at", { ascending: true });
@@ -83,8 +83,8 @@ export default async function EditSocialPostPage({
     }));
 
   const selectedTargetIds = (
-    (post.social_post_targets ?? []) as { meta_account_id: string }[]
-  ).map((t) => t.meta_account_id);
+    (post.social_post_targets ?? []) as { account_id: string }[]
+  ).map((t) => t.account_id);
 
   const styledImages = await recipesForPost(post.id);
 

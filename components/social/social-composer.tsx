@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { fieldInputClass } from "@/components/form-field";
 import {
   SocialTargets,
-  type MetaAccount,
+  type SocialAccount,
 } from "@/components/social/social-targets";
 import {
   SocialMediaUploader,
@@ -45,7 +45,7 @@ export function SocialComposer({
   postId: string;
   post: ComposerPost | null;
   initialMedia: UploaderItem[];
-  accounts: MetaAccount[];
+  accounts: SocialAccount[];
   selectedTargetIds: string[];
   // This client's usual posting time (London HH:MM), derived from their most
   // recently scheduled post. Prefills the time on a NEW post only, so an

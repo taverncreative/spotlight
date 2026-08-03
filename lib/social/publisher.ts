@@ -57,10 +57,10 @@ type AccountRow = {
 type TargetRow = {
   container_id: string | null;
   id: string;
-  meta_account_id: string;
+  account_id: string;
   platform_post_id: string | null;
   attempt_started_at: string | null;
-  meta_accounts: AccountRow | null;
+  social_accounts: AccountRow | null;
 };
 
 type PostRow = {
@@ -281,7 +281,7 @@ async function flagParentReconnect(
   parentId: string
 ): Promise<void> {
   await supabase
-    .from("meta_accounts")
+    .from("social_accounts")
     .update({ needs_reconnect: true })
     .eq("id", parentId);
 }
@@ -308,7 +308,7 @@ async function publishInstagramTarget(
   }
 
   const { data: parent } = await supabase
-    .from("meta_accounts")
+    .from("social_accounts")
     .select("external_id, access_token")
     .eq("id", parentId)
     .maybeSingle();
@@ -443,7 +443,7 @@ async function publishTarget(
 }
 
 // Publish a single post. Loads it with its ordered media and its targets (each
-// joined to its meta_account), publishes every not-yet-published target, and
+// joined to its social_account), publishes every not-yet-published target, and
 // settles the post's terminal status. Increments attempts once per call.
 export async function publishPost(
   supabase: SupabaseClient,
@@ -452,7 +452,7 @@ export async function publishPost(
   const { data, error } = await supabase
     .from("social_posts")
     .select(
-      "id, caption, format, attempts, social_post_media(position, storage_path, media_type, width, height), social_post_targets(id, meta_account_id, platform_post_id, attempt_started_at, container_id, meta_accounts(id, platform, external_id, access_token, parent_account_id))"
+      "id, caption, format, attempts, social_post_media(position, storage_path, media_type, width, height), social_post_targets(id, account_id, platform_post_id, attempt_started_at, container_id, social_accounts(id, platform, external_id, access_token, parent_account_id))"
     )
     .eq("id", postId)
     .maybeSingle();
@@ -510,7 +510,7 @@ export async function publishPost(
       interrupted += 1;
       sawTerminal = true;
       const platformLabel =
-        target.meta_accounts?.platform === "instagram"
+        target.social_accounts?.platform === "instagram"
           ? "Instagram"
           : "Facebook";
       await supabase
@@ -520,7 +520,7 @@ export async function publishPost(
       continue;
     }
 
-    const account = target.meta_accounts;
+    const account = target.social_accounts;
     if (!account) {
       sawTerminal = true;
       await supabase
@@ -567,7 +567,7 @@ export async function publishPost(
         e instanceof Error ? e.message : "Publish failed unexpectedly.";
       if (cls === "auth") {
         await supabase
-          .from("meta_accounts")
+          .from("social_accounts")
           .update({ needs_reconnect: true })
           .eq("id", account.id);
       }

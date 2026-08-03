@@ -88,21 +88,21 @@ export async function disconnectMeta() {
     .eq("provider", META_PROVIDER);
   // The operator's connected Pages/IG accounts (RLS scopes this to their rows;
   // the filter is just supabase-js's required predicate).
-  await supabase.from("meta_accounts").delete().not("id", "is", null);
+  await supabase.from("social_accounts").delete().not("id", "is", null);
 
   revalidatePath("/settings/integrations");
   redirect("/settings/integrations");
 }
 
 // Assign a connected Meta account (Page or Instagram) to one of the operator's
-// clients — or back to Unassigned (client_id null). This sets meta_accounts.
+// clients — or back to Unassigned (client_id null). This sets social_accounts.
 // client_id, the column the Social composer's "Post to" selector filters on, so
 // an assignment lights the account up as a target for that client.
 //
-// Operator-scoped two ways: meta_accounts RLS limits the account to the
+// Operator-scoped two ways: social_accounts RLS limits the account to the
 // operator's own rows, and the target client is looked up under the operator's
 // clients RLS — a non-owned client id isn't found, so the assignment is rejected
-// (the meta_accounts FK alone would not enforce client ownership).
+// (the social_accounts FK alone would not enforce client ownership).
 //
 // Convenience: assigning a Page to a client cascades to its linked Instagram
 // rows that are still unassigned, so an IG defaults to mirror its Page. The IG
@@ -117,7 +117,7 @@ export async function assignMetaAccountClient(formData: FormData) {
   const supabase = await createClient();
 
   const { data: account } = await supabase
-    .from("meta_accounts")
+    .from("social_accounts")
     .select("id, platform")
     .eq("id", accountId)
     .maybeSingle();
@@ -133,13 +133,13 @@ export async function assignMetaAccountClient(formData: FormData) {
   }
 
   await supabase
-    .from("meta_accounts")
+    .from("social_accounts")
     .update({ client_id: clientId })
     .eq("id", accountId);
 
   if (account.platform === "facebook" && clientId) {
     await supabase
-      .from("meta_accounts")
+      .from("social_accounts")
       .update({ client_id: clientId })
       .eq("parent_account_id", accountId)
       .is("client_id", null);

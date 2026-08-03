@@ -140,8 +140,8 @@ export async function autosaveSocialDraft(input: {
   // composer looked. The manual save reconciles them properly later.
   if (targetIds.length > 0) {
     await supabase.from("social_post_targets").upsert(
-      targetIds.map((mid) => ({ post_id: id, meta_account_id: mid })),
-      { onConflict: "post_id,meta_account_id", ignoreDuplicates: true }
+      targetIds.map((mid) => ({ post_id: id, account_id: mid })),
+      { onConflict: "post_id,account_id", ignoreDuplicates: true }
     );
   }
 
@@ -200,7 +200,7 @@ export async function saveSocialPost(
   let requiresMedia = false;
   if (selectedTargets.length > 0) {
     const { data: targetAccounts } = await supabase
-      .from("meta_accounts")
+      .from("social_accounts")
       .select("id, platform")
       .in("id", selectedTargets);
     requiresMedia = (targetAccounts ?? []).some(
@@ -351,24 +351,21 @@ export async function saveSocialPost(
   // scopes these writes to the operator's own post.
   const { data: existingTargets } = await supabase
     .from("social_post_targets")
-    .select("id, meta_account_id")
+    .select("id, account_id")
     .eq("post_id", id);
   const selectedSet = new Set(selectedTargets);
   const existingByAccount = new Map(
-    (existingTargets ?? []).map((t) => [
-      t.meta_account_id as string,
-      t.id as string,
-    ])
+    (existingTargets ?? []).map((t) => [t.account_id as string, t.id as string])
   );
   const removeIds = (existingTargets ?? [])
-    .filter((t) => !selectedSet.has(t.meta_account_id as string))
+    .filter((t) => !selectedSet.has(t.account_id as string))
     .map((t) => t.id as string);
   if (removeIds.length > 0) {
     await supabase.from("social_post_targets").delete().in("id", removeIds);
   }
   const addRows = selectedTargets
     .filter((mid) => !existingByAccount.has(mid))
-    .map((mid) => ({ post_id: id, meta_account_id: mid }));
+    .map((mid) => ({ post_id: id, account_id: mid }));
   if (addRows.length > 0) {
     await supabase.from("social_post_targets").insert(addRows);
   }

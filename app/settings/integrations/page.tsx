@@ -253,14 +253,14 @@ export default async function IntegrationsPage({
     byProvider.get(provider) ?? null;
 
   // Meta connection state + the operator's connected Pages/IG accounts
-  // (meta_accounts RLS scopes these to this operator).
+  // (social_accounts RLS scopes these to this operator).
   const { data: metaConn } = await supabase
     .from("oauth_connections")
     .select("provider")
     .eq("provider", META_PROVIDER)
     .maybeSingle();
   const { data: metaAccounts } = await supabase
-    .from("meta_accounts")
+    .from("social_accounts")
     .select(
       "id, platform, display_name, external_id, parent_account_id, client_id, needs_reconnect"
     )

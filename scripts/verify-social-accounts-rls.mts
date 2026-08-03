@@ -1,11 +1,11 @@
 // Data-layer verification for the Meta-connect schema (no live Meta needed).
 // Proves, against the local DB, that:
-//   1. meta_accounts is operator-scoped: an operator sees its own rows but not
+//   1. social_accounts is operator-scoped: an operator sees its own rows but not
 //      another operator's, and a session cannot write a row owned by someone
 //      else (the with-check predicate blocks it).
 //   2. a facebook Page row and a child instagram row (parent_account_id set)
 //      insert and read back, with operator_id defaulting to the session.
-//   3. social_post_targets.meta_account_id still resolves under the new
+//   3. social_post_targets.account_id still resolves under the new
 //      ownership, and the owns_social_post target policy still admits the insert.
 //
 // Run with: node --env-file=.env.local scripts/verify-meta-rls.mts
@@ -88,12 +88,12 @@ check(
 );
 
 // Clean any prior fixtures (idempotent reruns without a reset).
-await a.from("meta_accounts").delete().in("external_id", [PAGE_EXT, IG_EXT]);
-await admin.from("meta_accounts").delete().eq("external_id", SPOOF_EXT);
+await a.from("social_accounts").delete().in("external_id", [PAGE_EXT, IG_EXT]);
+await admin.from("social_accounts").delete().eq("external_id", SPOOF_EXT);
 
 // --- Test 1: A inserts a facebook page row (operator_id defaults to A) ---
 const { data: fbRow, error: fbErr } = await a
-  .from("meta_accounts")
+  .from("social_accounts")
   .insert({
     platform: "facebook",
     external_id: PAGE_EXT,
@@ -104,7 +104,7 @@ const { data: fbRow, error: fbErr } = await a
   .select("id, operator_id")
   .single();
 check(
-  "A inserts a facebook meta_accounts row",
+  "A inserts a facebook social_accounts row",
   !fbErr && !!fbRow,
   fbErr?.message ?? ""
 );
@@ -113,7 +113,7 @@ check("inserted row defaulted operator_id to A", fbRow?.operator_id === aId);
 // --- Test 2: A inserts a child instagram row with parent_account_id ---
 if (fbRow) {
   const { data: igRow, error: igErr } = await a
-    .from("meta_accounts")
+    .from("social_accounts")
     .insert({
       platform: "instagram",
       external_id: IG_EXT,
@@ -133,7 +133,7 @@ if (fbRow) {
 
 // --- Test 3: A reads back both of its rows ---
 const { data: aRows } = await a
-  .from("meta_accounts")
+  .from("social_accounts")
   .select("id")
   .in("external_id", [PAGE_EXT, IG_EXT]);
 check(
@@ -144,17 +144,17 @@ check(
 
 // --- Test 4: B cannot see A's rows (operator-scoped RLS) ---
 const { data: bRows } = await b
-  .from("meta_accounts")
+  .from("social_accounts")
   .select("id")
   .in("external_id", [PAGE_EXT, IG_EXT]);
 check(
-  "B cannot see A's meta_accounts rows",
+  "B cannot see A's social_accounts rows",
   (bRows?.length ?? 0) === 0,
   `saw ${bRows?.length ?? 0}`
 );
 
 // --- Test 5: B cannot insert a row owned by A (with-check blocks it) ---
-const { error: bInsErr } = await b.from("meta_accounts").insert({
+const { error: bInsErr } = await b.from("social_accounts").insert({
   operator_id: aId,
   platform: "facebook",
   external_id: SPOOF_EXT,
@@ -167,7 +167,7 @@ check(
     ? `rejected (${bInsErr.code ?? bInsErr.message})`
     : "insert unexpectedly succeeded"
 );
-await admin.from("meta_accounts").delete().eq("external_id", SPOOF_EXT);
+await admin.from("social_accounts").delete().eq("external_id", SPOOF_EXT);
 
 // --- Test 6: targets FK resolves + owns_social_post admits the insert ---
 let postId: string | undefined;
@@ -187,12 +187,12 @@ if (aClientId && fbRow) {
   if (postId) {
     const { data: tgt, error: tgtErr } = await a
       .from("social_post_targets")
-      .insert({ post_id: postId, meta_account_id: fbRow.id })
-      .select("id, meta_account_id")
+      .insert({ post_id: postId, account_id: fbRow.id })
+      .select("id, account_id")
       .single();
     check(
       "social_post_targets FK + owns_social_post insert resolves",
-      !tgtErr && tgt?.meta_account_id === fbRow.id,
+      !tgtErr && tgt?.account_id === fbRow.id,
       tgtErr?.message ?? ""
     );
   }
@@ -200,7 +200,7 @@ if (aClientId && fbRow) {
 
 // --- cleanup (best-effort) ---
 if (postId) await a.from("social_posts").delete().eq("id", postId); // cascades targets
-await a.from("meta_accounts").delete().in("external_id", [PAGE_EXT, IG_EXT]);
+await a.from("social_accounts").delete().in("external_id", [PAGE_EXT, IG_EXT]);
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

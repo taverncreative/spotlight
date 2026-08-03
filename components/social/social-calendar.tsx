@@ -28,7 +28,7 @@ export type CalendarPost = {
     poster_path?: string | null;
   }[];
   social_post_targets?: {
-    meta_accounts: { platform: string } | null;
+    social_accounts: { platform: string } | null;
   }[];
 };
 
@@ -75,7 +75,7 @@ export function socialEntries(
     const platforms = Array.from(
       new Set(
         (post.social_post_targets ?? [])
-          .map((target) => target.meta_accounts?.platform)
+          .map((target) => target.social_accounts?.platform)
           .filter((platform): platform is string => !!platform)
       )
     );

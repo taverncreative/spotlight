@@ -30,7 +30,7 @@ type TargetRow = {
   id: string;
   platform_post_id: string | null;
   published_at: string | null;
-  meta_accounts: { platform: string; access_token: string | null } | null;
+  social_accounts: { platform: string; access_token: string | null } | null;
   social_post_insights: { fetched_at: string | null }[] | null;
 };
 
@@ -59,7 +59,7 @@ async function handler(request: Request) {
   const { data, error } = await supabase
     .from("social_post_targets")
     .select(
-      "id, platform_post_id, published_at, meta_accounts(platform, access_token), social_post_insights(fetched_at)"
+      "id, platform_post_id, published_at, social_accounts(platform, access_token), social_post_insights(fetched_at)"
     )
     .not("platform_post_id", "is", null)
     .gte("published_at", cutoff);
@@ -85,8 +85,8 @@ async function handler(request: Request) {
   let failed = 0;
 
   for (const target of targets) {
-    const platform = target.meta_accounts?.platform;
-    const encrypted = target.meta_accounts?.access_token;
+    const platform = target.social_accounts?.platform;
+    const encrypted = target.social_accounts?.access_token;
     if (!platform || !encrypted || !target.platform_post_id) continue;
 
     let token: string;
