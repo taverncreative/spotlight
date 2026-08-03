@@ -125,6 +125,11 @@ export type EditorTemplate = ControlTemplate;
 
 export type EditorPhoto = { storagePath: string };
 
+// One id for the editor's own form, shared by its fields and its Save button.
+// A constant rather than a literal in seven places, because a typo in one of
+// them would silently drop that field from the submission.
+const EDITOR_FORM = "image-editor-form";
+
 const SWATCHES = ["#111111", "#FFFFFF"];
 
 export function ImageEditor({
@@ -195,14 +200,28 @@ export function ImageEditor({
         : `rgba(255,255,255,${style.scrimOpacity})`;
 
   return (
-    <form action={formAction} className="grid gap-6 lg:grid-cols-[auto_1fr]">
-      <input type="hidden" name="post_id" value={postId} />
-      <input type="hidden" name="client_slug" value={clientSlug} />
-      <input type="hidden" name="recipe_id" value={initial.recipeId ?? ""} />
-      <input type="hidden" name="template_id" value={templateId} />
-      <input type="hidden" name="photo_path" value={photoPath} />
-      <input type="hidden" name="text" value={text} />
-      <input type="hidden" name="style" value={JSON.stringify(style)} />
+    // NOTHING HERE WRAPS ANYTHING ELSE IN A <form>, and that is the point.
+    //
+    // This used to be <form action={...}> around the whole editor, which meant
+    // the template controls' own forms were nested inside it. React does not
+    // dispatch an action for a nested form -- it says so in the console, "<form>
+    // cannot contain a nested <form>" -- so those buttons fired a submit event
+    // and ran nothing. That killed "Render onto the post", and it had silently
+    // killed Duplicate, Save as new and Update too.
+    //
+    // So every form on this screen is now an EMPTY, top-level element, and the
+    // fields and buttons that belong to it point at it by id. One rule, applied
+    // the same way everywhere, and no form can contain another because none of
+    // them contain anything at all.
+    <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
+      <form id={EDITOR_FORM} action={formAction} />
+      <input type="hidden" form={EDITOR_FORM} name="post_id" value={postId} />
+      <input type="hidden" form={EDITOR_FORM} name="client_slug" value={clientSlug} />
+      <input type="hidden" form={EDITOR_FORM} name="recipe_id" value={initial.recipeId ?? ""} />
+      <input type="hidden" form={EDITOR_FORM} name="template_id" value={templateId} />
+      <input type="hidden" form={EDITOR_FORM} name="photo_path" value={photoPath} />
+      <input type="hidden" form={EDITOR_FORM} name="text" value={text} />
+      <input type="hidden" form={EDITOR_FORM} name="style" value={JSON.stringify(style)} />
 
       {/* --- preview --- */}
       <div className="space-y-2">
@@ -464,13 +483,15 @@ export function ImageEditor({
         ) : null}
 
         <div className="flex items-center gap-2">
-          {/* ONE BUTTON. It saves the recipe, renders it, attaches the picture to
-              the post and goes back to the post. The old flow asked for three
-              deliberate acts to achieve one intention, and the middle one -
-              "Render onto the post" - never worked at all: it sat in its own
-              <form> nested inside this one, and React does not dispatch an
-              action for a nested form. */}
-          <Button type="submit" size="sm" disabled={pending || !photoPath}>
+          {/* ONE BUTTON. It saves the recipe, renders it, attaches the picture
+              to the post and goes back to the post -- one intention, one act,
+              instead of three steps where the middle one was easy to forget. */}
+          <Button
+            type="submit"
+            form={EDITOR_FORM}
+            size="sm"
+            disabled={pending || !photoPath}
+          >
             {pending ? "Saving and rendering…" : "Save"}
           </Button>
           <p className="text-xs text-muted-foreground">
@@ -479,7 +500,7 @@ export function ImageEditor({
           </p>
         </div>
       </div>
-    </form>
+    </div>
   );
 }
 

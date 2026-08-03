@@ -34,8 +34,18 @@ export type ControlTemplate = {
   usedBy: number;
 };
 
-// These forms sit inside the editor's own form, and forms cannot nest. Each one
-// is declared empty here and its fields point back at it by id.
+// Each action gets an EMPTY form element, with its fields and its button
+// pointing back at it by id.
+//
+// This shape was always right and used to be defeated by where it sat: the
+// editor wrapped everything in a <form>, so these were nested inside it, and
+// React does not dispatch an action for a nested form. Duplicate, Save as new
+// and Update fired a submit event and ran nothing at all. The editor's own form
+// is now hoisted the same way, so nothing on that screen wraps anything, and
+// these are top-level elements as they were always meant to be.
+//
+// THE RULE: a form element on this screen is empty. If one ever gains children,
+// anything with an action inside it stops working, silently.
 function ActionForm({
   id,
   action,
