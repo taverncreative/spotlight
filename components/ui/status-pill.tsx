@@ -32,6 +32,7 @@ type Status =
   | "in_progress"
   | "printing"
   | "done"
+  | "archived"
   | "ok"
   | "warn"
   | "danger";
@@ -53,6 +54,12 @@ const STATUS: Record<Status, { label: string; tone: StatusTone }> = {
   // reads new -> printing -> done.
   printing: { label: "Printing", tone: "warn" },
   done: { label: "Done", tone: "ok" },
+  // Filed, not finished-and-forgotten. MUTED rather than ok: an archived
+  // request is deliberately the quietest thing in the list, because the whole
+  // reason it is archived is that it no longer wants attention. Without a case
+  // here it would fall back to the draft styling and read as "Draft", which is
+  // the opposite of what it is.
+  archived: { label: "Archived", tone: "muted" },
   // The email-health three states. Default labels are placeholders: the Email
   // view passes a dynamic `label` (e.g. "142 emails · all expected senders").
   ok: { label: "OK", tone: "ok" },

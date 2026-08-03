@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/server";
 // Not exported: a "use server" module may only export async functions, so a
 // const array here is a runtime error the typechecker does not catch. Nothing
 // outside needs it, and if something ever does it belongs in a plain module.
-const REQUEST_STATUSES = ["new", "in_progress", "done"] as const;
+const REQUEST_STATUSES = ["new", "in_progress", "done", "archived"] as const;
 type RequestStatus = (typeof REQUEST_STATUSES)[number];
 
 export async function updateRequestStatus(formData: FormData): Promise<void> {

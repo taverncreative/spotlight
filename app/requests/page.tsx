@@ -34,10 +34,15 @@ const STATUS_TABS: {
   label: string;
   empty: string;
 }[] = [
+  // "All" DELIBERATELY EXCLUDES ARCHIVED, and that is the whole point of the
+  // archive. A default view that still showed archived rows would mean filing
+  // something achieved nothing but a change of colour. Archived is reachable
+  // only through its own tab, which is what makes it a place to put things.
   { key: null, label: "All", empty: "" },
   { key: "new", label: "New", empty: "Nothing new. You are on top of it." },
   { key: "in_progress", label: "In progress", empty: "Nothing in progress." },
   { key: "done", label: "Done", empty: "Nothing marked done yet." },
+  { key: "archived", label: "Archived", empty: "Nothing archived." },
 ];
 
 // A filter link that keeps whichever other filter is already set, so status and
@@ -117,7 +122,13 @@ export default async function RequestsPage({
   // Every source that has ever sent, derived from the rows themselves rather
   // than from inbound_sources: a source can be revoked while its requests remain,
   // and those still need to be filterable.
-  const sources = [...new Set(requests.map((r) => r.source_app))].sort();
+  const sources = [
+    ...new Set(
+      requests
+        .filter((r) => activeTab.key === "archived" || r.status !== "archived")
+        .map((r) => r.source_app)
+    ),
+  ].sort();
   const activeSource =
     sourceParam && sources.includes(sourceParam) ? sourceParam : null;
 
@@ -126,7 +137,9 @@ export default async function RequestsPage({
   // to know which sources exist.
   const visible = requests.filter(
     (request) =>
-      (activeTab.key === null || request.status === activeTab.key) &&
+      (activeTab.key === null
+        ? request.status !== "archived"
+        : request.status === activeTab.key) &&
       (activeSource === null || request.source_app === activeSource)
   );
 
@@ -221,7 +234,10 @@ export default async function RequestsPage({
               // Done is the one action worth reaching without opening the row:
               // triaging is mostly deciding that something is dealt with.
               quickActions={
-                request.status !== "done" ? (
+                // Not on an archived row: Done on the collapsed line would
+                // quietly pull it back out of the archive, which is the one
+                // thing filing it was meant to prevent.
+                request.status === "new" || request.status === "in_progress" ? (
                   <MoveButton id={request.id} status="done" label="Done" />
                 ) : null
               }
@@ -274,6 +290,25 @@ export default async function RequestsPage({
                       variant="ghost"
                     />
                   ) : null}
+                  {/* Archive is a filing action, not a lifecycle step, so it is
+                      offered on anything that is not already filed rather than
+                      only on done. Restore goes back to done rather than to
+                      new: it was dealt with before it was filed. */}
+                  {request.status === "archived" ? (
+                    <MoveButton
+                      id={request.id}
+                      status="done"
+                      label="Restore"
+                      variant="ghost"
+                    />
+                  ) : (
+                    <MoveButton
+                      id={request.id}
+                      status="archived"
+                      label="Archive"
+                      variant="ghost"
+                    />
+                  )}
                   {/* Last, and only here. Every row on this page is unassigned
                       by definition, which is exactly the set 0087 allows to be
                       deleted. It never appears on the collapsed line: nothing

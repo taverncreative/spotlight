@@ -58,6 +58,9 @@ const REQUEST_TABS: { key: string | null; label: string; empty: string }[] = [
     empty: "Nothing in progress for this client.",
   },
   { key: "done", label: "Done", empty: "Nothing marked done yet." },
+  // As on the inbox: "All" excludes archived, so filing something actually
+  // removes it from the view you work in. Print orders have no archive.
+  { key: "archived", label: "Archived", empty: "Nothing archived." },
 ];
 
 const PRINT_TABS: { key: string | null; label: string; empty: string }[] = [
@@ -165,8 +168,10 @@ export default async function ClientRequestsPage({
   const newRequests = requests.filter((r) => r.status === "new").length;
   const newOrders = orders.filter((o) => o.status === "new").length;
 
-  const visibleRequests = requests.filter(
-    (request) => activeTab.key === null || request.status === activeTab.key
+  const visibleRequests = requests.filter((request) =>
+    activeTab.key === null
+      ? request.status !== "archived"
+      : request.status === activeTab.key
   );
   const visibleOrders = orders.filter(
     (order) => activeTab.key === null || order.status === activeTab.key
@@ -340,7 +345,10 @@ export default async function ClientRequestsPage({
               createdAt={request.created_at}
               message={request.message}
               quickActions={
-                request.status !== "done" ? (
+                // Not on an archived row: Done on the collapsed line would
+                // quietly pull it back out of the archive, which is the one
+                // thing filing it was meant to prevent.
+                request.status === "new" || request.status === "in_progress" ? (
                   <MoveButton
                     action={updateRequestStatus}
                     id={request.id}
@@ -393,6 +401,23 @@ export default async function ClientRequestsPage({
                       variant="ghost"
                     />
                   ) : null}
+                  {request.status === "archived" ? (
+                    <MoveButton
+                      action={updateRequestStatus}
+                      id={request.id}
+                      status="done"
+                      label="Restore"
+                      variant="ghost"
+                    />
+                  ) : (
+                    <MoveButton
+                      action={updateRequestStatus}
+                      id={request.id}
+                      status="archived"
+                      label="Archive"
+                      variant="ghost"
+                    />
+                  )}
                 </>
               }
             />
