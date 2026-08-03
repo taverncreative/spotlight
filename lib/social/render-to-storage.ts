@@ -10,9 +10,12 @@ import type { RenderInput } from "@/lib/social/render-template-style";
 
 // Rasterising a recipe and putting the result where the publisher can find it.
 //
-// Same renderer as /api/render/social. That route exists so the editor can show
-// the true output on demand; this is the same call with the bytes kept instead
-// of streamed, so there is one renderer rather than two that can drift.
+// THE renderer, and now the only one. It used to have a sibling at
+// /api/render/social, which streamed the same image back so the editor's "See
+// the real render" button could show the true output before committing to it.
+// Both are gone: Save now renders as part of saving, so the picture on the post
+// IS the check, and a second entry point into the same renderer was one more
+// thing that could drift from this one.
 
 export async function renderToPng(input: RenderInput): Promise<Buffer> {
   const face = fontOrDefault(input.font);
