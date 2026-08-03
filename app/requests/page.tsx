@@ -2,8 +2,8 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { StatusPill } from "@/components/ui/status-pill";
+import { RequestRow } from "@/components/request-row";
+import { RequestDeleteButton } from "@/components/request-delete-button";
 import { createClient } from "@/lib/supabase/server";
 import {
   assignRequestToClient,
@@ -39,14 +39,6 @@ const STATUS_TABS: {
   { key: "in_progress", label: "In progress", empty: "Nothing in progress." },
   { key: "done", label: "Done", empty: "Nothing marked done yet." },
 ];
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 // A filter link that keeps whichever other filter is already set, so status and
 // source compose instead of clobbering each other.
@@ -217,32 +209,24 @@ export default async function RequestsPage({
       ) : (
         <ul className="grid gap-2">
           {visible.map((request) => (
-            <li
+            <RequestRow
               key={request.id}
-              className="space-y-2 rounded-card border bg-card p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusPill status={request.status} />
-                <span className="font-mono text-xs text-muted-foreground">
-                  {request.source_app}
-                </span>
-                <Badge variant="outline">{request.type}</Badge>
-                <span className="text-sm font-medium">
-                  {request.client_name}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  (not assigned)
-                </span>
-              </div>
-
-              <p className="text-sm whitespace-pre-wrap">{request.message}</p>
-
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  {request.submitter ? `${request.submitter} · ` : ""}
-                  {formatDate(request.created_at)}
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
+              status={request.status}
+              sourceApp={request.source_app}
+              type={request.type}
+              clientName={request.client_name}
+              submitter={request.submitter}
+              createdAt={request.created_at}
+              message={request.message}
+              // Done is the one action worth reaching without opening the row:
+              // triaging is mostly deciding that something is dealt with.
+              quickActions={
+                request.status !== "done" ? (
+                  <MoveButton id={request.id} status="done" label="Done" />
+                ) : null
+              }
+              actions={
+                <>
                   {/* Every row on this page is unassigned by definition, so
                       the control is unconditional. Assigning moves the request
                       onto that client's Requests tab and off this page. */}
@@ -289,12 +273,18 @@ export default async function RequestsPage({
                       label="Reopen"
                       variant="ghost"
                     />
-                  ) : (
-                    <MoveButton id={request.id} status="done" label="Done" />
-                  )}
-                </div>
-              </div>
-            </li>
+                  ) : null}
+                  {/* Last, and only here. Every row on this page is unassigned
+                      by definition, which is exactly the set 0087 allows to be
+                      deleted. It never appears on the collapsed line: nothing
+                      destructive should be one click from a list you skim. */}
+                  <RequestDeleteButton
+                    requestId={request.id}
+                    summary={request.message.split("\n")[0]?.trim() ?? ""}
+                  />
+                </>
+              }
+            />
           ))}
         </ul>
       )}

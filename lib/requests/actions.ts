@@ -78,3 +78,56 @@ export async function assignRequestToClient(formData: FormData): Promise<void> {
   // The home grid counts and the unassigned strip both move with this.
   revalidatePath("/home");
 }
+
+// Delete an inbound request, and only one that reached no client.
+//
+// The narrowing is enforced by RLS (client_requests_operator_delete, 0087):
+// the policy's using clause is `operator_id = auth.uid() and client_id is null`,
+// so an assigned request simply matches no row and the delete affects nothing.
+// The check below is NOT the security boundary -- the policy is -- it exists so
+// the operator gets a sentence explaining why rather than a silent no-op that
+// looks like a broken button.
+//
+// This is the one destructive action on inbound data, and 0040 spent real effort
+// making it impossible, so it stays narrow on purpose: what is deletable here is
+// what never reached a client, which is what an automated test row always is.
+export async function deleteRequest(
+  _previous: { ok: boolean; error?: string } | null,
+  formData: FormData
+): Promise<{ ok: boolean; error?: string }> {
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { ok: false, error: "Missing request." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Sign in to delete a request." };
+
+  // Read first, so an assigned row can be refused by name. Read through RLS, so
+  // another operator's row is simply not found.
+  const { data: request } = await supabase
+    .from("client_requests")
+    .select("id, client_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!request) return { ok: false, error: "That request no longer exists." };
+  if (request.client_id) {
+    return {
+      ok: false,
+      error:
+        "This request is assigned to a client, so it is kept as a record of what they asked for. Mark it done instead.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("client_requests")
+    .delete()
+    .eq("id", id);
+  if (error) return { ok: false, error: "Could not delete the request." };
+
+  revalidatePath("/requests");
+  // The home grid's unassigned strip counts these.
+  revalidatePath("/home");
+  return { ok: true };
+}

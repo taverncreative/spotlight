@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/ui/status-pill";
+import { RequestRow } from "@/components/request-row";
 import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { updateRequestStatus } from "@/lib/requests/actions";
@@ -331,26 +331,26 @@ export default async function ClientRequestsPage({
       ) : (
         <ul className="grid gap-2">
           {visibleRequests.map((request) => (
-            <li
+            <RequestRow
               key={request.id}
-              className="space-y-2 rounded-card border bg-card p-4"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusPill status={request.status} />
-                <span className="font-mono text-xs text-muted-foreground">
-                  {request.source_app}
-                </span>
-                <Badge variant="outline">{request.type}</Badge>
-              </div>
-
-              <p className="text-sm whitespace-pre-wrap">{request.message}</p>
-
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-muted-foreground">
-                  {request.submitter ? `${request.submitter} · ` : ""}
-                  {formatDate(request.created_at)}
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
+              status={request.status}
+              sourceApp={request.source_app}
+              type={request.type}
+              submitter={request.submitter}
+              createdAt={request.created_at}
+              message={request.message}
+              quickActions={
+                request.status !== "done" ? (
+                  <MoveButton
+                    action={updateRequestStatus}
+                    id={request.id}
+                    status="done"
+                    label="Done"
+                  />
+                ) : null
+              }
+              actions={
+                <>
                   {request.link ? (
                     <Button
                       variant="ghost"
@@ -364,6 +364,7 @@ export default async function ClientRequestsPage({
                       }
                     >
                       <ExternalLink />
+                      Source
                     </Button>
                   ) : null}
                   {request.status === "new" ? (
@@ -391,17 +392,10 @@ export default async function ClientRequestsPage({
                       label="Reopen"
                       variant="ghost"
                     />
-                  ) : (
-                    <MoveButton
-                      action={updateRequestStatus}
-                      id={request.id}
-                      status="done"
-                      label="Done"
-                    />
-                  )}
-                </div>
-              </div>
-            </li>
+                  ) : null}
+                </>
+              }
+            />
           ))}
         </ul>
       )}
