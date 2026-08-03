@@ -52,6 +52,93 @@ function parseMedia(raw: string): SocialMediaItem[] {
   }
 }
 
+// Bring a NEW post into existence as a draft, without leaving the composer.
+//
+// WHY THIS EXISTS. The image editor is its own page keyed on a post id, and a
+// new post has only a client-side id with no row behind it, so the way in had to
+// be hidden until after a manual save. That put the most visual feature in the
+// module behind a step you had to know to take, at exactly the moment you were
+// looking at the photo you wanted words on.
+//
+// So the first photo upload commits the draft. Nothing about the post is decided
+// by this: it is a draft with whatever caption exists so far, never scheduled,
+// and the composer keeps working exactly as before on top of it.
+//
+// THE ACCEPTED TRADE: abandoning a new post after uploading leaves a draft row
+// behind, where before it left only an orphaned object in the bucket. That is a
+// deliberate call, taken because a visible draft in the list is easier to notice
+// and delete than an invisible orphan, and because scripts/sweep-social-orphans
+// already exists for the objects.
+//
+// IDEMPOTENT. ignoreDuplicates means a second call for the same id is a no-op
+// rather than an error, so a double-fire from a re-render cannot break an
+// upload. The composer switches itself to edit mode once this succeeds, so the
+// eventual manual save updates this row instead of inserting over it.
+export async function autosaveSocialDraft(input: {
+  id: string;
+  clientId: string;
+  caption: string;
+  media: SocialMediaItem[];
+  targetIds: string[];
+}): Promise<{ ok: boolean; error?: string }> {
+  const { id, clientId, caption, media, targetIds } = input;
+  if (!id || !clientId) return { ok: false, error: "Missing post or client." };
+
+  const supabase = await createClient();
+
+  // RLS (owns_client) rejects a client_id the operator does not own, so a forged
+  // id cannot plant a row.
+  const { error } = await supabase
+    .from("social_posts")
+    .upsert(
+      { id, client_id: clientId, caption, status: "draft", scheduled_at: null },
+      { onConflict: "id", ignoreDuplicates: true }
+    );
+  if (error) return { ok: false, error: "Could not start the draft." };
+
+  // Media rows, so the image editor has photos to offer.
+  //
+  // ALWAYS a full rewrite, and it runs on every change while the composer is
+  // still on a new post - not once at creation. The editor is a separate page
+  // reading these rows, so if it showed only whichever photos existed at the
+  // instant the draft was committed, it would offer one photo while the
+  // composer visibly held three. Rewriting keeps the two agreeing.
+  //
+  // No reaping here. Objects dropped from the list are left for the manual save
+  // (which does reap) and for scripts/sweep-social-orphans, because this runs
+  // mid-edit and a photo removed now may be re-added a second later.
+  await supabase.from("social_post_media").delete().eq("post_id", id);
+  if (media.length > 0) {
+    const { error: mediaError } = await supabase
+      .from("social_post_media")
+      .insert(
+        media.map((m, index) => ({
+          post_id: id,
+          position: index,
+          storage_path: m.storage_path,
+          media_type: m.media_type,
+          width: m.width,
+          height: m.height,
+          poster_path: m.poster_path ?? null,
+        }))
+      );
+    if (mediaError) return { ok: false, error: "Could not save the photos." };
+  }
+
+  // Targets as currently ticked, so an abandoned draft reads the way the
+  // composer looked. The manual save reconciles them properly later.
+  if (targetIds.length > 0) {
+    await supabase
+      .from("social_post_targets")
+      .upsert(
+        targetIds.map((mid) => ({ post_id: id, meta_account_id: mid })),
+        { onConflict: "post_id,meta_account_id", ignoreDuplicates: true }
+      );
+  }
+
+  return { ok: true };
+}
+
 // Save a social post (create or edit; draft or schedule). The post id is
 // generated client-side so media can upload to its storage path before save;
 // new posts insert, edits update (both RLS-scoped). Media rows are replaced from

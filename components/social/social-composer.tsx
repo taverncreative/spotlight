@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
   SocialMediaUploader,
   type UploaderItem,
 } from "@/components/social/social-media-uploader";
-import { saveSocialPost } from "@/lib/social/actions";
+import { autosaveSocialDraft, saveSocialPost } from "@/lib/social/actions";
 import { londonParts } from "@/lib/social/london";
 import type { SocialPostFormState } from "@/lib/social/schemas";
 
@@ -128,10 +128,101 @@ export function SocialComposer({
     markStale({ media: true, targets: true });
   }
 
+  // Does a row for this post exist on the server yet? Starts true in edit mode,
+  // and flips on a new post the moment the first photo commits it as a draft.
+  // Everything that used to be gated on `mode` is gated on this instead, because
+  // "has a row" is what those things actually needed to know.
+  const [exists, setExists] = useState(mode === "edit");
+  const [autosaveError, setAutosaveError] = useState<string | null>(null);
+  // A ref, not state: it guards against overlapping writes and nothing renders
+  // from it. As state it would also mean setting state synchronously inside the
+  // effect below, which is the cascading-render pattern React warns about.
+  const autosaveInFlight = useRef(false);
+  // The same fact as `exists`, readable inside the effect without listing it as
+  // a dependency (which would re-run the effect the moment it flipped).
+  const hasRow = useRef(mode === "edit");
+
   function changeMedia(items: UploaderItem[]) {
     setMedia(items);
     markStale({ media: true });
   }
+
+  // A PHOTO COMMITS THE DRAFT, so the image editor has something to open.
+  //
+  // The editor is its own page keyed on a post id, so until a row exists the way
+  // in cannot be offered at all - which put the most visual feature in the
+  // module behind knowing that you had to save first, at exactly the moment you
+  // were looking at the photo you wanted words on.
+  //
+  // AFTER THE UPLOAD BATCH SETTLES, not on each file. The uploader emits one
+  // change per finished file, so firing on the first would commit the draft
+  // holding one photo while the composer visibly showed three, and the editor
+  // would then offer that one. Waiting for mediaUploading to fall back to false
+  // means the media list is whole.
+  //
+  // KEEPS RUNNING while the post is still new, rather than once: photos added or
+  // removed after the draft is committed have to reach the rows too, or the
+  // editor drifts from the composer. Idempotent server-side, so the repeats are
+  // free.
+  //
+  // A photo specifically, not any media: this exists to reach "text over photo",
+  // and a video has nothing for it to compose onto.
+  useEffect(() => {
+    if (mode === "edit") return; // a real save already owns this post
+    if (mediaUploading || autosaveInFlight.current) return;
+    // Create on the first photo; after that keep syncing whatever the media list
+    // has become, including back down to nothing. Without the second half,
+    // removing every photo would leave the editor offering one the composer no
+    // longer shows.
+    if (!hasRow.current && !media.some((item) => item.media_type === "image")) {
+      return;
+    }
+
+    let cancelled = false;
+    autosaveInFlight.current = true;
+    autosaveSocialDraft({
+      id: postId,
+      clientId,
+      caption,
+      media: media.map((m) => ({
+        storage_path: m.storage_path,
+        media_type: m.media_type,
+        width: m.width,
+        height: m.height,
+        poster_path: m.poster_path ?? null,
+      })),
+      targetIds: selectedIds,
+    })
+      .then((result) => {
+        if (result.ok) {
+          // The ref is set even if this effect was cleaned up: the row exists on
+          // the server either way, and forgetting that would let a later run
+          // insert over it.
+          hasRow.current = true;
+          if (!cancelled) {
+            setExists(true);
+            setAutosaveError(null);
+          }
+        } else if (!cancelled) {
+          setAutosaveError(result.error ?? "Could not start the draft.");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAutosaveError("Could not start the draft.");
+      })
+      .finally(() => {
+        autosaveInFlight.current = false;
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Caption and targets are read but deliberately NOT dependencies: this
+    // syncs the PHOTOS, and re-firing on every keystroke of the caption would
+    // turn typing into a write per character. Whatever the caption happens to be
+    // when a photo changes is good enough for a draft, and the manual save is
+    // what actually commits the words.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [media, mediaUploading, mode, postId, clientId]);
 
   // poster_path travels with the item. Leaving it out is what made every saved
   // video a blank tile: the uploader grabs a first frame and stores it, the row
@@ -152,7 +243,11 @@ export function SocialComposer({
       <input type="hidden" name="id" value={postId} />
       <input type="hidden" name="client_id" value={clientId} />
       <input type="hidden" name="client_slug" value={clientSlug} />
-      <input type="hidden" name="mode" value={mode} />
+      {/* Not the `mode` prop. Once the first photo has committed the draft, the
+          row exists, so the manual save has to UPDATE it - submitting "new"
+          would insert over a primary key that is already there and fail the
+          save with nothing on screen explaining why. */}
+      <input type="hidden" name="mode" value={exists ? "edit" : "new"} />
       <input type="hidden" name="media" value={mediaJson} />
 
       <div>
@@ -213,9 +308,11 @@ export function SocialComposer({
             labelled block rather than an icon for the same reason: nobody
             guesses what an icon for "compose type over a photo" looks like.
 
-            Only in edit mode. A new post has a client-side id but no row yet, so
-            the editor page would 404 on it. */}
-        {mode === "edit" ? (
+            Gated on the row existing, not on edit mode. A new post has a
+            client-side id and no row, so the editor page would 404 on it - but
+            the first photo upload now commits the draft, so on a new post this
+            block appears the moment there is a photo to put words on. */}
+        {exists && media.some((m) => m.media_type === "image") ? (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-card border bg-card p-3">
             <div className="space-y-0.5">
               <p className="text-sm font-medium">
@@ -239,10 +336,22 @@ export function SocialComposer({
               {hasStyledImage ? "Open" : "Make one"}
             </Button>
           </div>
+        ) : !exists && media.some((m) => m.media_type === "image") && !autosaveError ? (
+          // Derived rather than tracked: a photo is present but no row exists
+          // yet, which is exactly the window the autosave is open in.
+          <p className="mt-3 text-xs text-muted-foreground">
+            Starting a draft, so the styled-image editor has something to open…
+          </p>
+        ) : autosaveError ? (
+          // Says what actually failed and what still works. The upload itself
+          // succeeded, so the photo is safe and a manual save is unaffected.
+          <p className="mt-3 text-xs text-destructive">
+            {autosaveError} The photo uploaded fine. Save the post and the
+            styled-image editor will open as usual.
+          </p>
         ) : (
           <p className="mt-3 text-xs text-muted-foreground">
-            Save this post and you can compose a styled headline over one of its
-            photos.
+            Add a photo and you can compose a styled headline over it.
           </p>
         )}
         {state?.fieldErrors?.media && !mediaErrorStale ? (
