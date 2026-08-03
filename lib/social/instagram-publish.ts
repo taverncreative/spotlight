@@ -121,11 +121,46 @@ export async function createInstagramContainer(
   igUserId: string,
   token: string,
   caption: string,
-  items: IgItem[]
+  // Spelled out rather than imported from schemas.ts. This module deliberately
+  // uses no path aliases so the Graph layer can be mocked without pulling the
+  // app in behind it, and one two-member union is a cheaper duplicate than
+  // giving that up. schemas.ts POST_FORMATS is the definition; this must match.
+  items: IgItem[],
+  format: "feed" | "story" = "feed"
 ): Promise<string> {
   if (items.length === 0) {
     throw new PublishError("No media to publish.", "validation");
   }
+
+  // A STORY is one card, and it carries no caption.
+  //
+  // Same container flow as everything else -- media_type=STORIES, then
+  // media_publish -- which is why this is a branch rather than a second module.
+  // What differs is what a story IS: exactly one item, and no caption parameter
+  // at all, because none of Meta's story endpoints accepts message text. The
+  // caption argument is deliberately not passed on rather than passed as an
+  // empty string, so this reads as "stories have no caption" rather than "this
+  // story happened to have none".
+  //
+  // Several cards is several stories, which is a decision for a later slice: it
+  // is a different publish shape (N calls, N platform ids on one target row),
+  // not a longer list on this one.
+  if (format === "story") {
+    if (items.length > 1) {
+      throw new PublishError(
+        "A story is one photo or one video. Post them as separate stories.",
+        "validation"
+      );
+    }
+    const item = items[0];
+    const created = await igPost(deps, `/${igUserId}/media`, {
+      media_type: "STORIES",
+      ...(item.isVideo ? { video_url: item.url } : { image_url: item.url }),
+      access_token: token,
+    });
+    return String(created.id);
+  }
+
   if (items.length > IG_MAX_CAROUSEL) {
     throw new PublishError(
       `Instagram supports up to ${IG_MAX_CAROUSEL} items per post.`,

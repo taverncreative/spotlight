@@ -9,9 +9,11 @@ import { postImagePath } from "@/lib/posts/image-paths";
 import { londonOffsetMinutes } from "@/lib/social/london";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
 import { publishPost } from "@/lib/social/publisher";
+import { isPostFormat } from "@/lib/social/schemas";
 import type {
   SocialPostFormState,
   SocialMediaItem,
+  PostFormat,
 } from "@/lib/social/schemas";
 
 // All actions are owns_client / owns_social_post scoped via RLS (the policies in
@@ -79,20 +81,30 @@ export async function autosaveSocialDraft(input: {
   caption: string;
   media: SocialMediaItem[];
   targetIds: string[];
+  format?: PostFormat;
 }): Promise<{ ok: boolean; error?: string }> {
-  const { id, clientId, caption, media, targetIds } = input;
+  const { id, clientId, media, targetIds } = input;
+  const format = input.format ?? "feed";
+  // Same coercion as the manual save: 0085 refuses a story carrying a caption,
+  // and a constraint violation here would read as "could not start the draft".
+  const caption = format === "story" ? "" : input.caption;
   if (!id || !clientId) return { ok: false, error: "Missing post or client." };
 
   const supabase = await createClient();
 
   // RLS (owns_client) rejects a client_id the operator does not own, so a forged
   // id cannot plant a row.
-  const { error } = await supabase
-    .from("social_posts")
-    .upsert(
-      { id, client_id: clientId, caption, status: "draft", scheduled_at: null },
-      { onConflict: "id", ignoreDuplicates: true }
-    );
+  const { error } = await supabase.from("social_posts").upsert(
+    {
+      id,
+      client_id: clientId,
+      caption,
+      status: "draft",
+      scheduled_at: null,
+      format,
+    },
+    { onConflict: "id", ignoreDuplicates: true }
+  );
   if (error) return { ok: false, error: "Could not start the draft." };
 
   // Media rows, so the image editor has photos to offer.
@@ -158,7 +170,15 @@ export async function saveSocialPost(
   const clientSlug = String(formData.get("client_slug") ?? "");
   const mode = String(formData.get("mode") ?? "new"); // new | edit
   const intent = String(formData.get("intent") ?? "draft"); // draft | schedule | publish
-  const caption = String(formData.get("caption") ?? "");
+  // A story never sends a caption, and 0085 enforces that at the database. The
+  // composer omits the field entirely for a story rather than sending an empty
+  // one, but this coerces regardless: a caption arriving on a story would be a
+  // constraint violation surfacing as "could not save", which explains nothing.
+  const format = isPostFormat(formData.get("format"))
+    ? (formData.get("format") as PostFormat)
+    : "feed";
+  const caption =
+    format === "story" ? "" : String(formData.get("caption") ?? "");
   const media = parseMedia(String(formData.get("media") ?? "[]"));
   const selectedTargets = formData.getAll("target").map(String).filter(Boolean);
   if (!id || !clientId || !clientSlug) {
@@ -201,10 +221,30 @@ export async function saveSocialPost(
       };
     }
     // A text-only post still needs a caption, or there is nothing to publish.
-    if (media.length === 0 && caption.trim() === "") {
+    // A story cannot be text-only at all: it IS its picture.
+    if (media.length === 0) {
+      if (format === "story") {
+        return {
+          ok: false,
+          fieldErrors: { media: ["A story needs a photo or a video."] },
+        };
+      }
+      if (caption.trim() === "") {
+        return {
+          ok: false,
+          fieldErrors: { media: ["Add a caption, a photo or a video."] },
+        };
+      }
+    }
+    // ONE CARD. Meta publishes a story per call, so several items is several
+    // stories -- a different publish shape, not a longer list. Refused here,
+    // where the operator can be told, rather than at publish time inside a cron.
+    if (format === "story" && media.length > 1) {
       return {
         ok: false,
-        fieldErrors: { media: ["Add a caption, a photo or a video."] },
+        fieldErrors: {
+          media: ["A story is one photo or one video. Post them separately."],
+        },
       };
     }
   }
@@ -245,6 +285,10 @@ export async function saveSocialPost(
     // a post the publisher claims mid-edit cannot be overwritten from here.
     const { data, error } = await supabase
       .from("social_posts")
+      // format is deliberately NOT updated. What a post IS is fixed when it is
+      // created: a story and a feed post differ in caption, media count and
+      // aspect ratio, so flipping one into the other mid-edit would leave a row
+      // that satisfies neither set of rules.
       .update({ caption, status, scheduled_at: storedScheduledAt })
       .eq("id", id)
       .in("status", ["draft", "scheduled"])
@@ -265,6 +309,7 @@ export async function saveSocialPost(
       caption,
       status,
       scheduled_at: storedScheduledAt,
+      format,
     });
     if (error) return { ok: false, error: "Could not save the post." };
   }

@@ -13,10 +13,11 @@ export default async function NewSocialPostPage({
   // ?date=YYYY-MM-DD, set when the operator got here by clicking a day on the
   // calendar. Validated for shape, so a hand-typed "?date=soon" lands on an
   // empty date field rather than in the composer.
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; format?: string }>;
 }) {
   const { clientSlug } = await params;
-  const { date } = await searchParams;
+  const { date, format: formatParam } = await searchParams;
+  const format = formatParam === "story" ? "story" : "feed";
   const { client } = await requireClient(clientSlug);
 
   const supabase = await createClient();
@@ -41,7 +42,9 @@ export default async function NewSocialPostPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-xl font-semibold tracking-tight">New post</h1>
+      <h1 className="text-xl font-semibold tracking-tight">
+        {format === "story" ? "New story" : "New post"}
+      </h1>
       <SocialComposer
         clientId={client.id}
         clientSlug={clientSlug}
@@ -53,6 +56,7 @@ export default async function NewSocialPostPage({
         selectedTargetIds={allTargetIds}
         defaultTime={defaultTime}
         defaultDate={parseDay(date)}
+        format={format}
       />
     </div>
   );

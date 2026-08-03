@@ -66,6 +66,7 @@ type TargetRow = {
 type PostRow = {
   id: string;
   caption: string;
+  format: string;
   attempts: number;
   social_post_media: MediaRow[];
   social_post_targets: TargetRow[];
@@ -293,6 +294,7 @@ async function publishInstagramTarget(
   supabase: SupabaseClient,
   account: AccountRow,
   caption: string,
+  format: "feed" | "story",
   media: MediaRow[],
   targetId: string,
   targetContainerId: string | null
@@ -345,7 +347,8 @@ async function publishInstagramTarget(
         account.external_id,
         pageToken,
         caption,
-        items
+        items,
+        format
       );
       // Stored BEFORE the wait, so a process that dies mid-poll leaves an id to
       // resume from rather than an orphan container and a fresh one next tick.
@@ -384,10 +387,22 @@ async function publishTarget(
   supabase: SupabaseClient,
   account: AccountRow,
   caption: string,
+  format: "feed" | "story",
   media: MediaRow[],
   target: { id: string; container_id: string | null }
 ): Promise<string> {
   if (account.platform === "facebook") {
+    // FACEBOOK STORIES ARE NOT BUILT. Refused by name rather than quietly
+    // published as a feed post, which is what would happen if this fell through
+    // -- a story the operator asked for arriving on the Page timeline instead
+    // is worse than not going out. The /photo_stories and /video_stories edges
+    // wait on confirming the app has production access to them.
+    if (format === "story") {
+      throw new PublishError(
+        "Facebook stories are not supported yet. Post this story to Instagram.",
+        "validation"
+      );
+    }
     const videos = media.filter((m) => m.media_type === "video");
     if (videos.length > 0) {
       // A carousel mixing video and photos needs a different Facebook flow
@@ -415,6 +430,7 @@ async function publishTarget(
       supabase,
       account,
       caption,
+      format,
       media,
       target.id,
       target.container_id
@@ -436,7 +452,7 @@ export async function publishPost(
   const { data, error } = await supabase
     .from("social_posts")
     .select(
-      "id, caption, attempts, social_post_media(position, storage_path, media_type, width, height), social_post_targets(id, meta_account_id, platform_post_id, attempt_started_at, container_id, meta_accounts(id, platform, external_id, access_token, parent_account_id))"
+      "id, caption, format, attempts, social_post_media(position, storage_path, media_type, width, height), social_post_targets(id, meta_account_id, platform_post_id, attempt_started_at, container_id, meta_accounts(id, platform, external_id, access_token, parent_account_id))"
     )
     .eq("id", postId)
     .maybeSingle();
@@ -528,6 +544,7 @@ export async function publishPost(
         supabase,
         account,
         post.caption ?? "",
+        post.format === "story" ? "story" : "feed",
         media,
         target
       );

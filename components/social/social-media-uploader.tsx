@@ -14,6 +14,7 @@ import {
   type SocialMediaItem,
 } from "@/lib/social/schemas";
 import { checkVideo, isVideoType } from "@/lib/social/video-checks";
+import type { PostFormat } from "@/lib/social/schemas";
 import {
   shouldUseResumable,
   uploadResumable,
@@ -52,12 +53,22 @@ export function SocialMediaUploader({
   items,
   onChange,
   onUploadingChange,
+  format = "feed",
+  maxItems,
 }: {
   clientId: string;
   postId: string;
   items: UploaderItem[];
   onChange: (items: UploaderItem[]) => void;
   onUploadingChange?: (uploading: boolean) => void;
+  // Decides how strict the video checks are: a story's 9:16 and 60s are the
+  // format itself, so they block, where the same rules on a feed post are Reels
+  // guidance and only warn. See lib/social/video-checks.ts.
+  format?: PostFormat;
+  // A hard ceiling on how many items this post can hold. A story is one card,
+  // so extra files are refused at the picker rather than accepted here and
+  // rejected at save, after the upload has already been paid for.
+  maxItems?: number;
 }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
@@ -200,7 +211,7 @@ export function SocialMediaUploader({
     file: File
   ): Promise<UploaderItem | null> {
     const facts = await readVideoFacts(file);
-    const { blocking, warnings: found } = checkVideo(facts);
+    const { blocking, warnings: found } = checkVideo(facts, format);
     if (blocking.length > 0) {
       setError(`${file.name}: ${blocking.join(" ")}`);
       return null;
@@ -258,7 +269,28 @@ export function SocialMediaUploader({
   // ever sees the returned paths, at save time. Each finished file lands in the
   // grid immediately (per-file done state); the button counts them off.
   async function handleFiles(files: FileList) {
-    const list = Array.from(files);
+    let list = Array.from(files);
+    if (maxItems !== undefined) {
+      const room = Math.max(0, maxItems - items.length);
+      if (room === 0) {
+        setError(
+          maxItems === 1
+            ? "A story is one photo or one video. Remove this one to choose another."
+            : `Up to ${maxItems} items.`
+        );
+        return;
+      }
+      if (list.length > room) {
+        // Take what fits and say what was dropped, rather than silently
+        // uploading the first one and leaving the operator to notice.
+        setError(
+          maxItems === 1
+            ? "A story is one photo or one video, so only the first file was used."
+            : `Only the first ${room} were used.`
+        );
+        list = list.slice(0, room);
+      }
+    }
     setUploading(true);
     onUploadingChange?.(true);
     setProgress({ done: 0, total: list.length });

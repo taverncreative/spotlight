@@ -30,6 +30,7 @@ type TargetRow = {
 type PostRow = {
   id: string;
   caption: string;
+  format: string;
   status: string;
   scheduled_at: string | null;
   published_at: string | null;
@@ -101,7 +102,7 @@ export default async function SocialPage({
   const { data } = await supabase
     .from("social_posts")
     .select(
-      "id, caption, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path, media_type, poster_path), social_post_targets(meta_account_id, meta_accounts(platform), social_post_insights(likes, comments, shares, fetched_at, last_error))"
+      "id, caption, format, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path, media_type, poster_path), social_post_targets(meta_account_id, meta_accounts(platform), social_post_insights(likes, comments, shares, fetched_at, last_error))"
     )
     .eq("client_id", client.id)
     .order("created_at", { ascending: false });
@@ -132,12 +133,24 @@ export default async function SocialPage({
             Posts for this client.
           </p>
         </div>
-        <Button
-          size="sm"
-          render={<Link href={`/c/${clientSlug}/social/new`} />}
-        >
-          New post
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Its own way in, not a format dropdown inside the composer. Almost
+              every field differs -- no caption, one card, 9:16 -- so choosing
+              afterwards would mean a form that rearranges itself around you. */}
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href={`/c/${clientSlug}/social/new?format=story`} />}
+          >
+            New story
+          </Button>
+          <Button
+            size="sm"
+            render={<Link href={`/c/${clientSlug}/social/new`} />}
+          >
+            New post
+          </Button>
+        </div>
       </div>
 
       <SocialRunway
@@ -276,15 +289,34 @@ export default async function SocialPage({
                 </div>
                 <div className="flex flex-1 flex-col gap-1.5 p-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <StatusPill status={post.status} />
+                    <span className="flex items-center gap-1.5">
+                      <StatusPill status={post.status} />
+                      {/* A story has no caption, so without this the card would
+                          read "No caption" and look like an unfinished post
+                          rather than a finished story. */}
+                      {post.format === "story" ? (
+                        <span className="rounded-pill bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          Story
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="truncate text-xs text-muted-foreground capitalize">
                       {platforms.length ? platforms.join(", ") : "No targets"}
                     </span>
                   </div>
                   <p className="line-clamp-2 text-sm">
-                    {post.caption || (
-                      <span className="text-muted-foreground">No caption</span>
-                    )}
+                    {post.caption ||
+                      (post.format === "story" ? (
+                        // Not "No caption": a story is not missing one, it
+                        // cannot have one.
+                        <span className="text-muted-foreground">
+                          Words are in the picture
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          No caption
+                        </span>
+                      ))}
                   </p>
                   <p className="text-xs text-muted-foreground">{when}</p>
                   {/* Only for posts that have actually gone out: engagement on

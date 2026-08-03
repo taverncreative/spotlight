@@ -114,6 +114,29 @@ export const VIDEO_MAX_SECONDS = 15 * 60;
 export const REELS_ASPECT = 9 / 16;
 export const REELS_ASPECT_TOLERANCE = 0.02;
 
+// STORY RULES ARE BLOCKS, NOT WARNINGS, and that is the opposite of the Reels
+// rules above for a reason that is not inconsistency.
+//
+// A Reel's constraints are warnings because the same footage might be destined
+// for feed video, which allows longer and other ratios, so refusing it would
+// refuse something valid. A story has no such alternative: 9:16 and the duration
+// cap ARE the format, and there is nowhere else the file could be going. Letting
+// it through would mean a long upload and a publish that fails inside a cron.
+//
+// 60 seconds, not the Reels 90. Meta caps a story at 60 on both platforms.
+export const STORY_MAX_SECONDS = 60;
+
+// What a post IS, mirroring social_posts.format (0085). A Reel is deliberately
+// not here: it is derived at publish time from the media rather than chosen.
+export const POST_FORMATS = ["feed", "story"] as const;
+export type PostFormat = (typeof POST_FORMATS)[number];
+
+export function isPostFormat(value: unknown): value is PostFormat {
+  return (
+    typeof value === "string" && POST_FORMATS.includes(value as PostFormat)
+  );
+}
+
 export const SOCIAL_STATUSES = [
   "draft",
   "scheduled",

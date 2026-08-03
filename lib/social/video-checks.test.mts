@@ -162,3 +162,47 @@ test("isVideoType recognises exactly what the bucket accepts", () => {
   assert.equal(isVideoType("video/webm"), false);
   assert.equal(isVideoType("image/png"), false);
 });
+
+// --- stories: the same facts, a different severity -------------------------
+
+test("a story blocks on 9:16 where a feed post only warns", () => {
+  const square = facts({ width: 1080, height: 1080 });
+  const feed = checkVideo(square, "feed");
+  assert.deepEqual(feed.blocking, []);
+  assert.equal(feed.warnings.length, 1);
+
+  const story = checkVideo(square, "story");
+  assert.equal(story.blocking.length, 1);
+  assert.match(story.blocking[0], /has to be 9:16/);
+});
+
+test("a story caps at 60 seconds, where a feed post allows 90 as a Reel", () => {
+  const long = facts({ seconds: 75 });
+  assert.deepEqual(checkVideo(long, "feed").blocking, []);
+  const story = checkVideo(long, "story");
+  assert.equal(story.blocking.length, 1);
+  assert.match(story.blocking[0], /too long for a story/);
+});
+
+test("exactly 60 seconds is fine for a story", () => {
+  assert.deepEqual(checkVideo(facts({ seconds: 60 }), "story").blocking, []);
+});
+
+test("a good 9:16 clip raises nothing as a story either", () => {
+  const result = checkVideo(facts(), "story");
+  assert.deepEqual(result.blocking, []);
+  assert.deepEqual(result.warnings, []);
+});
+
+test("the format defaults to feed, so existing callers are unchanged", () => {
+  const square = facts({ width: 1080, height: 1080 });
+  assert.deepEqual(checkVideo(square), checkVideo(square, "feed"));
+});
+
+test("a soft story is a warning, not a block: Meta accepts it", () => {
+  const soft = facts({ width: 360, height: 640 });
+  const story = checkVideo(soft, "story");
+  assert.deepEqual(story.blocking, []);
+  assert.equal(story.warnings.length, 1);
+  assert.match(story.warnings[0], /look soft/);
+});

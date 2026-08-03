@@ -222,3 +222,53 @@ test("finishing needs no creation, which is what resuming depends on", async () 
     "no container was created"
   );
 });
+
+// --- stories ---------------------------------------------------------------
+
+test("a photo story is one container with media_type STORIES", async () => {
+  const d = deps(() => ({ id: "s1" }));
+  const id = await createInstagramContainer(
+    d,
+    "ig1",
+    "tok",
+    "",
+    photo(1),
+    "story"
+  );
+  assert.equal(id, "s1");
+  assert.equal(d.calls.length, 1);
+  assert.equal(d.calls[0].params.media_type, "STORIES");
+  assert.equal(d.calls[0].params.image_url, "https://cdn.test/p0.jpg");
+  assert.equal(d.calls[0].params.video_url, undefined);
+});
+
+test("a video story uses video_url, not image_url", async () => {
+  const d = deps(() => ({ id: "s2" }));
+  await createInstagramContainer(d, "ig1", "tok", "", video, "story");
+  assert.equal(d.calls[0].params.media_type, "STORIES");
+  assert.equal(d.calls[0].params.video_url, "https://cdn.test/v.mp4");
+  assert.equal(d.calls[0].params.image_url, undefined);
+});
+
+test("a story never sends a caption, even when one is passed", async () => {
+  // The caption argument exists because the signature is shared. A story must
+  // drop it rather than send an empty string: no story endpoint takes one.
+  const d = deps(() => ({ id: "s3" }));
+  await createInstagramContainer(d, "ig1", "tok", "words", photo(1), "story");
+  assert.equal("caption" in d.calls[0].params, false);
+});
+
+test("a story refuses more than one card, by name", async () => {
+  const d = deps(() => ({ id: "s4" }));
+  await assert.rejects(
+    () => createInstagramContainer(d, "ig1", "tok", "", photo(2), "story"),
+    /one photo or one video/
+  );
+  assert.equal(d.calls.length, 0, "refused before any call is made");
+});
+
+test("a single video is still a REEL when the format is feed", async () => {
+  const d = deps(() => ({ id: "c9" }));
+  await createInstagramContainer(d, "ig1", "tok", "hi", video, "feed");
+  assert.equal(d.calls[0].params.media_type, "REELS");
+});

@@ -16,7 +16,7 @@ import {
 } from "@/components/social/social-media-uploader";
 import { autosaveSocialDraft, saveSocialPost } from "@/lib/social/actions";
 import { londonParts } from "@/lib/social/london";
-import type { SocialPostFormState } from "@/lib/social/schemas";
+import type { PostFormat, SocialPostFormState } from "@/lib/social/schemas";
 
 type ComposerPost = { caption: string; scheduled_at: string | null };
 
@@ -37,6 +37,7 @@ export function SocialComposer({
   defaultDate = null,
   initialCaptionError = null,
   hasStyledImage = false,
+  format = "feed",
 }: {
   clientId: string;
   clientSlug: string;
@@ -62,16 +63,42 @@ export function SocialComposer({
   // Whether this post already has a styled image recipe, so the way in can say
   // which it is. Absent on a new post, which has no saved row to attach one to.
   hasStyledImage?: boolean;
+  // What this post IS, fixed at creation and never editable here. A story and a
+  // feed post differ in caption, media count and aspect ratio, so there is no
+  // coherent halfway row to flip through.
+  format?: PostFormat;
 }) {
   const [state, formAction, pending] = useActionState<
     SocialPostFormState,
     FormData
   >(saveSocialPost, null);
 
+  const isStory = format === "story";
+
+  // A STORY CAN ONLY GO TO INSTAGRAM TODAY, so Facebook accounts are not
+  // offered on one. The publisher refuses a Facebook story by name rather than
+  // quietly posting it to the Page timeline, but a target you can tick and
+  // schedule and that is guaranteed to fail hours later is a worse way to learn
+  // that than simply not being offered it.
+  const usableAccounts = isStory
+    ? accounts.filter((account) => account.platform === "instagram")
+    : accounts;
+  const hiddenFacebookCount = accounts.length - usableAccounts.length;
+
   const [caption, setCaption] = useState(post?.caption ?? "");
   const [media, setMedia] = useState<UploaderItem[]>(initialMedia);
   const [mediaUploading, setMediaUploading] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>(selectedTargetIds);
+  const [selectedIds, setSelectedIds] = useState<string[]>(() =>
+    // Never start a story with a Facebook target ticked, even though the server
+    // ticks every connected account by default.
+    isStory
+      ? selectedTargetIds.filter((id) =>
+          accounts.some(
+            (account) => account.id === id && account.platform === "instagram"
+          )
+        )
+      : selectedTargetIds
+  );
   const prefill = post?.scheduled_at ? londonParts(post.scheduled_at) : null;
   const [date, setDate] = useState(prefill?.date ?? defaultDate ?? "");
   // The post's own time wins; the client's usual time only fills a blank.
@@ -192,6 +219,7 @@ export function SocialComposer({
         poster_path: m.poster_path ?? null,
       })),
       targetIds: selectedIds,
+      format,
     })
       .then((result) => {
         if (result.ok) {
@@ -248,14 +276,22 @@ export function SocialComposer({
           would insert over a primary key that is already there and fail the
           save with nothing on screen explaining why. */}
       <input type="hidden" name="mode" value={exists ? "edit" : "new"} />
+      <input type="hidden" name="format" value={format} />
       <input type="hidden" name="media" value={mediaJson} />
 
       <div>
         <SocialTargets
-          accounts={accounts}
+          accounts={usableAccounts}
           selected={selectedIds}
           onToggle={toggleTarget}
         />
+        {isStory && hiddenFacebookCount > 0 ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Facebook stories are not supported yet, so{" "}
+            {hiddenFacebookCount === 1 ? "that Page is" : "those Pages are"} not
+            offered here.
+          </p>
+        ) : null}
         {state?.fieldErrors?.targets && !targetsErrorStale ? (
           <p className="mt-1 text-sm text-destructive">
             {state.fieldErrors.targets[0]}
@@ -263,29 +299,37 @@ export function SocialComposer({
         ) : null}
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="social-caption" className="text-sm font-medium">
-          Caption
-        </label>
-        <textarea
-          id="social-caption"
-          name="caption"
-          value={caption}
-          onChange={(event) => setCaption(event.target.value)}
-          rows={5}
-          placeholder="Write your caption…"
-          className={fieldInputClass}
-        />
-        {/* Share-to-social seeding only. The composer no longer generates
+      {/* NO CAPTION ON A STORY, and absent rather than disabled.
+          None of Meta's story endpoints accepts message text, so a caption box
+          here would be words the operator writes, watches save, and never sees
+          anywhere. 0085 refuses one at the database. Words reach a story by
+          being part of the picture, which is what the styled-image editor
+          below is for. */}
+      {isStory ? null : (
+        <div className="space-y-1.5">
+          <label htmlFor="social-caption" className="text-sm font-medium">
+            Caption
+          </label>
+          <textarea
+            id="social-caption"
+            name="caption"
+            value={caption}
+            onChange={(event) => setCaption(event.target.value)}
+            rows={5}
+            placeholder="Write your caption…"
+            className={fieldInputClass}
+          />
+          {/* Share-to-social seeding only. The composer no longer generates
             captions on demand, but shareToSocial still runs a blog post through
             the generator to seed this box, and when that fails the caption is
             the safe title-plus-meta fallback. Saying so is the difference
             between "this is the caption" and "this is what you get because
             something went wrong". */}
-        {initialCaptionError ? (
-          <p className="text-sm text-destructive">{initialCaptionError}</p>
-        ) : null}
-      </div>
+          {initialCaptionError ? (
+            <p className="text-sm text-destructive">{initialCaptionError}</p>
+          ) : null}
+        </div>
+      )}
 
       <div>
         <SocialMediaUploader
@@ -294,11 +338,15 @@ export function SocialComposer({
           items={media}
           onChange={changeMedia}
           onUploadingChange={setMediaUploading}
+          format={format}
+          maxItems={isStory ? 1 : undefined}
         />
         <p className="mt-1 text-xs text-muted-foreground">
-          {igSelected
-            ? "Instagram needs a photo or a video. One video posts as a Reel."
-            : "Media is optional for Facebook-only posts. One video posts as a Reel."}
+          {isStory
+            ? "One photo or one video, 9:16, up to 60 seconds."
+            : igSelected
+              ? "Instagram needs a photo or a video. One video posts as a Reel."
+              : "Media is optional for Facebook-only posts. One video posts as a Reel."}
         </p>
         {/* THE WAY IN TO THE IMAGE EDITOR.
             Here rather than on the post card in the list, because this is where

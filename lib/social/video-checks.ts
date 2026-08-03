@@ -4,8 +4,10 @@ import {
   REELS_ASPECT,
   REELS_ASPECT_TOLERANCE,
   REELS_MAX_SECONDS,
+  STORY_MAX_SECONDS,
   VIDEO_MAX_SECONDS,
   VIDEO_MIN_SECONDS,
+  type PostFormat,
 } from "@/lib/social/schemas";
 
 // What is wrong with a video, decided before it is uploaded.
@@ -49,9 +51,25 @@ function megabytes(bytes: number): string {
   return `${Math.round(bytes / (1024 * 1024))} MB`;
 }
 
-export function checkVideo(facts: VideoFacts): VideoCheck {
+// `format` decides how strict this is, and the difference is not a preference.
+//
+// On a FEED post, 9:16 and the duration cap are Reels rules, and the same
+// footage may be headed for feed video instead -- so they are warnings, and
+// blocking would refuse something valid.
+//
+// On a STORY there is no alternative destination. 9:16 and 60 seconds ARE the
+// format, so the same facts become blocking. Letting them through would buy the
+// operator a long upload and a publish that fails later inside a cron.
+export function checkVideo(
+  facts: VideoFacts,
+  format: PostFormat = "feed"
+): VideoCheck {
   const blocking: string[] = [];
   const warnings: string[] = [];
+  const isStory = format === "story";
+  // Where a story-only rule sends its message. Same sentence, different
+  // severity, so the two paths cannot drift in wording.
+  const storyRule = isStory ? blocking : warnings;
 
   if (!ALLOWED_VIDEO_TYPES.includes(facts.type)) {
     blocking.push("Use an MP4 or MOV. Meta refuses other formats.");
@@ -76,7 +94,13 @@ export function checkVideo(facts: VideoFacts): VideoCheck {
         `${seconds(facts.seconds)} is too short — Meta needs at least ${VIDEO_MIN_SECONDS}s.`
       );
     }
-    if (facts.seconds > VIDEO_MAX_SECONDS) {
+    if (isStory) {
+      if (facts.seconds > STORY_MAX_SECONDS) {
+        blocking.push(
+          `${seconds(facts.seconds)} is too long for a story — the limit is ${STORY_MAX_SECONDS}s.`
+        );
+      }
+    } else if (facts.seconds > VIDEO_MAX_SECONDS) {
       blocking.push(
         `${seconds(facts.seconds)} is too long — the limit is ${seconds(VIDEO_MAX_SECONDS)}.`
       );
@@ -90,13 +114,17 @@ export function checkVideo(facts: VideoFacts): VideoCheck {
   if (facts.width > 0 && facts.height > 0) {
     const ratio = facts.width / facts.height;
     if (Math.abs(ratio - REELS_ASPECT) > REELS_ASPECT_TOLERANCE) {
-      warnings.push(
-        `${facts.width}x${facts.height} is not 9:16. Reels will crop or pillarbox it.`
+      storyRule.push(
+        isStory
+          ? `${facts.width}x${facts.height} is not 9:16. A story has to be 9:16.`
+          : `${facts.width}x${facts.height} is not 9:16. Reels will crop or pillarbox it.`
       );
     }
     if (facts.height < 960 || facts.width < 540) {
+      // Soft, not wrong: Meta accepts it. A warning on both paths, because
+      // refusing a story for looking soft would be us overruling Meta.
       warnings.push(
-        `${facts.width}x${facts.height} is below the 540x960 Reels minimum, so it will look soft.`
+        `${facts.width}x${facts.height} is below the 540x960 minimum, so it will look soft.`
       );
     }
   }
