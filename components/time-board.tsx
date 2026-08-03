@@ -375,9 +375,7 @@ const ClientCard = memo(function ClientCard({
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-medium">{card.name}</span>
-        {running ? (
-          <RunningPill elapsed={elapsed} runaway={runaway} />
-        ) : null}
+        {running ? <RunningPill elapsed={elapsed} runaway={runaway} /> : null}
       </div>
 
       {unset ? (

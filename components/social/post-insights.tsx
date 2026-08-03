@@ -81,7 +81,10 @@ export function PostInsights({ targets }: { targets: TargetInsights[] }) {
         }
 
         return (
-          <div key={target.platform} className="flex flex-wrap items-center gap-2">
+          <div
+            key={target.platform}
+            className="flex flex-wrap items-center gap-2"
+          >
             <span className="capitalize">{target.platform}</span>
             {target.error ? (
               <span className="text-status-warn">Could not refresh</span>

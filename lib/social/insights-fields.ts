@@ -72,9 +72,7 @@ export function parseInstagramMedia(
   };
 }
 
-export function parseFacebookPost(
-  body: Record<string, unknown>
-): PostInsights {
+export function parseFacebookPost(body: Record<string, unknown>): PostInsights {
   // shares is {count: n} when present and ABSENT ENTIRELY when zero. That
   // absence is the one place a 0 is correct in this module, and only because the
   // field being readable is what makes its absence informative.
@@ -82,7 +80,7 @@ export function parseFacebookPost(
   return {
     likes: null, // pages_read_user_content
     comments: null, // pages_read_user_content
-    shares: shares ? count(shares.count) ?? 0 : 0,
+    shares: shares ? (count(shares.count) ?? 0) : 0,
     raw: body,
   };
 }

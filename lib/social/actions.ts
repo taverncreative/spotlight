@@ -44,8 +44,7 @@ function parseMedia(raw: string): SocialMediaItem[] {
         // The second place this was dropped. The composer omitted it from the
         // JSON and this omitted it from the parse, so fixing either alone would
         // have looked like a fix and changed nothing.
-        poster_path:
-          typeof m.poster_path === "string" ? m.poster_path : null,
+        poster_path: typeof m.poster_path === "string" ? m.poster_path : null,
       }));
   } catch {
     return [];
@@ -128,12 +127,10 @@ export async function autosaveSocialDraft(input: {
   // Targets as currently ticked, so an abandoned draft reads the way the
   // composer looked. The manual save reconciles them properly later.
   if (targetIds.length > 0) {
-    await supabase
-      .from("social_post_targets")
-      .upsert(
-        targetIds.map((mid) => ({ post_id: id, meta_account_id: mid })),
-        { onConflict: "post_id,meta_account_id", ignoreDuplicates: true }
-      );
+    await supabase.from("social_post_targets").upsert(
+      targetIds.map((mid) => ({ post_id: id, meta_account_id: mid })),
+      { onConflict: "post_id,meta_account_id", ignoreDuplicates: true }
+    );
   }
 
   return { ok: true };

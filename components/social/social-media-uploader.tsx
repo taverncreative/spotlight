@@ -208,7 +208,10 @@ export function SocialMediaUploader({
     // Shown, not swallowed, and the upload proceeds: these are Reels rules and
     // the file may be destined for the feed.
     if (found.length > 0) {
-      setWarnings((current) => [...current, `${file.name}: ${found.join(" ")}`]);
+      setWarnings((current) => [
+        ...current,
+        `${file.name}: ${found.join(" ")}`,
+      ]);
     }
 
     const id = crypto.randomUUID();
@@ -402,7 +405,8 @@ export function SocialMediaUploader({
           "flex flex-col items-start gap-2 transition-colors",
           items.length === 0 && "rounded-card border border-dashed p-4",
           items.length === 0 && !dragging && "bg-card/50",
-          dragging && "rounded-card border border-dashed border-primary bg-primary/5 p-4"
+          dragging &&
+            "rounded-card border border-dashed border-primary bg-primary/5 p-4"
         )}
       >
         <p className="text-sm text-muted-foreground">

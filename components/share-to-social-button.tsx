@@ -18,9 +18,7 @@ export function ShareToSocialButton({ title }: { title: string }) {
       size="icon-sm"
       disabled={pending}
       aria-label={
-        pending
-          ? `Sharing "${title}" to social…`
-          : `Share "${title}" to social`
+        pending ? `Sharing "${title}" to social…` : `Share "${title}" to social`
       }
       title={pending ? "Sharing…" : "Share to social"}
     >

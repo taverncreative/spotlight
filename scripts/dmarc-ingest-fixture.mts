@@ -34,7 +34,8 @@ await admin.from("dmarc_domains").upsert(
     client_id: null,
     domain: "taverncreative.com",
     ingest_address: "taverncreative-com@inbound.example",
-    dmarc_record: "v=DMARC1; p=none; rua=mailto:taverncreative-com@inbound.example; fo=1",
+    dmarc_record:
+      "v=DMARC1; p=none; rua=mailto:taverncreative-com@inbound.example; fo=1",
   },
   { onConflict: "operator_id,domain", ignoreDuplicates: true }
 );
@@ -51,10 +52,24 @@ if (!domain) {
 
 await admin.from("dmarc_known_senders").upsert(
   [
-    { dmarc_domain_id: domain.id, label: "Google Workspace", dkim_selector: "google", dkim_domain: "taverncreative.com" },
-    { dmarc_domain_id: domain.id, label: "Resend / SES", dkim_selector: "resend", dkim_domain: "taverncreative.com", envelope_domain: "send.taverncreative.com" },
+    {
+      dmarc_domain_id: domain.id,
+      label: "Google Workspace",
+      dkim_selector: "google",
+      dkim_domain: "taverncreative.com",
+    },
+    {
+      dmarc_domain_id: domain.id,
+      label: "Resend / SES",
+      dkim_selector: "resend",
+      dkim_domain: "taverncreative.com",
+      envelope_domain: "send.taverncreative.com",
+    },
   ],
-  { onConflict: "dmarc_domain_id,dkim_selector,dkim_domain", ignoreDuplicates: true }
+  {
+    onConflict: "dmarc_domain_id,dkim_selector,dkim_domain",
+    ignoreDuplicates: true,
+  }
 );
 const { data: known } = await admin
   .from("dmarc_known_senders")
@@ -63,16 +78,30 @@ const { data: known } = await admin
 
 // Parse the fixture and store it.
 const here = dirname(fileURLToPath(import.meta.url));
-const fixture = readFileSync(resolve(here, "../lib/dmarc/__fixtures__/outlook-taverncreative.xml"));
+const fixture = readFileSync(
+  resolve(here, "../lib/dmarc/__fixtures__/outlook-taverncreative.xml")
+);
 const parsed = await parseReport(fixture);
 const result = await storeReport(admin, domain.id, parsed, known ?? []);
 
 console.log("ingest result:", JSON.stringify(result));
 
 // Report the current stored state so a re-run visibly dedups.
-const [{ count: reports }, { count: records }, { data: daily }] = await Promise.all([
-  admin.from("dmarc_reports").select("id", { count: "exact", head: true }).eq("dmarc_domain_id", domain.id),
-  admin.from("dmarc_report_records").select("id", { count: "exact", head: true }).eq("dmarc_domain_id", domain.id),
-  admin.from("dmarc_daily").select("day, state, email_count, unknown_count, broken_count").eq("dmarc_domain_id", domain.id),
-]);
-console.log(`stored: reports=${reports} records=${records} daily=${JSON.stringify(daily)}`);
+const [{ count: reports }, { count: records }, { data: daily }] =
+  await Promise.all([
+    admin
+      .from("dmarc_reports")
+      .select("id", { count: "exact", head: true })
+      .eq("dmarc_domain_id", domain.id),
+    admin
+      .from("dmarc_report_records")
+      .select("id", { count: "exact", head: true })
+      .eq("dmarc_domain_id", domain.id),
+    admin
+      .from("dmarc_daily")
+      .select("day, state, email_count, unknown_count, broken_count")
+      .eq("dmarc_domain_id", domain.id),
+  ]);
+console.log(
+  `stored: reports=${reports} records=${records} daily=${JSON.stringify(daily)}`
+);

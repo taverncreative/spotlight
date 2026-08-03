@@ -16,7 +16,6 @@ export default async function PrintOrdersLayout({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-
   return (
     <div className="flex min-h-screen flex-col">
       <AppHeader />

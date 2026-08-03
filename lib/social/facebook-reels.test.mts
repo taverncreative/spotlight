@@ -120,8 +120,15 @@ test("a full run does start, transfer, finish, then confirms", async () => {
 
   const stored: string[] = [];
   const result = await publishFacebookReel(
-    d, "page1", "tok", "a caption", "https://cdn.test/v.mp4", null,
-    async (id) => { stored.push(id); }
+    d,
+    "page1",
+    "tok",
+    "a caption",
+    "https://cdn.test/v.mp4",
+    null,
+    async (id) => {
+      stored.push(id);
+    }
   );
 
   assert.deepEqual(result, { done: true, videoId: "v9" });
@@ -144,8 +151,17 @@ test("the id is stored BEFORE the transfer, so a crash leaves something to resum
     if (call.params.upload_phase === "finish") return { success: true };
     return status("complete", "complete", "complete");
   });
-  await publishFacebookReel(d, "p", "tok", "", "https://cdn.test/v.mp4", null,
-    async () => { order.push("stored"); });
+  await publishFacebookReel(
+    d,
+    "p",
+    "tok",
+    "",
+    "https://cdn.test/v.mp4",
+    null,
+    async () => {
+      order.push("stored");
+    }
+  );
   assert.deepEqual(order.slice(0, 2), ["stored", "transfer"]);
 });
 
@@ -154,7 +170,12 @@ test("the id is stored BEFORE the transfer, so a crash leaves something to resum
 test("resuming an already-published Reel starts nothing", async () => {
   const d = deps(() => status("complete", "complete", "complete"));
   const result = await publishFacebookReel(
-    d, "p", "tok", "", "https://cdn.test/v.mp4", "v-existing",
+    d,
+    "p",
+    "tok",
+    "",
+    "https://cdn.test/v.mp4",
+    "v-existing",
     async () => assert.fail("must not store a new id when resuming")
   );
   assert.deepEqual(result, { done: true, videoId: "v-existing" });
@@ -194,7 +215,13 @@ test("resuming an incomplete upload re-issues the transfer and finishes", async 
       : status("complete", "complete", "complete");
   });
   const result = await publishFacebookReel(
-    d, "p", "tok", "", "https://cdn.test/v.mp4", "v1", async () => {}
+    d,
+    "p",
+    "tok",
+    "",
+    "https://cdn.test/v.mp4",
+    "v1",
+    async () => {}
   );
   assert.deepEqual(result, { done: true, videoId: "v1" });
   assert.equal(d.calls.filter((c) => c.url.includes("rupload")).length, 1);
@@ -251,7 +278,13 @@ test("a Reel that finishes on a later poll still completes in the same call", as
       : status("complete", "complete", "complete");
   });
   const result = await publishFacebookReel(
-    d, "p", "tok", "", "u", null, async () => {}
+    d,
+    "p",
+    "tok",
+    "",
+    "u",
+    null,
+    async () => {}
   );
   assert.equal(result.done, true);
 });

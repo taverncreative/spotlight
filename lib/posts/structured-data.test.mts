@@ -30,11 +30,17 @@ test("Article carries the fields it has", () => {
   assert.equal(type, "Article");
   assert.equal(data["@context"], "https://schema.org");
   assert.equal(data["@type"], "Article");
-  assert.equal(data.description, "Practical ways to make your balayage last longer.");
+  assert.equal(
+    data.description,
+    "Practical ways to make your balayage last longer."
+  );
   assert.deepEqual(data.image, ["https://cdn.example.com/hero.jpg"]);
   assert.equal(data.datePublished, "2026-01-05T09:00:00.000Z");
   assert.equal(data.dateModified, "2026-02-01T11:30:00.000Z");
-  assert.deepEqual(data.author, { "@type": "Organization", name: "Therapy Hair" });
+  assert.deepEqual(data.author, {
+    "@type": "Organization",
+    name: "Therapy Hair",
+  });
 });
 
 test("headline is the real title, not the search-result override", () => {
@@ -48,7 +54,9 @@ test("description falls back to the excerpt, then disappears", () => {
     articleSchema(source({ metaDescription: null })).data.description,
     "A shorter summary."
   );
-  const bare = articleSchema(source({ metaDescription: null, excerpt: null })).data;
+  const bare = articleSchema(
+    source({ metaDescription: null, excerpt: null })
+  ).data;
   assert.ok(!("description" in bare), "should omit rather than emit empty");
 });
 
@@ -72,7 +80,10 @@ test("missing fields are OMITTED, never emitted as null or empty", () => {
     "author",
     "publisher",
   ]) {
-    assert.ok(!(key in data), `${key} should be absent, got ${String(data[key])}`);
+    assert.ok(
+      !(key in data),
+      `${key} should be absent, got ${String(data[key])}`
+    );
   }
   // The one thing always present.
   assert.equal(data.headline, "How to make your balayage last longer");
@@ -90,7 +101,9 @@ test("mainEntityOfPage is never claimed: only the client's site knows its URL", 
 // --- composition ----------------------------------------------------------
 
 test("Article leads, stored entries follow, and only data is served", () => {
-  const stored = [{ type: "FAQPage", data: { "@type": "FAQPage", mainEntity: [] } }];
+  const stored = [
+    { type: "FAQPage", data: { "@type": "FAQPage", mainEntity: [] } },
+  ];
   const composed = composeSchemas(source(), stored);
   assert.equal(composed.length, 2);
   assert.equal(composed[0]["@type"], "Article");
@@ -130,7 +143,10 @@ test("a non-array (or null column) parses to nothing", () => {
 
 test("FAQ rows become an FAQPage in schema.org shape", () => {
   const built = schemasFromForm([
-    { question: "How long does balayage last?", answer: "Three to four months." },
+    {
+      question: "How long does balayage last?",
+      answer: "Three to four months.",
+    },
   ]);
   assert.equal(built.length, 1);
   assert.equal(built[0].type, "FAQPage");

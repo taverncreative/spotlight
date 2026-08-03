@@ -3,8 +3,14 @@ import { requireClient } from "@/lib/clients/require-client";
 import { londonMonth, monthGrid, parseMonth } from "@/lib/calendar/grid";
 import { londonParts } from "@/lib/social/london";
 import { MonthCalendar } from "@/components/calendar/month-calendar";
-import { blogEntries, type CalendarBlogPost } from "@/components/blog/blog-calendar";
-import { socialEntries, type CalendarPost } from "@/components/social/social-calendar";
+import {
+  blogEntries,
+  type CalendarBlogPost,
+} from "@/components/blog/blog-calendar";
+import {
+  socialEntries,
+  type CalendarPost,
+} from "@/components/social/social-calendar";
 
 // Everything going out for one client, blog and social on one grid.
 //

@@ -26,14 +26,25 @@ function item(overrides: Partial<CalendarItem> & { id: string }): CalendarItem {
 }
 
 const dayKeys = (month: string) =>
-  monthGrid(month).cells.filter(Boolean).map((cell) => cell!.dayKey);
+  monthGrid(month)
+    .cells.filter(Boolean)
+    .map((cell) => cell!.dayKey);
 
 // --- month parsing --------------------------------------------------------
 
 test("only a real YYYY-MM is accepted", () => {
   assert.equal(parseMonth("2026-07"), "2026-07");
   assert.equal(parseMonth("2026-12"), "2026-12");
-  for (const bad of ["2026-13", "2026-00", "2026-7", "26-07", "", null, undefined, "2026-07-01"]) {
+  for (const bad of [
+    "2026-13",
+    "2026-00",
+    "2026-7",
+    "26-07",
+    "",
+    null,
+    undefined,
+    "2026-07-01",
+  ]) {
     assert.equal(parseMonth(bad), null, `${bad} should be rejected`);
   }
 });
@@ -62,7 +73,10 @@ test("the grid is always whole weeks", () => {
 
 test("a month that starts on a Monday has no leading blanks", () => {
   // 1 June 2026 is a Monday.
-  assert.deepEqual(monthGrid("2026-06").cells[0], { dayNum: 1, dayKey: "2026-06-01" });
+  assert.deepEqual(monthGrid("2026-06").cells[0], {
+    dayNum: 1,
+    dayKey: "2026-06-01",
+  });
 });
 
 test("every day of the month appears exactly once, in order", () => {
@@ -99,8 +113,14 @@ test("items land on their own day, earliest first", () => {
     item({ id: "a", time: "09:00" }),
     item({ id: "c", date: "2026-07-28", time: "08:00" }),
   ]);
-  assert.deepEqual(byDay.get("2026-07-27")?.map((i) => i.id), ["a", "b"]);
-  assert.deepEqual(byDay.get("2026-07-28")?.map((i) => i.id), ["c"]);
+  assert.deepEqual(
+    byDay.get("2026-07-27")?.map((i) => i.id),
+    ["a", "b"]
+  );
+  assert.deepEqual(
+    byDay.get("2026-07-28")?.map((i) => i.id),
+    ["c"]
+  );
 });
 
 test("two items at the same minute keep a stable order", () => {
@@ -146,7 +166,10 @@ test("the agenda starts at today and looks forward", () => {
     ],
     "2026-07-27"
   );
-  assert.deepEqual(days.map((d) => d.date), ["2026-07-27", "2026-08-02"]);
+  assert.deepEqual(
+    days.map((d) => d.date),
+    ["2026-07-27", "2026-08-02"]
+  );
 });
 
 test("the agenda is date-ordered regardless of input order", () => {
@@ -158,11 +181,10 @@ test("the agenda is date-ordered regardless of input order", () => {
     ],
     "2026-01-01"
   );
-  assert.deepEqual(days.map((d) => d.date), [
-    "2026-07-27",
-    "2026-08-15",
-    "2026-09-01",
-  ]);
+  assert.deepEqual(
+    days.map((d) => d.date),
+    ["2026-07-27", "2026-08-15", "2026-09-01"]
+  );
 });
 
 test("the agenda keeps every item on a shared day", () => {
@@ -173,12 +195,18 @@ test("the agenda keeps every item on a shared day", () => {
     ],
     "2026-07-01"
   );
-  assert.deepEqual(days[0].items.map((i) => i.id), ["2", "1"]);
+  assert.deepEqual(
+    days[0].items.map((i) => i.id),
+    ["2", "1"]
+  );
 });
 
 test("nothing upcoming gives an empty agenda, not a crash", () => {
   assert.deepEqual(agendaDays([], "2026-07-27"), []);
-  assert.deepEqual(agendaDays([item({ id: "old", date: "2020-01-01" })], "2026-07-27"), []);
+  assert.deepEqual(
+    agendaDays([item({ id: "old", date: "2020-01-01" })], "2026-07-27"),
+    []
+  );
 });
 
 // --- mosaic ---------------------------------------------------------------
@@ -263,7 +291,10 @@ test("a caption is cut to whole words, with an ellipsis", () => {
 
 test("a short caption is left alone, with no ellipsis", () => {
   assert.equal(firstWords("Book now", 6), "Book now");
-  assert.equal(firstWords("Exactly six words in this one", 6), "Exactly six words in this one");
+  assert.equal(
+    firstWords("Exactly six words in this one", 6),
+    "Exactly six words in this one"
+  );
 });
 
 test("messy whitespace collapses rather than counting as words", () => {

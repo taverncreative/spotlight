@@ -50,10 +50,7 @@ function formatDate(iso: string): string {
 
 // A filter link that keeps whichever other filter is already set, so status and
 // source compose instead of clobbering each other.
-function filterHref(
-  status: string | null,
-  source: string | null
-): string {
+function filterHref(status: string | null, source: string | null): string {
   const params = new URLSearchParams();
   if (status) params.set("status", status);
   if (source) params.set("source", source);
@@ -129,7 +126,8 @@ export default async function RequestsPage({
   // than from inbound_sources: a source can be revoked while its requests remain,
   // and those still need to be filterable.
   const sources = [...new Set(requests.map((r) => r.source_app))].sort();
-  const activeSource = sourceParam && sources.includes(sourceParam) ? sourceParam : null;
+  const activeSource =
+    sourceParam && sources.includes(sourceParam) ? sourceParam : null;
 
   // The DB already orders newest-first; the tabs only filter. Filtering here
   // rather than in the query is deliberate: the source tabs above need every row
@@ -209,8 +207,8 @@ export default async function RequestsPage({
 
       {requests.length === 0 ? (
         <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
-          No requests yet. When an app posts one to the inbound endpoint, it lands
-          here.
+          No requests yet. When an app posts one to the inbound endpoint, it
+          lands here.
         </p>
       ) : visible.length === 0 ? (
         <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">

@@ -39,9 +39,7 @@ test("no services gives null, not zero", () => {
 test("services that apply but have nothing to judge still give null", () => {
   // On blog and monitoring, but never posted and no sites checked. Nothing has
   // been neglected; there is simply no history. This must not read as zero.
-  const { score } = healthScore(
-    input({ services: ["blog", "monitoring"] })
-  );
+  const { score } = healthScore(input({ services: ["blog", "monitoring"] }));
   assert.equal(score, null);
 });
 
@@ -116,9 +114,8 @@ test("the same neglect scores worse for a client on fewer services", () => {
 
 test("requests: none open is full, threshold age is zero, half is half", () => {
   const only = (days: number | null) =>
-    healthScore(
-      input({ services: ["requests"], oldestOpenRequestDays: days })
-    ).score;
+    healthScore(input({ services: ["requests"], oldestOpenRequestDays: days }))
+      .score;
   near(only(null), 1, "nothing open");
   near(only(0), 1, "opened today");
   near(only(THRESHOLDS.requestDays / 2), 0.5, "half the threshold");
@@ -175,10 +172,7 @@ test("a stale request outweighs a down site", () => {
       siteState: "down",
     })
   ).score;
-  assert.ok(
-    staleRequest !== null && siteDown !== null,
-    "both scored"
-  );
+  assert.ok(staleRequest !== null && siteDown !== null, "both scored");
   assert.ok(
     staleRequest < siteDown,
     `a week-old request (${staleRequest}) should hurt more than a down site (${siteDown})`
@@ -194,8 +188,7 @@ test("the weighted mean is the documented arithmetic", () => {
       siteState: "healthy",
     })
   );
-  const expected =
-    WEIGHTS.monitoring / (WEIGHTS.requests + WEIGHTS.monitoring);
+  const expected = WEIGHTS.monitoring / (WEIGHTS.requests + WEIGHTS.monitoring);
   near(score, expected, "weighted mean");
 });
 
@@ -238,14 +231,11 @@ test("an unknown service is ignored rather than throwing", () => {
 
 test("negative and absurd inputs stay within 0..1", () => {
   const scores = [
-    healthScore(
-      input({ services: ["requests"], oldestOpenRequestDays: -5 })
-    ).score,
+    healthScore(input({ services: ["requests"], oldestOpenRequestDays: -5 }))
+      .score,
     healthScore(input({ services: ["social"], socialRunwayDays: -5 })).score,
     healthScore(input({ services: ["blog"], daysSinceLastPost: -5 })).score,
-    healthScore(
-      input({ services: ["social"], socialRunwayDays: 1e9 })
-    ).score,
+    healthScore(input({ services: ["social"], socialRunwayDays: 1e9 })).score,
   ];
   for (const score of scores) {
     assert.ok(score !== null, "scored");

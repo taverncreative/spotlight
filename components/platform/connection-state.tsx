@@ -73,7 +73,10 @@ export function ConnectionState({ state, detail }: Props) {
       aria-live="polite"
     >
       <div className="flex gap-4">
-        <Icon className={cn("mt-0.5 size-5 shrink-0", panel.iconTone)} aria-hidden />
+        <Icon
+          className={cn("mt-0.5 size-5 shrink-0", panel.iconTone)}
+          aria-hidden
+        />
         <div className="space-y-2">
           <h2 className="text-base font-semibold text-foreground">
             {panel.heading}

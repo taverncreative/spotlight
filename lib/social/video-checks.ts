@@ -67,7 +67,9 @@ export function checkVideo(facts: VideoFacts): VideoCheck {
   // A zero or NaN duration means the browser could not decode it, which is a
   // decent proxy for Meta not being able to either.
   if (!Number.isFinite(facts.seconds) || facts.seconds <= 0) {
-    blocking.push("Could not read this video. It may be corrupt or an unusual codec.");
+    blocking.push(
+      "Could not read this video. It may be corrupt or an unusual codec."
+    );
   } else {
     if (facts.seconds < VIDEO_MIN_SECONDS) {
       blocking.push(

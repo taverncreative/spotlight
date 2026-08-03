@@ -96,7 +96,12 @@ export function reasonsFor(w: PlatformWorkspace): AttentionReason[] {
     });
   }
 
-  if (w.subscription_status === "trialing" && days !== null && days >= 0 && days <= 7) {
+  if (
+    w.subscription_status === "trialing" &&
+    days !== null &&
+    days >= 0 &&
+    days <= 7
+  ) {
     reasons.push({
       kind: "trial_ending",
       label:

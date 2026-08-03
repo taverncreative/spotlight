@@ -336,7 +336,9 @@ export default async function OverviewPage({
                     key={task.id}
                     className="flex items-baseline justify-between gap-3 text-xs"
                   >
-                    <span className="min-w-0 flex-1 truncate">{task.title}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {task.title}
+                    </span>
                     <span
                       className={cn(
                         "shrink-0 tabular-nums",

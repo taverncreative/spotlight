@@ -165,7 +165,10 @@ function HealthBar({
 
   const percent = Math.round(health.score * 100);
   const breakdown = health.parts
-    .map((part) => `${SERVICE_LABELS[part.service]} ${Math.round(part.value * 100)}%`)
+    .map(
+      (part) =>
+        `${SERVICE_LABELS[part.service]} ${Math.round(part.value * 100)}%`
+    )
     .join(", ");
 
   return (
@@ -220,9 +223,7 @@ function DetailSection({
       <h3 className="text-xs font-medium text-muted-foreground">{label}</h3>
       <ul className="space-y-1">{children}</ul>
       {total > shown ? (
-        <p className="text-xs text-muted-foreground">
-          +{total - shown} more
-        </p>
+        <p className="text-xs text-muted-foreground">+{total - shown} more</p>
       ) : null}
     </section>
   );

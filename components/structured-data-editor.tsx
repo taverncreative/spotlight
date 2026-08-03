@@ -86,9 +86,7 @@ export function StructuredDataEditor({
                     }
                   >
                     <Trash2 aria-hidden="true" className="size-3.5" />
-                    <span className="sr-only">
-                      Remove question {index + 1}
-                    </span>
+                    <span className="sr-only">Remove question {index + 1}</span>
                   </Button>
                 </div>
                 <input

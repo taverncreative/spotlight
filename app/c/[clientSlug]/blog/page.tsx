@@ -68,11 +68,7 @@ export default async function BlogPage({
   searchParams: Promise<{ status?: string; view?: string; month?: string }>;
 }) {
   const { clientSlug } = await params;
-  const {
-    status: statusParam,
-    view,
-    month: monthParam,
-  } = await searchParams;
+  const { status: statusParam, view, month: monthParam } = await searchParams;
   const { client } = await requireClient(clientSlug);
 
   // CALENDAR IS THE DEFAULT and the list is the opt-out. A bare /blog lands on

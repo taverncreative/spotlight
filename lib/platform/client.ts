@@ -13,7 +13,8 @@ import {
 // client component importing it fails the build rather than shipping the token,
 // and nothing below ever puts the value in a return type, an error message or a
 // log line.
-const ENDPOINT = "https://bsk-platform.vercel.app/api/spotlight/platform-metrics";
+const ENDPOINT =
+  "https://bsk-platform.vercel.app/api/spotlight/platform-metrics";
 
 // Four outcomes, kept distinct all the way to the screen, because John needs to
 // tell them apart at a glance when the answer is "nothing here":

@@ -283,7 +283,9 @@ export default async function ClientRequestsPage({
                   <p className="text-xs text-muted-foreground">
                     {items.length} {items.length === 1 ? "line" : "lines"}{" "}
                     &middot; {totalQuantity} total
-                    {order.submitter ? ` · ${order.submitter}` : ""} &middot;{" "}
+                    {order.submitter
+                      ? ` · ${order.submitter}`
+                      : ""} &middot;{" "}
                     {formatDate(order.ordered_at ?? order.created_at)}
                   </p>
                   <div className="flex flex-wrap items-center gap-2">

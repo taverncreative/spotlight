@@ -20,7 +20,9 @@ function source(overrides: Partial<OpenGraphSource> = {}): OpenGraphSource {
 }
 
 test("the full set, for a client that has a blog base", () => {
-  const og = openGraph(source({ blogBaseUrl: "https://therapyhair.co.uk/blog" }));
+  const og = openGraph(
+    source({ blogBaseUrl: "https://therapyhair.co.uk/blog" })
+  );
   assert.deepEqual(og, {
     "og:type": "article",
     "og:title": "Balayage aftercare | Therapy Hair",
@@ -40,7 +42,10 @@ test("og:type is always article", () => {
 test("og:title prefers the meta title, unlike the Article headline", () => {
   // Different jobs: meta_title is written for a search result and carries a
   // brand suffix that reads right on a card and wrong as a document headline.
-  assert.equal(openGraph(source())["og:title"], "Balayage aftercare | Therapy Hair");
+  assert.equal(
+    openGraph(source())["og:title"],
+    "Balayage aftercare | Therapy Hair"
+  );
 });
 
 test("og:title falls back to the title, and is never empty", () => {
@@ -97,17 +102,23 @@ test("og:url is OMITTED when blog_base_url is unknown", () => {
 
 test("a trailing slash on the base never produces a double slash", () => {
   assert.equal(
-    openGraph(source({ blogBaseUrl: "https://therapyhair.co.uk/blog/" }))["og:url"],
+    openGraph(source({ blogBaseUrl: "https://therapyhair.co.uk/blog/" }))[
+      "og:url"
+    ],
     "https://therapyhair.co.uk/blog/balayage-aftercare"
   );
   assert.equal(
-    openGraph(source({ blogBaseUrl: "https://therapyhair.co.uk/blog///" }))["og:url"],
+    openGraph(source({ blogBaseUrl: "https://therapyhair.co.uk/blog///" }))[
+      "og:url"
+    ],
     "https://therapyhair.co.uk/blog/balayage-aftercare"
   );
 });
 
 test("a NON-absolute blog base is refused: a relative og:url means nothing", () => {
-  assert.ok(!("og:url" in openGraph(source({ blogBaseUrl: "therapyhair.co.uk" }))));
+  assert.ok(
+    !("og:url" in openGraph(source({ blogBaseUrl: "therapyhair.co.uk" })))
+  );
   assert.ok(!("og:url" in openGraph(source({ blogBaseUrl: "/blog" }))));
 });
 

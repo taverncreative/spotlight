@@ -17,13 +17,15 @@ type MediaRow = { position: number; storage_path: string };
 type TargetRow = {
   meta_account_id: string;
   meta_accounts: { platform: string } | null;
-  social_post_insights: {
-    likes: number | null;
-    comments: number | null;
-    shares: number | null;
-    fetched_at: string | null;
-    last_error: string | null;
-  }[] | null;
+  social_post_insights:
+    | {
+        likes: number | null;
+        comments: number | null;
+        shares: number | null;
+        fetched_at: string | null;
+        last_error: string | null;
+      }[]
+    | null;
 };
 type PostRow = {
   id: string;
@@ -93,8 +95,7 @@ export default async function SocialPage({
   // A status filter still forces the list, unchanged: filtering to Drafts and
   // getting a calendar that by definition cannot show one would read as broken.
   const isCalendar = view !== "list" && !statusParam;
-  const month =
-    parseMonth(monthParam) ?? londonMonth(new Date().toISOString());
+  const month = parseMonth(monthParam) ?? londonMonth(new Date().toISOString());
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -160,31 +161,31 @@ export default async function SocialPage({
             front. Picking one switches to the list, since that is the only view
             that can honour it. */}
         <nav className="flex flex-wrap gap-1" aria-label="Filter by status">
-            {STATUS_TABS.map((tab) => (
-              <Link
-                key={tab.label}
-                href={
-                  tab.key === null
-                    ? // Clearing the filter drops the status, not the view you
-                      // were reading.
-                      isCalendar
-                      ? `/c/${clientSlug}/social`
-                      : `/c/${clientSlug}/social?view=list`
-                    : `/c/${clientSlug}/social?status=${tab.key}`
-                }
-                aria-current={
-                  !isCalendar && tab.key === activeTab.key ? "page" : undefined
-                }
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-sm transition-colors",
-                  !isCalendar && tab.key === activeTab.key
-                    ? "bg-accent font-medium text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {tab.label}
-              </Link>
-            ))}
+          {STATUS_TABS.map((tab) => (
+            <Link
+              key={tab.label}
+              href={
+                tab.key === null
+                  ? // Clearing the filter drops the status, not the view you
+                    // were reading.
+                    isCalendar
+                    ? `/c/${clientSlug}/social`
+                    : `/c/${clientSlug}/social?view=list`
+                  : `/c/${clientSlug}/social?status=${tab.key}`
+              }
+              aria-current={
+                !isCalendar && tab.key === activeTab.key ? "page" : undefined
+              }
+              className={cn(
+                "rounded-md px-2.5 py-1 text-sm transition-colors",
+                !isCalendar && tab.key === activeTab.key
+                  ? "bg-accent font-medium text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+            </Link>
+          ))}
         </nav>
         <nav className="flex gap-1" aria-label="View">
           {[

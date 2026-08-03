@@ -88,9 +88,7 @@ export const postFormSchema = z.object({
         if (!Array.isArray(parsed)) return [] as FaqEntry[];
         return parsed.flatMap((entry) => {
           if (!entry || typeof entry !== "object") return [];
-          const question = String(
-            (entry as FaqEntry).question ?? ""
-          ).trim();
+          const question = String((entry as FaqEntry).question ?? "").trim();
           const answer = String((entry as FaqEntry).answer ?? "").trim();
           if (!question || !answer) return [];
           // Capped so one pasted essay cannot become the whole payload a

@@ -328,15 +328,15 @@ export function SocialComposer({
               type="button"
               variant="outline"
               size="sm"
-              render={
-                <Link href={`/c/${clientSlug}/social/${postId}/image`} />
-              }
+              render={<Link href={`/c/${clientSlug}/social/${postId}/image`} />}
             >
               <ImageIcon aria-hidden="true" className="size-3.5" />
               {hasStyledImage ? "Open" : "Make one"}
             </Button>
           </div>
-        ) : !exists && media.some((m) => m.media_type === "image") && !autosaveError ? (
+        ) : !exists &&
+          media.some((m) => m.media_type === "image") &&
+          !autosaveError ? (
           // Derived rather than tracked: a photo is present but no row exists
           // yet, which is exactly the window the autosave is open in.
           <p className="mt-3 text-xs text-muted-foreground">

@@ -37,7 +37,10 @@ test("a null billing period is stated as monthly, matching how MRR is estimated"
 });
 
 test("a subscription that is not simply active says so in the plan line", () => {
-  assert.equal(planLine("essentials", "monthly", "past_due"), "essentials · monthly · past due");
+  assert.equal(
+    planLine("essentials", "monthly", "past_due"),
+    "essentials · monthly · past due"
+  );
   assert.equal(planLine(null, null, null), "no plan");
 });
 

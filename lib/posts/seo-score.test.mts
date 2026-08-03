@@ -65,7 +65,10 @@ test("a post doing everything right scores 1, with pending and notes excluded", 
 // --- the removals ---------------------------------------------------------
 
 test("the 300-word check is gone; the floor left is a draft check", () => {
-  assert.ok(!ids(perfect()).includes("body-length"), "body-length still exists");
+  assert.ok(
+    !ids(perfect()).includes("body-length"),
+    "body-length still exists"
+  );
   const check = byId(perfect(), "has-content");
   assert.match(check.detail ?? "", /draft check, not an SEO one/i);
   assert.match(check.detail ?? "", /not a ranking factor/i);
@@ -88,7 +91,10 @@ test("an empty draft is caught, and says it is a draft check", () => {
 test("short posts are not judged on density at all", () => {
   // Two mentions in thirty words is 6.7% and means nothing.
   const short = "Balayage is lovely. Ask about balayage when you book in.";
-  assert.equal(byId(perfect({ body: short }), "keyword-not-stuffed").status, "pass");
+  assert.equal(
+    byId(perfect({ body: short }), "keyword-not-stuffed").status,
+    "pass"
+  );
 });
 
 test("density has NO lower bound: one mention in a long post still passes", () => {
@@ -107,7 +113,10 @@ test("density still fails upward, and says it reads as stuffed", () => {
   // roughly 200 words.
   const stuffed = [
     Array.from({ length: 40 }, () => "balayage").join(" "),
-    ...Array.from({ length: 30 }, (_, i) => `Sentence ${i} of ordinary filler.`),
+    ...Array.from(
+      { length: 30 },
+      (_, i) => `Sentence ${i} of ordinary filler.`
+    ),
   ].join(" ");
   const check = byId(perfect({ body: stuffed }), "keyword-not-stuffed");
   assert.equal(check.status, "fail");
@@ -185,11 +194,15 @@ test("internal links: matched against the client's own hosts", () => {
 test("relative links count as internal; anchors do not count at all", () => {
   const body =
     "Balayage intro with [a relative link](/services) and [an anchor](#top).";
-  assert.equal(byId(perfect({ body }), "internal-links").detail, "1 internal, 0 external");
+  assert.equal(
+    byId(perfect({ body }), "internal-links").detail,
+    "1 internal, 0 external"
+  );
 });
 
 test("zero internal links fails", () => {
-  const body = "Balayage intro with only [an outside link](https://example.com).";
+  const body =
+    "Balayage intro with only [an outside link](https://example.com).";
   const check = byId(perfect({ body }), "internal-links");
   assert.equal(check.status, "fail");
   assert.equal(check.detail, "0 internal, 1 external");
@@ -219,7 +232,10 @@ test("blog_base_url counts as an own host when no site is recorded", () => {
 
 test("images are not counted as links", () => {
   const body = "Balayage intro.\n\n![alt](https://cdn.example.com/a.jpg)";
-  assert.equal(byId(perfect({ body }), "internal-links").detail, "0 internal, 0 external");
+  assert.equal(
+    byId(perfect({ body }), "internal-links").detail,
+    "0 internal, 0 external"
+  );
 });
 
 // --- schema ---------------------------------------------------------------
@@ -241,7 +257,10 @@ test("an FAQ is reported in the note rather than scored", () => {
   const none = byId(perfect({ schemas: [] }), "schema-article");
   assert.match(none.detail ?? "", /title, description, image and dates/i);
 
-  const one = byId(perfect({ schemas: [{ type: "FAQPage" }] }), "schema-article");
+  const one = byId(
+    perfect({ schemas: [{ type: "FAQPage" }] }),
+    "schema-article"
+  );
   assert.match(one.detail ?? "", /1 question\b/);
 });
 
@@ -396,5 +415,8 @@ test("a sentence boundary does not fake a keyword match", () => {
 test("an empty body does not throw", () => {
   const result = seoScore(perfect({ body: null }));
   assert.ok(result.score !== null);
-  assert.equal(byId(perfect({ body: null }), "has-content").detail?.startsWith("0 words"), true);
+  assert.equal(
+    byId(perfect({ body: null }), "has-content").detail?.startsWith("0 words"),
+    true
+  );
 });

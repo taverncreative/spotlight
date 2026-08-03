@@ -42,7 +42,12 @@ async function handler(request: Request) {
       { status: 401 }
     );
   }
-  if (!secretMatches(request.headers.get("authorization") ?? "", `Bearer ${secret}`)) {
+  if (
+    !secretMatches(
+      request.headers.get("authorization") ?? "",
+      `Bearer ${secret}`
+    )
+  ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -101,7 +106,11 @@ async function handler(request: Request) {
       continue;
     }
 
-    const result = await fetchInsights(platform, target.platform_post_id, token);
+    const result = await fetchInsights(
+      platform,
+      target.platform_post_id,
+      token
+    );
 
     if (!result.ok) {
       failed++;

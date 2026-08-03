@@ -10,7 +10,9 @@ import type { PlatformWorkspace, WorkspaceModule } from "@/lib/platform/types";
 
 // A healthy, paying, working workspace: nothing to chase. Modelled on the real
 // payload so the defaults are the shape BSK View actually sends.
-function workspace(overrides: Partial<PlatformWorkspace> = {}): PlatformWorkspace {
+function workspace(
+  overrides: Partial<PlatformWorkspace> = {}
+): PlatformWorkspace {
   return {
     organisation_id: "org-1",
     name: "Medway Plumbing",
@@ -81,7 +83,10 @@ test("a paying workspace that is being used raises nothing", () => {
 // --- trials ---------------------------------------------------------------
 
 test("an overrun trial is the most urgent row and says how long it has run", () => {
-  const w = workspace({ subscription_status: "trialing", trial_days_remaining: -12 });
+  const w = workspace({
+    subscription_status: "trialing",
+    trial_days_remaining: -12,
+  });
   const [reason] = reasonsFor(w);
   assert.equal(reason.kind, "trial_lapsed");
   assert.equal(reason.label, "Trial lapsed 12 days ago");
@@ -89,12 +94,18 @@ test("an overrun trial is the most urgent row and says how long it has run", () 
 });
 
 test("a trial lapsed by one day says day, not days", () => {
-  const w = workspace({ subscription_status: "trialing", trial_days_remaining: -1 });
+  const w = workspace({
+    subscription_status: "trialing",
+    trial_days_remaining: -1,
+  });
   assert.equal(reasonsFor(w)[0].label, "Trial lapsed 1 day ago");
 });
 
 test("a trial inside the seven-day window is a warning, not an alarm", () => {
-  const w = workspace({ subscription_status: "trialing", trial_days_remaining: 3 });
+  const w = workspace({
+    subscription_status: "trialing",
+    trial_days_remaining: 3,
+  });
   const [reason] = reasonsFor(w);
   assert.equal(reason.kind, "trial_ending");
   assert.equal(reason.label, "Trial ends in 3 days");
@@ -102,12 +113,18 @@ test("a trial inside the seven-day window is a warning, not an alarm", () => {
 });
 
 test("a trial ending today reads as today rather than in 0 days", () => {
-  const w = workspace({ subscription_status: "trialing", trial_days_remaining: 0 });
+  const w = workspace({
+    subscription_status: "trialing",
+    trial_days_remaining: 0,
+  });
   assert.equal(reasonsFor(w)[0].label, "Trial ends today");
 });
 
 test("a trial with eight days left is not yet anybody's problem", () => {
-  const w = workspace({ subscription_status: "trialing", trial_days_remaining: 8 });
+  const w = workspace({
+    subscription_status: "trialing",
+    trial_days_remaining: 8,
+  });
   assert.deepEqual(kinds(w), []);
 });
 
@@ -163,9 +180,18 @@ test("an old dormant workspace is barely-using, not never-came-back", () => {
 // --- barely using it ------------------------------------------------------
 
 test("a fortnight of grace before quiet counts as a problem", () => {
-  const quiet = { quotes_count: 0, invoices_count: 0, has_raised_quote: false, has_sent_invoice: false };
-  assert.ok(!kinds(workspace({ age_days: 13, ...quiet })).includes("barely_using"));
-  assert.ok(kinds(workspace({ age_days: 14, ...quiet })).includes("barely_using"));
+  const quiet = {
+    quotes_count: 0,
+    invoices_count: 0,
+    has_raised_quote: false,
+    has_sent_invoice: false,
+  };
+  assert.ok(
+    !kinds(workspace({ age_days: 13, ...quiet })).includes("barely_using")
+  );
+  assert.ok(
+    kinds(workspace({ age_days: 14, ...quiet })).includes("barely_using")
+  );
 });
 
 test("paying for modules that were never switched on is flagged with the count", () => {
@@ -228,7 +254,11 @@ test("the list leads with the most urgent, and ties break alphabetically", () =>
 });
 
 test("archived workspaces are dropped: there is nobody left to chase", () => {
-  const w = workspace({ status: "archived", subscription_status: "trialing", trial_days_remaining: -30 });
+  const w = workspace({
+    status: "archived",
+    subscription_status: "trialing",
+    trial_days_remaining: -30,
+  });
   assert.deepEqual(buildAttentionList([w]), []);
 });
 
@@ -249,7 +279,12 @@ test("an unmeasured module can never be reported as idle", () => {
       // Calendar reports null usage. BSK View already excludes it from idle,
       // but a future payload that set the flag must not make us claim Calendar
       // is unused, because we cannot know that.
-      module({ module: "calendar", measured: false, enabled_but_idle: true, records_last_90d: null }),
+      module({
+        module: "calendar",
+        measured: false,
+        enabled_but_idle: true,
+        records_last_90d: null,
+      }),
       module({ module: "jobs", enabled_but_idle: true, records_last_90d: 0 }),
     ],
   });
@@ -264,7 +299,9 @@ test("last work prefers whichever record timestamp is more recent", () => {
     what: "invoice",
   });
   assert.deepEqual(
-    lastWorkAt(workspace({ last_invoice_created_at: "2026-07-01T00:00:00.000Z" })),
+    lastWorkAt(
+      workspace({ last_invoice_created_at: "2026-07-01T00:00:00.000Z" })
+    ),
     { at: "2026-07-27T04:24:24.926Z", what: "quote" }
   );
 });

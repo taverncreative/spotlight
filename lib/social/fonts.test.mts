@@ -35,7 +35,10 @@ test("every registered file exists and is a real TrueType font", () => {
   // passed a size check. Magic bytes are the check that would have caught it.
   for (const id of FONT_IDS) {
     for (const [weight, path] of Object.entries(FONTS[id].files)) {
-      assert.ok(statSync(path).size > 10_000, `${path} is too small to be a font`);
+      assert.ok(
+        statSync(path).size > 10_000,
+        `${path} is too small to be a font`
+      );
       const magic = readFileSync(path).subarray(0, 4).toString("hex");
       assert.ok(
         magic === "00010000" || magic === "74727565",

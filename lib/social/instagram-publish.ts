@@ -97,7 +97,8 @@ async function waitForContainer(
   creationId: string
 ): Promise<void> {
   for (let i = 0; i < deps.maxPolls; i++) {
-    if ((await readContainerStatus(deps, token, creationId)) === "ready") return;
+    if ((await readContainerStatus(deps, token, creationId)) === "ready")
+      return;
     if (i < deps.maxPolls - 1) await deps.sleep(deps.pollDelayMs);
   }
   throw new PublishError(

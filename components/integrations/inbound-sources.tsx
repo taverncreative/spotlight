@@ -101,11 +101,11 @@ export function InboundSources({ sources }: { sources: InboundSourceRow[] }) {
         Inbound sources
       </h2>
       <p className="text-xs text-muted-foreground">
-        A secret lets another app post client requests into your triage list. The
-        name is tidied to a slug (GEM CRM becomes gem-crm) and identifies the
-        sender on every request it files. Rotating? Generate a second secret for
-        the same name, switch the app over, then revoke the old one — both keep
-        working in the meantime.
+        A secret lets another app post client requests into your triage list.
+        The name is tidied to a slug (GEM CRM becomes gem-crm) and identifies
+        the sender on every request it files. Rotating? Generate a second secret
+        for the same name, switch the app over, then revoke the old one — both
+        keep working in the meantime.
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -169,7 +169,9 @@ export function InboundSources({ sources }: { sources: InboundSourceRow[] }) {
                     {source.last_used_at
                       ? `Last used ${formatDate(source.last_used_at)}`
                       : "Never used"}
-                    {revoked ? ` · Revoked ${formatDate(source.revoked_at!)}` : ""}
+                    {revoked
+                      ? ` · Revoked ${formatDate(source.revoked_at!)}`
+                      : ""}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -244,8 +246,8 @@ export function InboundSources({ sources }: { sources: InboundSourceRow[] }) {
           <div className="space-y-2">
             <AlertDialogTitle>Revoke this secret?</AlertDialogTitle>
             <AlertDialogDescription>
-              {revoking?.source_app} loses access immediately, and any request it
-              sends afterwards is rejected and lost. This cannot be undone.
+              {revoking?.source_app} loses access immediately, and any request
+              it sends afterwards is rejected and lost. This cannot be undone.
             </AlertDialogDescription>
           </div>
           <div className="flex justify-end gap-2">

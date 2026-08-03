@@ -89,7 +89,10 @@ export function articleSchema(source: ArticleSource): PostSchema {
     // Person: these are business sites, and there is no per-post author in the
     // data to claim otherwise.
     data.author = { "@type": "Organization", name: source.clientName.trim() };
-    data.publisher = { "@type": "Organization", name: source.clientName.trim() };
+    data.publisher = {
+      "@type": "Organization",
+      name: source.clientName.trim(),
+    };
   }
 
   return { type: "Article", data };

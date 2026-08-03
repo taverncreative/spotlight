@@ -60,7 +60,11 @@ function fileVersions() {
     if (byVersion.has(version)) {
       // Name BOTH files: reporting only the second one seen accuses whichever
       // sorted later, which is as likely to be the innocent one.
-      duplicates.push({ version, name, first: `${version}_${byVersion.get(version)}.sql` });
+      duplicates.push({
+        version,
+        name,
+        first: `${version}_${byVersion.get(version)}.sql`,
+      });
     } else byVersion.set(version, label);
   }
   return { byVersion, duplicates };
@@ -109,7 +113,9 @@ try {
 } catch (error) {
   console.error(
     "migration check: could not read the production ledger.\n  " +
-      String(error.stderr || error.message).trim().split("\n")[0]
+      String(error.stderr || error.message)
+        .trim()
+        .split("\n")[0]
   );
   process.exit(2);
 }

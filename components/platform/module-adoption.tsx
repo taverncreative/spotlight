@@ -19,7 +19,10 @@ function Bar({ fraction }: { fraction: number }) {
       role="img"
       aria-label={`${pct}% of workspaces`}
     >
-      <div className="h-full rounded-pill bg-primary" style={{ width: `${pct}%` }} />
+      <div
+        className="h-full rounded-pill bg-primary"
+        style={{ width: `${pct}%` }}
+      />
     </div>
   );
 }
@@ -78,7 +81,9 @@ export function ModuleAdoption({ platform }: { platform: PlatformAggregates }) {
                 {moduleLabel(m.module)}
                 {isFloor ? <Tag>floor</Tag> : null}
               </span>
-              <Bar fraction={entitled === 0 ? 0 : m.workspaces_enabled / entitled} />
+              <Bar
+                fraction={entitled === 0 ? 0 : m.workspaces_enabled / entitled}
+              />
               <span className="text-right text-xs whitespace-nowrap text-muted-foreground">
                 {m.workspaces_enabled} of {entitled} on
                 {m.workspaces_active_90d !== null

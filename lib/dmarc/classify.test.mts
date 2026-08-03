@@ -21,31 +21,43 @@ function record(dkim: ParsedRecord["dkim"]): ParsedRecord {
 }
 
 test("known sender passing -> ok", () => {
-  const r = record([{ selector: "google", domain: "taverncreative.com", result: "pass" }]);
+  const r = record([
+    { selector: "google", domain: "taverncreative.com", result: "pass" },
+  ]);
   assert.equal(classifyRecord(r, KNOWN), "ok");
 });
 
 test("unknown selector -> unknown", () => {
-  const r = record([{ selector: "mystery", domain: "taverncreative.com", result: "pass" }]);
+  const r = record([
+    { selector: "mystery", domain: "taverncreative.com", result: "pass" },
+  ]);
   assert.equal(classifyRecord(r, KNOWN), "unknown");
 });
 
 test("known sender failing -> broken (matched-DKIM-fail)", () => {
-  const r = record([{ selector: "google", domain: "taverncreative.com", result: "fail" }]);
+  const r = record([
+    { selector: "google", domain: "taverncreative.com", result: "fail" },
+  ]);
   assert.equal(classifyRecord(r, KNOWN), "broken");
 });
 
 test("scans ALL dkim blocks: resend match wins past a non-matching amazonses block", () => {
   const r = record([
     { selector: "resend", domain: "taverncreative.com", result: "pass" },
-    { selector: "shh3fegwg5fppqsuzphvschd53n6ihuv", domain: "amazonses.com", result: "pass" },
+    {
+      selector: "shh3fegwg5fppqsuzphvschd53n6ihuv",
+      domain: "amazonses.com",
+      result: "pass",
+    },
   ]);
   assert.equal(classifyRecord(r, KNOWN), "ok");
 });
 
 test("match is by selector AND domain, not selector alone", () => {
   // Right selector, wrong domain -> not a match -> unknown.
-  const r = record([{ selector: "google", domain: "evil.example", result: "pass" }]);
+  const r = record([
+    { selector: "google", domain: "evil.example", result: "pass" },
+  ]);
   assert.equal(classifyRecord(r, KNOWN), "unknown");
 });
 

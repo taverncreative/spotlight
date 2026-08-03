@@ -13,7 +13,11 @@ import type { VideoFacts } from "@/lib/social/video-checks";
 
 function withVideo<T>(
   file: File,
-  run: (video: HTMLVideoElement, done: (value: T) => void, fail: (reason: Error) => void) => void
+  run: (
+    video: HTMLVideoElement,
+    done: (value: T) => void,
+    fail: (reason: Error) => void
+  ) => void
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -38,7 +42,9 @@ function withVideo<T>(
       reject(reason);
     };
 
-    video.addEventListener("error", () => fail(new Error("Could not decode video")));
+    video.addEventListener("error", () =>
+      fail(new Error("Could not decode video"))
+    );
     // A file the browser cannot read within this is one Meta will struggle with
     // too, and an unbounded wait would hang the uploader on a corrupt file.
     setTimeout(() => fail(new Error("Timed out reading video")), 20_000);

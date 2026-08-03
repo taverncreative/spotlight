@@ -103,7 +103,11 @@ async function persistRecipe(
   };
 
   const query = recipeId
-    ? supabase.from("social_post_images").update(row).eq("id", recipeId).select("id")
+    ? supabase
+        .from("social_post_images")
+        .update(row)
+        .eq("id", recipeId)
+        .select("id")
     : supabase
         .from("social_post_images")
         .insert({ ...row, position: 0 })
@@ -113,7 +117,10 @@ async function persistRecipe(
   if (error) {
     // 23505 is the (post_id, position) unique index: one image per slot.
     if (error.code === "23505") {
-      return { ok: false, error: "This post already has an image in that slot." };
+      return {
+        ok: false,
+        error: "This post already has an image in that slot.",
+      };
     }
     return { ok: false, error: "Could not save the image." };
   }
@@ -202,12 +209,7 @@ async function renderRecipe(
   }
 
   const previous = row.rendered_path;
-  const path = renderPath(
-    post.client_id,
-    row.post_id,
-    recipeId,
-    Date.now()
-  );
+  const path = renderPath(post.client_id, row.post_id, recipeId, Date.now());
 
   const upload = await supabase.storage
     .from(SOCIAL_MEDIA_BUCKET)

@@ -32,7 +32,10 @@ export function FeaturedImageInput({
   // renders a frame behind and no effect fires on mount for a value the parent
   // already has.
   const report = (next: { url?: string | null; alt?: string }) => {
-    const merged = { url: next.url !== undefined ? next.url : url, alt: next.alt !== undefined ? next.alt : alt };
+    const merged = {
+      url: next.url !== undefined ? next.url : url,
+      alt: next.alt !== undefined ? next.alt : alt,
+    };
     if (next.url !== undefined) setUrl(next.url);
     if (next.alt !== undefined) setAlt(next.alt);
     onChange?.(merged);

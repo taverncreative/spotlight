@@ -67,8 +67,9 @@ export default async function PlatformPage() {
       {isBehindSchema(metrics) ? (
         <Alarm>
           BSK View is reporting schema v{metrics.schema_version}, older than the
-          v{PLATFORM_SCHEMA_VERSION} this console expects. Anything missing below
-          is something that deployment cannot report, not something that is zero.
+          v{PLATFORM_SCHEMA_VERSION} this console expects. Anything missing
+          below is something that deployment cannot report, not something that
+          is zero.
         </Alarm>
       ) : null}
 

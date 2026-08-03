@@ -151,7 +151,8 @@ export async function readReelStatus(
     video_status?: string;
   };
 
-  const phase = (p: PhaseShape): string => String(p?.status ?? "").toLowerCase();
+  const phase = (p: PhaseShape): string =>
+    String(p?.status ?? "").toLowerCase();
   const uploading = phase(status.uploading_phase);
   const processing = phase(status.processing_phase);
   const publishing = phase(status.publishing_phase);
@@ -164,10 +165,7 @@ export async function readReelStatus(
     ["publishing", publishing],
   ] as const) {
     if (value === "error") {
-      throw new PublishError(
-        `Facebook Reel ${name} failed.`,
-        "validation"
-      );
+      throw new PublishError(`Facebook Reel ${name} failed.`, "validation");
     }
   }
 

@@ -247,7 +247,10 @@ function headingFault(list: Heading[]): string | null {
   return null;
 }
 
-function classifyLinks(input: SeoInput): { internal: number; external: number } {
+function classifyLinks(input: SeoInput): {
+  internal: number;
+  external: number;
+} {
   const ownHosts = new Set<string>();
   for (const url of input.siteUrls) {
     const host = hostOf(url);
@@ -296,7 +299,8 @@ export function seoScore(input: SeoInput): SeoScoreResult {
     (entry) => (entry.type ?? "").toLowerCase() === "faqpage"
   ).length;
 
-  const yes = (condition: boolean): CheckStatus => (condition ? "pass" : "fail");
+  const yes = (condition: boolean): CheckStatus =>
+    condition ? "pass" : "fail";
 
   const checks: SeoCheck[] = [
     // --- essential --------------------------------------------------------

@@ -24,15 +24,16 @@ export type TemplateActionState = {
 } | null;
 
 function readName(formData: FormData): string {
-  return String(formData.get("name") ?? "").trim().slice(0, 80);
+  return String(formData.get("name") ?? "")
+    .trim()
+    .slice(0, 80);
 }
 
 function readStyle(formData: FormData): Record<string, unknown> | null {
   try {
-    return cleanStyle(JSON.parse(String(formData.get("style") ?? "{}"))) as Record<
-      string,
-      unknown
-    >;
+    return cleanStyle(
+      JSON.parse(String(formData.get("style") ?? "{}"))
+    ) as Record<string, unknown>;
   } catch {
     // The editor writes this field, so bad json is a bug or a tampered form
     // rather than something to explain in the operator's own words.
@@ -70,7 +71,8 @@ export async function createTemplate(
     .select("id")
     .maybeSingle();
 
-  if (error || !data) return { ok: false, error: "Could not save the template." };
+  if (error || !data)
+    return { ok: false, error: "Could not save the template." };
   if (clientSlug && postId) {
     revalidatePath(`/c/${clientSlug}/social/${postId}/image`);
   }
@@ -109,7 +111,8 @@ export async function duplicateTemplate(
     .select("id")
     .maybeSingle();
 
-  if (error || !data) return { ok: false, error: "Could not copy the template." };
+  if (error || !data)
+    return { ok: false, error: "Could not copy the template." };
   if (clientSlug && postId) {
     revalidatePath(`/c/${clientSlug}/social/${postId}/image`);
   }

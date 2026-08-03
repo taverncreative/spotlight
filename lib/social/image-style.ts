@@ -1,4 +1,7 @@
-import { DEFAULTS, type TemplateStyle } from "@/lib/social/render-template-style";
+import {
+  DEFAULTS,
+  type TemplateStyle,
+} from "@/lib/social/render-template-style";
 import { isFontId } from "@/lib/social/fonts";
 
 // Merging a stored template and a post's overrides into one style.

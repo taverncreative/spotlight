@@ -84,10 +84,10 @@ test("a record with several DKIM blocks normalises to an array (resend + amazons
   const report = await parseReport(FIXTURE);
   const third = report.records[2];
   assert.equal(third.dkim.length, 2);
-  assert.deepEqual(
-    third.dkim.map((d) => d.selector).sort(),
-    ["resend", "shh3fegwg5fppqsuzphvschd53n6ihuv"]
-  );
+  assert.deepEqual(third.dkim.map((d) => d.selector).sort(), [
+    "resend",
+    "shh3fegwg5fppqsuzphvschd53n6ihuv",
+  ]);
 });
 
 test("a single-DKIM record still normalises to a 1-element array", async () => {
@@ -124,12 +124,18 @@ test("XXE kill switch: a DOCTYPE declaration is rejected before parsing", () => 
   const hostile = `<?xml version="1.0"?>
 <!DOCTYPE feedback [ <!ENTITY xxe SYSTEM "file:///etc/passwd"> ]>
 <feedback><report_metadata><report_id>x</report_id></report_metadata></feedback>`;
-  assert.throws(() => parseXml(hostile), (e) => e instanceof DmarcError && /DTD or entity/.test(e.message));
+  assert.throws(
+    () => parseXml(hostile),
+    (e) => e instanceof DmarcError && /DTD or entity/.test(e.message)
+  );
 });
 
 test("XXE kill switch: a bare ENTITY declaration is rejected too", () => {
   const hostile = `<?xml version="1.0"?><!ENTITY a "b"><feedback></feedback>`;
-  assert.throws(() => parseXml(hostile), (e) => e instanceof DmarcError);
+  assert.throws(
+    () => parseXml(hostile),
+    (e) => e instanceof DmarcError
+  );
 });
 
 test("decompression bomb: a gzip that inflates past the cap throws, does not OOM", async () => {
@@ -156,9 +162,15 @@ test("zip with too many entries is rejected", async () => {
 
 test("a malformed zip fails safe as a DmarcError, not a raw throw", async () => {
   const fakeZip = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00, 0x00]);
-  await assert.rejects(() => parseReport(fakeZip), (e) => e instanceof DmarcError);
+  await assert.rejects(
+    () => parseReport(fakeZip),
+    (e) => e instanceof DmarcError
+  );
 });
 
 test("non-DMARC XML is rejected", () => {
-  assert.throws(() => parseXml("<html><body>nope</body></html>"), (e) => e instanceof DmarcError);
+  assert.throws(
+    () => parseXml("<html><body>nope</body></html>"),
+    (e) => e instanceof DmarcError
+  );
 });

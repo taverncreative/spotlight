@@ -8,14 +8,23 @@ import {
   lastWorkAt,
   type AttentionReason,
 } from "@/lib/platform/attention";
-import { daysAgo, moduleLabel, planLine, shortDate } from "@/lib/platform/format";
+import {
+  daysAgo,
+  moduleLabel,
+  planLine,
+  shortDate,
+} from "@/lib/platform/format";
 import type { PlatformWorkspace } from "@/lib/platform/types";
 
 // The reason a row is here, as a chip. Tone comes from the reason, so the
 // left-edge colour, the chip and the ordering all agree.
 function ReasonPill({ reason }: { reason: AttentionReason }) {
   const status =
-    reason.tone === "danger" ? "danger" : reason.tone === "warn" ? "warn" : "new";
+    reason.tone === "danger"
+      ? "danger"
+      : reason.tone === "warn"
+        ? "warn"
+        : "new";
   return <StatusPill status={status} label={reason.label} />;
 }
 
@@ -102,9 +111,7 @@ function WorkspaceRow({
         <Fact
           label="Last work"
           value={
-            work
-              ? `${work.what}, ${daysAgo(work.at)}`
-              : "nothing recorded"
+            work ? `${work.what}, ${daysAgo(work.at)}` : "nothing recorded"
           }
         />
         {/* Deliberately worded. See the footnote under the list. */}
@@ -150,7 +157,11 @@ function WorkspaceRow({
   );
 }
 
-export function AttentionList({ workspaces }: { workspaces: PlatformWorkspace[] }) {
+export function AttentionList({
+  workspaces,
+}: {
+  workspaces: PlatformWorkspace[];
+}) {
   const rows = buildAttentionList(workspaces);
 
   return (
@@ -190,8 +201,8 @@ export function AttentionList({ workspaces }: { workspaces: PlatformWorkspace[] 
           the wrong people. */}
       {rows.length > 0 ? (
         <p className="text-xs text-muted-foreground">
-          &ldquo;Last signed in properly&rdquo; moves only on a real sign-in, not
-          on a visit. Low is not idle. Last work is the reliable one.
+          &ldquo;Last signed in properly&rdquo; moves only on a real sign-in,
+          not on a visit. Low is not idle. Last work is the reliable one.
         </p>
       ) : null}
     </section>

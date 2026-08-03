@@ -74,7 +74,8 @@ export async function storeReport(
     const { error: recordsError } = await supabase
       .from("dmarc_report_records")
       .insert(rows);
-    if (recordsError) return { ok: false, error: "could not store the records" };
+    if (recordsError)
+      return { ok: false, error: "could not store the records" };
   }
 
   // 3. Refresh the day's rollup from all records on that day (idempotent).

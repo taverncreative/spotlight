@@ -93,10 +93,12 @@ export function PostForm({
   );
   // Mirrored from FeaturedImageInput so the checklist can score the image and
   // its alt as they change, rather than as they were when the form mounted.
-  const [featured, setFeatured] = useState<{ url: string | null; alt: string }>({
-    url: post?.featured_image ?? null,
-    alt: post?.featured_image_alt ?? "",
-  });
+  const [featured, setFeatured] = useState<{ url: string | null; alt: string }>(
+    {
+      url: post?.featured_image ?? null,
+      alt: post?.featured_image_alt ?? "",
+    }
+  );
 
   // The meta title mirrors the title until it is edited, then detaches and keeps
   // its own value. Same shape as the slug above it, and for the same reason: a
@@ -194,8 +196,7 @@ export function PostForm({
 
       <div className="space-y-1.5">
         <label htmlFor="post-meta-title" className="text-sm font-medium">
-          Meta title{" "}
-          <span className="text-muted-foreground">(optional)</span>
+          Meta title <span className="text-muted-foreground">(optional)</span>
         </label>
         {/* The SUBMITTED value, separate from the visible one. Blank while the
             field is still mirroring, so the column stays null and keeps

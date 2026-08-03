@@ -4,10 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { Button } from "@/components/ui/button";
 import { ImageEditor } from "@/components/social/image-editor";
-import {
-  recipesForPost,
-  templatesForClient,
-} from "@/lib/social/image-recipe";
+import { recipesForPost, templatesForClient } from "@/lib/social/image-recipe";
 import { isRenderPath } from "@/lib/social/render-to-storage";
 
 // Making the image for one social post.
@@ -56,10 +53,12 @@ export default async function SocialImagePage({
   // recipe's own photo is added back because it is exactly the one that just
   // stopped being a media row.
   const sourcePaths = new Set(
-    ((post.social_post_media ?? []) as {
-      position: number;
-      storage_path: string;
-    }[])
+    (
+      (post.social_post_media ?? []) as {
+        position: number;
+        storage_path: string;
+      }[]
+    )
       .slice()
       .sort((a, b) => a.position - b.position)
       .map((media) => media.storage_path)

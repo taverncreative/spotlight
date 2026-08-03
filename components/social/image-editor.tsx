@@ -151,10 +151,10 @@ export function ImageEditor({
     overrides: Partial<TemplateStyle>;
   };
 }) {
-  const [state, formAction, pending] = useActionState<ImageRecipeState, FormData>(
-    saveAndRenderImageRecipe,
-    null
-  );
+  const [state, formAction, pending] = useActionState<
+    ImageRecipeState,
+    FormData
+  >(saveAndRenderImageRecipe, null);
 
   const [templateId, setTemplateId] = useState(
     initial.templateId ?? templates[0]?.id ?? ""
@@ -173,8 +173,10 @@ export function ImageEditor({
   const [style, setStyle] = useState<TemplateStyle>(() =>
     resolveStyle(template?.style ?? {}, initial.overrides)
   );
-  const set = <K extends keyof TemplateStyle>(key: K, value: TemplateStyle[K]) =>
-    setStyle((current) => ({ ...current, [key]: value }));
+  const set = <K extends keyof TemplateStyle>(
+    key: K,
+    value: TemplateStyle[K]
+  ) => setStyle((current) => ({ ...current, [key]: value }));
 
   // Preview geometry. Everything is a fraction of the canvas, so drawing at any
   // display width is exact rather than a scaled approximation.
@@ -222,12 +224,37 @@ export function ImageEditor({
           behaves the same way they do. */}
       <form id={EDITOR_FORM} action={formAction} className="hidden" />
       <input type="hidden" form={EDITOR_FORM} name="post_id" value={postId} />
-      <input type="hidden" form={EDITOR_FORM} name="client_slug" value={clientSlug} />
-      <input type="hidden" form={EDITOR_FORM} name="recipe_id" value={initial.recipeId ?? ""} />
-      <input type="hidden" form={EDITOR_FORM} name="template_id" value={templateId} />
-      <input type="hidden" form={EDITOR_FORM} name="photo_path" value={photoPath} />
+      <input
+        type="hidden"
+        form={EDITOR_FORM}
+        name="client_slug"
+        value={clientSlug}
+      />
+      <input
+        type="hidden"
+        form={EDITOR_FORM}
+        name="recipe_id"
+        value={initial.recipeId ?? ""}
+      />
+      <input
+        type="hidden"
+        form={EDITOR_FORM}
+        name="template_id"
+        value={templateId}
+      />
+      <input
+        type="hidden"
+        form={EDITOR_FORM}
+        name="photo_path"
+        value={photoPath}
+      />
       <input type="hidden" form={EDITOR_FORM} name="text" value={text} />
-      <input type="hidden" form={EDITOR_FORM} name="style" value={JSON.stringify(style)} />
+      <input
+        type="hidden"
+        form={EDITOR_FORM}
+        name="style"
+        value={JSON.stringify(style)}
+      />
 
       {/* --- preview --- */}
       <div className="space-y-2">
@@ -357,14 +384,38 @@ export function ImageEditor({
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Slider label="Size" value={style.capHeight} min={0.05} max={0.25} step={0.001}
-            onChange={(v) => set("capHeight", v)} />
-          <Slider label="Leading" value={style.leading} min={0.85} max={1.6} step={0.01}
-            onChange={(v) => set("leading", v)} />
-          <Slider label="Across" value={style.x} min={0} max={0.6} step={0.002}
-            onChange={(v) => set("x", v)} />
-          <Slider label="Down" value={style.y} min={0} max={0.85} step={0.002}
-            onChange={(v) => set("y", v)} />
+          <Slider
+            label="Size"
+            value={style.capHeight}
+            min={0.05}
+            max={0.25}
+            step={0.001}
+            onChange={(v) => set("capHeight", v)}
+          />
+          <Slider
+            label="Leading"
+            value={style.leading}
+            min={0.85}
+            max={1.6}
+            step={0.01}
+            onChange={(v) => set("leading", v)}
+          />
+          <Slider
+            label="Across"
+            value={style.x}
+            min={0}
+            max={0.6}
+            step={0.002}
+            onChange={(v) => set("x", v)}
+          />
+          <Slider
+            label="Down"
+            value={style.y}
+            min={0}
+            max={0.85}
+            step={0.002}
+            onChange={(v) => set("y", v)}
+          />
         </div>
 
         <Field label="Font">
@@ -406,7 +457,11 @@ export function ImageEditor({
             >
               {weightsOf(face).map((option) => (
                 <option key={option} value={option}>
-                  {option === 900 ? "Black" : option === 700 ? "Bold" : "Regular"}
+                  {option === 900
+                    ? "Black"
+                    : option === 700
+                      ? "Bold"
+                      : "Regular"}
                 </option>
               ))}
             </select>
@@ -416,10 +471,7 @@ export function ImageEditor({
         )}
 
         <Field label="Text colour">
-          <Swatches
-            value={style.colour}
-            onChange={(v) => set("colour", v)}
-          />
+          <Swatches value={style.colour} onChange={(v) => set("colour", v)} />
         </Field>
 
         <Field label="Highlight">
@@ -437,13 +489,31 @@ export function ImageEditor({
                 value={style.highlightColour}
                 onChange={(v) => set("highlightColour", v)}
               />
-              <Slider label="Opacity" value={style.highlightOpacity} min={0.2} max={1} step={0.05}
-                onChange={(v) => set("highlightOpacity", v)} />
+              <Slider
+                label="Opacity"
+                value={style.highlightOpacity}
+                min={0.2}
+                max={1}
+                step={0.05}
+                onChange={(v) => set("highlightOpacity", v)}
+              />
               <div className="grid gap-3 sm:grid-cols-2">
-                <Slider label="Padding across" value={style.highlightPadX} min={0} max={0.4} step={0.01}
-                  onChange={(v) => set("highlightPadX", v)} />
-                <Slider label="Padding down" value={style.highlightPadY} min={0} max={0.3} step={0.01}
-                  onChange={(v) => set("highlightPadY", v)} />
+                <Slider
+                  label="Padding across"
+                  value={style.highlightPadX}
+                  min={0}
+                  max={0.4}
+                  step={0.01}
+                  onChange={(v) => set("highlightPadX", v)}
+                />
+                <Slider
+                  label="Padding down"
+                  value={style.highlightPadY}
+                  min={0}
+                  max={0.3}
+                  step={0.01}
+                  onChange={(v) => set("highlightPadY", v)}
+                />
               </div>
               <Hint>
                 Vertical padding grows the blocks without moving the text: the
@@ -456,7 +526,9 @@ export function ImageEditor({
         <Field label="Scrim">
           <select
             value={style.scrim}
-            onChange={(event) => set("scrim", event.target.value as ScrimColour)}
+            onChange={(event) =>
+              set("scrim", event.target.value as ScrimColour)
+            }
             className={fieldInputClass}
           >
             <option value="none">None</option>
@@ -465,8 +537,14 @@ export function ImageEditor({
           </select>
           {style.scrim !== "none" ? (
             <div className="mt-2">
-              <Slider label="Opacity" value={style.scrimOpacity} min={0.05} max={0.85} step={0.05}
-                onChange={(v) => set("scrimOpacity", v)} />
+              <Slider
+                label="Opacity"
+                value={style.scrimOpacity}
+                min={0.05}
+                max={0.85}
+                step={0.05}
+                onChange={(v) => set("scrimOpacity", v)}
+              />
             </div>
           ) : null}
           <Hint>Dims the whole photo. The highlight usually beats it.</Hint>
@@ -481,8 +559,8 @@ export function ImageEditor({
             {state.saved ? (
               <>
                 {" "}
-                Your settings are saved, so nothing is lost - press Save again to
-                retry the picture.
+                Your settings are saved, so nothing is lost - press Save again
+                to retry the picture.
               </>
             ) : null}
           </p>
@@ -512,13 +590,26 @@ export function ImageEditor({
 
 function hexToRgba(hex: string, alpha: number): string {
   const clean = hex.replace("#", "");
-  const full = clean.length === 3 ? clean.split("").map((c) => c + c).join("") : clean;
+  const full =
+    clean.length === 3
+      ? clean
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : clean;
   const value = Number.parseInt(full, 16);
-  if (full.length !== 6 || Number.isNaN(value)) return `rgba(255,255,255,${alpha})`;
+  if (full.length !== 6 || Number.isNaN(value))
+    return `rgba(255,255,255,${alpha})`;
   return `rgba(${(value >> 16) & 255},${(value >> 8) & 255},${value & 255},${alpha})`;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
       <p className="text-sm font-medium">{label}</p>

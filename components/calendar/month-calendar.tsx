@@ -147,7 +147,7 @@ function Dot({ status, onImage }: { status: string; onImage?: boolean }) {
           ? status === "draft"
             ? "border border-white/80 bg-transparent"
             : "bg-white/80"
-          : DOT[status] ?? "bg-muted-foreground"
+          : (DOT[status] ?? "bg-muted-foreground")
       )}
     />
   );
@@ -378,7 +378,9 @@ function DetailRow({ entry }: { entry: CalendarEntry }) {
 // Flat when there is only one module, because "Blog" above a list of only blog
 // posts is a label nobody needed.
 function DayList({ entries }: { entries: CalendarEntry[] }) {
-  const modules = [...new Set(entries.map((entry) => entry.module).filter(Boolean))];
+  const modules = [
+    ...new Set(entries.map((entry) => entry.module).filter(Boolean)),
+  ];
 
   if (modules.length < 2) {
     return (
@@ -420,7 +422,9 @@ function DayList({ entries }: { entries: CalendarEntry[] }) {
 // Shown only on a calendar that actually mixes modules, so a single-module
 // calendar is not carrying a legend explaining one thing.
 function Legend({ entries }: { entries: CalendarEntry[] }) {
-  const modules = [...new Set(entries.map((entry) => entry.module).filter(Boolean))];
+  const modules = [
+    ...new Set(entries.map((entry) => entry.module).filter(Boolean)),
+  ];
   if (modules.length < 2) return null;
   return (
     <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -517,7 +521,9 @@ export function MonthCalendar({
               <h3
                 className={cn(
                   "text-xs font-medium",
-                  day.date === today ? "text-foreground" : "text-muted-foreground"
+                  day.date === today
+                    ? "text-foreground"
+                    : "text-muted-foreground"
                 )}
               >
                 {formatDayLabel(day.date)}
@@ -555,7 +561,9 @@ export function MonthCalendar({
           ))}
           {grid.cells.map((cell, index) => {
             if (!cell) {
-              return <div key={index} className={cn(CELL_HEIGHT, "bg-card/50")} />;
+              return (
+                <div key={index} className={cn(CELL_HEIGHT, "bg-card/50")} />
+              );
             }
             const dayEntries = byDay.get(cell.dayKey) ?? [];
             const mosaic = mosaicLayout(dayEntries.length);

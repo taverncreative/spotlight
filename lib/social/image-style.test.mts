@@ -56,7 +56,10 @@ test("a value of the wrong type is dropped, so the layer beneath decides", () =>
 });
 
 test("NaN and Infinity are not numbers for this purpose", () => {
-  const style = resolveStyle({ leading: Number.NaN, x: Number.POSITIVE_INFINITY }, {});
+  const style = resolveStyle(
+    { leading: Number.NaN, x: Number.POSITIVE_INFINITY },
+    {}
+  );
   assert.equal(style.leading, DEFAULTS.leading);
   assert.equal(style.x, DEFAULTS.x);
 });
@@ -64,12 +67,26 @@ test("NaN and Infinity are not numbers for this purpose", () => {
 test("an unknown scrim falls back rather than silently rendering none", () => {
   assert.equal(resolveStyle({ scrim: "chartreuse" }, {}).scrim, DEFAULTS.scrim);
   assert.equal(resolveStyle({ scrim: "black" }, {}).scrim, "black");
-  assert.equal(resolveStyle({ scrim: "black" }, { scrim: "none" }).scrim, "none");
+  assert.equal(
+    resolveStyle({ scrim: "black" }, { scrim: "none" }).scrim,
+    "none"
+  );
 });
 
 test("junk in the column is not a crash", () => {
-  for (const junk of [null, undefined, 42, "a string", [], [{ capHeight: 1 }]]) {
-    assert.deepEqual(cleanStyle(junk), {}, `${JSON.stringify(junk)} should clean to {}`);
+  for (const junk of [
+    null,
+    undefined,
+    42,
+    "a string",
+    [],
+    [{ capHeight: 1 }],
+  ]) {
+    assert.deepEqual(
+      cleanStyle(junk),
+      {},
+      `${JSON.stringify(junk)} should clean to {}`
+    );
   }
   assert.deepEqual(resolveStyle(null, undefined), DEFAULTS);
 });
@@ -87,7 +104,10 @@ test("false and zero survive, because they are real values", () => {
 test("never rendered is stale", () => {
   assert.equal(isStale(null, null, "2026-07-28T00:00:00Z"), true);
   assert.equal(isStale("some/path.png", null, "2026-07-28T00:00:00Z"), true);
-  assert.equal(isStale(null, "2026-07-28T00:00:00Z", "2026-07-28T00:00:00Z"), true);
+  assert.equal(
+    isStale(null, "2026-07-28T00:00:00Z", "2026-07-28T00:00:00Z"),
+    true
+  );
 });
 
 test("rendered before the template changed is stale", () => {
@@ -116,5 +136,8 @@ test("an unknown font falls back rather than reaching the renderer", () => {
 });
 
 test("a post can override the template's font", () => {
-  assert.equal(resolveStyle({ font: "anton" }, { font: "bebas-neue" }).font, "bebas-neue");
+  assert.equal(
+    resolveStyle({ font: "anton" }, { font: "bebas-neue" }).font,
+    "bebas-neue"
+  );
 });

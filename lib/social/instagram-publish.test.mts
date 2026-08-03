@@ -60,7 +60,11 @@ test("a single video is created as a REEL, with video_url", async () => {
   assert.equal(d.calls[0].params.media_type, "REELS");
   assert.equal(d.calls[0].params.video_url, "https://cdn.test/v.mp4");
   assert.equal(d.calls[0].params.caption, "hello");
-  assert.equal(d.calls[0].params.image_url, undefined, "a video is not an image");
+  assert.equal(
+    d.calls[0].params.image_url,
+    undefined,
+    "a video is not an image"
+  );
 });
 
 test("a single photo is unchanged: image_url, no media_type", async () => {
@@ -88,14 +92,19 @@ test("a photo carousel is unchanged: children first, then the parent", async () 
 test("a mixed carousel is refused by name rather than half-attempted", async () => {
   const d = deps(() => ({ id: "c" }));
   await assert.rejects(
-    () => createInstagramContainer(d, "ig1", "tok", "", [...photo(2), ...video]),
+    () =>
+      createInstagramContainer(d, "ig1", "tok", "", [...photo(2), ...video]),
     (error: PublishError) => {
       assert.equal(error.classification, "validation");
       assert.match(error.message, /one video, or up to 10 photos/);
       return true;
     }
   );
-  assert.equal(d.calls.length, 0, "nothing should be created for a refused shape");
+  assert.equal(
+    d.calls.length,
+    0,
+    "nothing should be created for a refused shape"
+  );
 });
 
 test("more than ten items is refused before any container is made", async () => {
@@ -149,7 +158,9 @@ test("ERROR and EXPIRED are terminal, so the caller forgets the container", asyn
 
 test("a container that is ready publishes and returns the media id", async () => {
   const d = deps((call) =>
-    call.url.includes("media_publish") ? { id: "media99" } : { status_code: "FINISHED" }
+    call.url.includes("media_publish")
+      ? { id: "media99" }
+      : { status_code: "FINISHED" }
   );
   const id = await finishInstagramContainer(d, "ig1", "tok", "c1");
   assert.equal(id, "media99");
@@ -200,7 +211,9 @@ test("finishing needs no creation, which is what resuming depends on", async () 
   // Next tick holds only a stored id. If finishing required the creation call,
   // every tick would build a new container and spend Instagram's daily limit.
   const d = deps((call) =>
-    call.url.includes("media_publish") ? { id: "m" } : { status_code: "FINISHED" }
+    call.url.includes("media_publish")
+      ? { id: "m" }
+      : { status_code: "FINISHED" }
   );
   await finishInstagramContainer(d, "ig1", "tok", "stored-container-id");
   assert.equal(

@@ -234,7 +234,12 @@ export function TemplateControls({
             <Save aria-hidden="true" className="size-3.5" />
             {updating ? "Updating…" : `Update “${current.name}”`}
           </Button>
-          <p className={cn("text-xs", current.usedBy > 1 ? "text-status-warn" : "text-muted-foreground")}>
+          <p
+            className={cn(
+              "text-xs",
+              current.usedBy > 1 ? "text-status-warn" : "text-muted-foreground"
+            )}
+          >
             {current.usedBy > 1
               ? `Changes this look everywhere it is used — ${current.usedBy} posts. Already published images are not affected.`
               : "Changes the template itself. Your per-post adjustments stay as they are."}

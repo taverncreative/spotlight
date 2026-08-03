@@ -25,21 +25,27 @@ import type { ArchivedClient, DeletionImpact } from "@/app/home/page";
 // Only the CASCADE tables. Requests, print orders and Meta accounts survive a
 // delete and are described separately, because "kept but orphaned" is a
 // different warning from "destroyed".
-const IMPACT_LABELS: { key: keyof DeletionImpact; one: string; many: string }[] =
-  [
-    { key: "posts", one: "blog post", many: "blog posts" },
-    { key: "social", one: "social post", many: "social posts" },
-    { key: "sites", one: "site and its check history", many: "sites and their check history" },
-    { key: "tasks", one: "task", many: "tasks" },
-    { key: "timeEntries", one: "logged time entry", many: "logged time entries" },
-    { key: "apiKeys", one: "content API key", many: "content API keys" },
-    { key: "dmarcDomains", one: "DMARC domain", many: "DMARC domains" },
-  ];
+const IMPACT_LABELS: {
+  key: keyof DeletionImpact;
+  one: string;
+  many: string;
+}[] = [
+  { key: "posts", one: "blog post", many: "blog posts" },
+  { key: "social", one: "social post", many: "social posts" },
+  {
+    key: "sites",
+    one: "site and its check history",
+    many: "sites and their check history",
+  },
+  { key: "tasks", one: "task", many: "tasks" },
+  { key: "timeEntries", one: "logged time entry", many: "logged time entries" },
+  { key: "apiKeys", one: "content API key", many: "content API keys" },
+  { key: "dmarcDomains", one: "DMARC domain", many: "DMARC domains" },
+];
 
 function impactLines(impact: DeletionImpact): string[] {
   return IMPACT_LABELS.filter(({ key }) => impact[key] > 0).map(
-    ({ key, one, many }) =>
-      `${impact[key]} ${impact[key] === 1 ? one : many}`
+    ({ key, one, many }) => `${impact[key]} ${impact[key] === 1 ? one : many}`
   );
 }
 

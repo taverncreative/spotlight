@@ -100,7 +100,10 @@ test("waiting never exhausts the attempt budget", () => {
 });
 
 test("a transient failure DOES spend attempts, and stops at the cap", () => {
-  assert.equal(settle(attempt({ sawTransient: true, attempts: 1 })).status, "scheduled");
+  assert.equal(
+    settle(attempt({ sawTransient: true, attempts: 1 })).status,
+    "scheduled"
+  );
   assert.equal(
     settle(attempt({ sawTransient: true, attempts: MAX_ATTEMPTS })).status,
     "failed"
@@ -136,7 +139,10 @@ test("some done, something terminal, is partial and says the count", () => {
 
 test("an already-published target counts toward done", () => {
   // skipped is idempotency doing its job, not a failure.
-  assert.equal(settle(attempt({ published: 1, skipped: 1 })).status, "published");
+  assert.equal(
+    settle(attempt({ published: 1, skipped: 1 })).status,
+    "published"
+  );
 });
 
 test("a post with no targets fails rather than claiming success", () => {

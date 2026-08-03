@@ -52,7 +52,10 @@ export function CharCounter({
         <span />
       )}
       <span
-        className={cn("text-xs tabular-nums", count === 0 ? "text-muted-foreground" : tone)}
+        className={cn(
+          "text-xs tabular-nums",
+          count === 0 ? "text-muted-foreground" : tone
+        )}
       >
         {count}/{limit}
         <span className="sr-only">

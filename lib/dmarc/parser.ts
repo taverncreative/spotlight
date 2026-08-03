@@ -95,7 +95,8 @@ async function unzipXmlCapped(input: Buffer): Promise<Buffer> {
         handled = true;
         // uncompressedSize is NOT trusted; collectCapped counts real bytes.
         zip.openReadStream(entry, (streamErr, stream) => {
-          if (streamErr || !stream) return reject(new DmarcError("unreadable zip entry"));
+          if (streamErr || !stream)
+            return reject(new DmarcError("unreadable zip entry"));
           collectCapped(stream).then(resolve, reject);
         });
       });
@@ -189,7 +190,9 @@ function normalizeRecord(record: RecordXml): ParsedRecord {
   const ids = record.identifiers ?? {};
 
   const dkim: DkimResult[] = asArray(
-    auth.dkim as { domain?: unknown; selector?: unknown; result?: unknown } | undefined
+    auth.dkim as
+      | { domain?: unknown; selector?: unknown; result?: unknown }
+      | undefined
   ).map((d) => ({
     domain: str(d.domain) ?? "",
     selector: str(d.selector) ?? "",
@@ -200,7 +203,10 @@ function normalizeRecord(record: RecordXml): ParsedRecord {
     auth.spf as { domain?: unknown; result?: unknown } | undefined
   )[0];
   const spf: SpfResult | null = spfRaw
-    ? { domain: str(spfRaw.domain) ?? "", result: (str(spfRaw.result) ?? "").toLowerCase() }
+    ? {
+        domain: str(spfRaw.domain) ?? "",
+        result: (str(spfRaw.result) ?? "").toLowerCase(),
+      }
     : null;
 
   const count = Number(row.count);

@@ -129,7 +129,10 @@ export function triggerDeployHook(
         .maybeSingle();
 
       if (error) {
-        console.error(`${TAG} hook lookup failed client=${clientId}`, error.code);
+        console.error(
+          `${TAG} hook lookup failed client=${clientId}`,
+          error.code
+        );
         return;
       }
 

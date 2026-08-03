@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { checkVideo, isVideoType, type VideoFacts } from "@/lib/social/video-checks";
+import {
+  checkVideo,
+  isVideoType,
+  type VideoFacts,
+} from "@/lib/social/video-checks";
 
 // A 30-second 1080x1920 mp4 at a sane bitrate: valid for a Reel, nothing to say
 // about it.
@@ -46,11 +50,17 @@ test("just under and just over the cap fall on opposite sides", () => {
   // 49 MB is accepted by the storage API and 51 MB is a 413, measured against
   // the live endpoint. The check has to agree with that seam exactly.
   assert.deepEqual(checkVideo(facts({ bytes: 49 * 1024 * 1024 })).blocking, []);
-  assert.equal(checkVideo(facts({ bytes: 51 * 1024 * 1024 })).blocking.length, 1);
+  assert.equal(
+    checkVideo(facts({ bytes: 51 * 1024 * 1024 })).blocking.length,
+    1
+  );
 });
 
 test("under three seconds is blocked: Meta refuses it", () => {
-  assert.match(checkVideo(facts({ seconds: 2 })).blocking.join(" "), /too short/);
+  assert.match(
+    checkVideo(facts({ seconds: 2 })).blocking.join(" "),
+    /too short/
+  );
   assert.deepEqual(checkVideo(facts({ seconds: 3 })).blocking, []);
 });
 
@@ -85,8 +95,14 @@ test("a landscape video warns about cropping but is not refused", () => {
 
 test("near-enough 9:16 is not nagged about", () => {
   // 1079x1920 is 0.5620 against 0.5625: a real file, not a mistake.
-  assert.deepEqual(checkVideo(facts({ width: 1079, height: 1920 })).warnings, []);
-  assert.deepEqual(checkVideo(facts({ width: 720, height: 1280 })).warnings, []);
+  assert.deepEqual(
+    checkVideo(facts({ width: 1079, height: 1920 })).warnings,
+    []
+  );
+  assert.deepEqual(
+    checkVideo(facts({ width: 720, height: 1280 })).warnings,
+    []
+  );
 });
 
 test("below the Reels minimum resolution warns about softness", () => {
