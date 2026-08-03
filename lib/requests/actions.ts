@@ -131,3 +131,45 @@ export async function deleteRequest(
   revalidatePath("/home");
   return { ok: true };
 }
+
+// Delete several unassigned requests in one go.
+//
+// TAKES EXPLICIT IDS rather than re-deriving the set from a filter. The button
+// sits under a list the operator is looking at, and the promise it makes is
+// "these ones". Re-running the query server-side could quietly include a row
+// that arrived between the page rendering and the button being pressed, which is
+// the one thing a bulk delete must not do.
+//
+// The `client_id is null` filter is belt and braces: RLS
+// (client_requests_operator_delete, 0087) is the boundary and already refuses an
+// assigned row. Repeating it here means the count we report back cannot claim
+// more than the policy would allow.
+//
+// Reports what actually went, not what was asked for. A short count means the
+// policy refused something, and the operator should see that rather than be told
+// everything worked.
+export async function deleteUnassignedRequests(
+  ids: string[]
+): Promise<{ ok: boolean; deleted: number; error?: string }> {
+  if (ids.length === 0) return { ok: true, deleted: 0 };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, deleted: 0, error: "Sign in to delete." };
+
+  const { data, error } = await supabase
+    .from("client_requests")
+    .delete()
+    .in("id", ids)
+    .is("client_id", null)
+    .select("id");
+  if (error) {
+    return { ok: false, deleted: 0, error: "Could not delete the requests." };
+  }
+
+  revalidatePath("/requests");
+  revalidatePath("/home");
+  return { ok: true, deleted: data?.length ?? 0 };
+}

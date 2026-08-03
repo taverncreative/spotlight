@@ -38,6 +38,19 @@ export function AppHeader({ children }: { children?: React.ReactNode }) {
         <Button variant="ghost" size="sm" render={<Link href="/platform" />}>
           Platform
         </Button>
+        {/* Operator-level and true wherever you are, which is the bar for
+            being here at all. Inbound requests arrive from other apps at any
+            time and belong to no client until triaged, so the inbox had been
+            reachable only from the home page's unassigned strip -- which
+            disappears the moment there is nothing unassigned, taking the route
+            to the archive and the done list with it.
+
+            No count badge. The header is a server component that fetches
+            nothing, and a badge would put a query on every page in the app to
+            save one click. */}
+        <Button variant="ghost" size="sm" render={<Link href="/requests" />}>
+          Requests
+        </Button>
         <Button variant="ghost" size="sm" render={<Link href="/due" />}>
           Due
         </Button>

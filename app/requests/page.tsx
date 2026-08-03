@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { RequestRow } from "@/components/request-row";
 import { RequestDeleteButton } from "@/components/request-delete-button";
+import { RequestsBulkDelete } from "@/components/requests-bulk-delete";
 import { createClient } from "@/lib/supabase/server";
 import {
   assignRequestToClient,
@@ -94,24 +95,32 @@ export default async function RequestsPage({
 
   const supabase = await createClient();
   // The client list rides along for the assign control on unassigned rows.
-  const [{ data }, { data: clientList }] = await Promise.all([
-    supabase
-      .from("client_requests")
-      .select(
-        "id, source_app, client_id, client_name, submitter, message, type, status, link, created_at"
-      )
-      // UNASSIGNED ONLY. Requests that belong to a client now live on that
-      // client's Requests tab; what is left here is the inbox for rows that
-      // named a client we do not manage, or named none, and so appear on
-      // nobody's tab until they are assigned below.
-      .is("client_id", null)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("clients")
-      .select("id, name")
-      .neq("status", "archived")
-      .order("name"),
-  ]);
+  const [{ data }, { count: assignedCount }, { data: clientList }] =
+    await Promise.all([
+      supabase
+        .from("client_requests")
+        .select(
+          "id, source_app, client_id, client_name, submitter, message, type, status, link, created_at"
+        )
+        // UNASSIGNED ONLY. Requests that belong to a client now live on that
+        // client's Requests tab; what is left here is the inbox for rows that
+        // named a client we do not manage, or named none, and so appear on
+        // nobody's tab until they are assigned below.
+        .is("client_id", null)
+        .order("created_at", { ascending: false }),
+      // Count only, and of the rows this page deliberately does NOT list: the
+      // bulk-delete dialog states what is protected, and "assigned" is exactly
+      // the set 0087 refuses to delete.
+      supabase
+        .from("client_requests")
+        .select("id", { count: "exact", head: true })
+        .not("client_id", "is", null),
+      supabase
+        .from("clients")
+        .select("id, name")
+        .neq("status", "archived")
+        .order("name"),
+    ]);
   const requests = (data ?? []) as RequestRow[];
   const clients = (clientList ?? []) as AssignableClient[];
 
@@ -147,15 +156,24 @@ export default async function RequestsPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight">
-          Unassigned requests
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {newCount > 0
-            ? `${newCount} new ${newCount === 1 ? "request" : "requests"} waiting on you.`
-            : "What clients have asked for, from every app that feeds in."}
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-xl font-semibold tracking-tight">
+            Unassigned requests
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {newCount > 0
+              ? `${newCount} new ${newCount === 1 ? "request" : "requests"} waiting on you.`
+              : "What clients have asked for, from every app that feeds in."}
+          </p>
+        </div>
+        {/* Operates on the rendered list, so whatever the filters are showing is
+            exactly what goes. Every row on this page is unassigned by
+            definition, which is the set 0087 permits deleting. */}
+        <RequestsBulkDelete
+          ids={visible.map((request) => request.id)}
+          assignedCount={assignedCount ?? 0}
+        />
       </div>
 
       <div className="space-y-2">
