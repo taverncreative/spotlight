@@ -74,6 +74,11 @@ export function InboundSources({
     sourceApp: string;
   } | null>(null);
   const [revoking, setRevoking] = useState<InboundSourceRow | null>(null);
+
+  // Split once here rather than filtering twice in the JSX, so "revoked" is
+  // decided in one place and the two lists cannot disagree about a row.
+  const live = sources.filter((source) => source.revoked_at === null);
+  const revoked = sources.filter((source) => source.revoked_at !== null);
   const [error, setError] = useState<string | null>(null);
 
   function generate() {
@@ -152,71 +157,54 @@ export function InboundSources({
           requests into your triage list.
         </p>
       ) : (
-        <ul className="grid gap-2">
-          {sources.map((source) => {
-            const revoked = source.revoked_at !== null;
-            return (
-              <li
-                key={source.id}
-                className={`flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3 ${
-                  revoked ? "opacity-60" : ""
-                }`}
-              >
-                <div className="min-w-0 space-y-1">
-                  <p className="truncate font-mono text-sm">
-                    {source.source_app}
-                  </p>
-                  {source.label ? (
-                    <p className="truncate text-xs text-muted-foreground">
-                      {source.label}
-                    </p>
-                  ) : null}
-                  <p className="truncate font-mono text-xs text-muted-foreground">
-                    {source.secret_prefix}…
-                  </p>
-                  {/* The remembered rule, where it can be seen and changed.
-                      The offer on /requests is how it usually gets set; this is
-                      how anyone finds out it exists. Not shown on a revoked
-                      source: it authenticates nothing, so its default routes
-                      nothing. */}
-                  {!revoked ? (
-                    <SourceDefaultClient
-                      sourceApp={source.source_app}
-                      defaultClientId={source.default_client_id}
-                      clients={clients}
-                    />
-                  ) : null}
-                  <p className="text-xs text-muted-foreground">
-                    Created {formatDate(source.created_at)} ·{" "}
-                    {source.last_used_at
-                      ? `Last used ${formatDate(source.last_used_at)}`
-                      : "Never used"}
-                    {revoked
-                      ? ` · Revoked ${formatDate(source.revoked_at!)}`
-                      : ""}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Badge variant={revoked ? "secondary" : "success"}>
-                    {revoked ? "Revoked" : "Active"}
-                  </Badge>
-                  {revoked ? null : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setError(null);
-                        setRevoking(source);
-                      }}
-                    >
-                      Revoke
-                    </Button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="space-y-3">
+          {live.length === 0 ? (
+            <p className="rounded-card border bg-card p-4 text-sm text-muted-foreground">
+              No active sources. Generate a secret to let an app post requests
+              in again.
+            </p>
+          ) : (
+            <ul className="grid gap-2">
+              {live.map((source) => (
+                <SourceRow
+                  key={source.id}
+                  source={source}
+                  clients={clients}
+                  onRevoke={() => {
+                    setError(null);
+                    setRevoking(source);
+                  }}
+                />
+              ))}
+            </ul>
+          )}
+
+          {/* REVOKED ONES ARE FOLDED AWAY, NOT REMOVED.
+              Six revoked rows against three live ones buries the list you
+              actually work in. But a revoked secret is a record that it existed
+              and was withdrawn -- which is the thing you want when a sender
+              suddenly starts getting 401s -- so it stays one click away rather
+              than disappearing. Closed by default, and the count is on the
+              summary so you can see there are some without opening it. */}
+          {revoked.length > 0 ? (
+            <details className="group">
+              <summary className="cursor-pointer list-none text-xs text-muted-foreground marker:content-none hover:text-foreground">
+                <span className="underline-offset-4 group-open:underline">
+                  Revoked ({revoked.length})
+                </span>
+              </summary>
+              <ul className="mt-2 grid gap-2">
+                {revoked.map((source) => (
+                  <SourceRow
+                    key={source.id}
+                    source={source}
+                    clients={clients}
+                  />
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </div>
       )}
 
       <Dialog
@@ -286,5 +274,71 @@ export function InboundSources({
         </AlertDialogContent>
       </AlertDialog>
     </section>
+  );
+}
+
+// One source row. Extracted so the live list and the revoked disclosure render
+// the SAME thing rather than two copies that drift -- the revoked list is
+// exactly the live one minus the controls that would do nothing.
+//
+// onRevoke absent IS the signal that this row is revoked: a revoked secret
+// authenticates nothing, so there is nothing to withdraw and nothing to route,
+// which is why the default-client selector goes too.
+function SourceRow({
+  source,
+  clients,
+  onRevoke,
+}: {
+  source: InboundSourceRow;
+  clients: { id: string; name: string }[];
+  onRevoke?: () => void;
+}) {
+  const revoked = source.revoked_at !== null;
+
+  return (
+    <li
+      className={`flex items-center justify-between gap-3 rounded-card border bg-card px-4 py-3 ${
+        revoked ? "opacity-60" : ""
+      }`}
+    >
+      <div className="min-w-0 space-y-1">
+        <p className="truncate font-mono text-sm">{source.source_app}</p>
+        {source.label ? (
+          <p className="truncate text-xs text-muted-foreground">
+            {source.label}
+          </p>
+        ) : null}
+        <p className="truncate font-mono text-xs text-muted-foreground">
+          {source.secret_prefix}…
+        </p>
+        {/* The remembered rule, where it can be seen and changed. The offer on
+            /requests is how it usually gets set; this is how anyone finds out it
+            exists. Not on a revoked source: it routes nothing. */}
+        {!revoked ? (
+          <SourceDefaultClient
+            sourceApp={source.source_app}
+            defaultClientId={source.default_client_id}
+            clients={clients}
+          />
+        ) : null}
+        <p className="text-xs text-muted-foreground">
+          Created {formatDate(source.created_at)} ·{" "}
+          {source.last_used_at
+            ? `Last used ${formatDate(source.last_used_at)}`
+            : "Never used"}
+          {revoked ? ` · Revoked ${formatDate(source.revoked_at!)}` : ""}
+        </p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <Badge variant={revoked ? "secondary" : "success"}>
+          {revoked ? "Revoked" : "Active"}
+        </Badge>
+        {onRevoke ? (
+          <Button variant="ghost" size="sm" onClick={onRevoke}>
+            Revoke
+          </Button>
+        ) : null}
+      </div>
+    </li>
   );
 }
