@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
 import { resolveStyle } from "@/lib/social/image-style";
 import {
-  CANVAS,
+  canvasFor,
   type ScrimColour,
   type TemplateStyle,
 } from "@/lib/social/render-template-style";
@@ -24,6 +24,7 @@ import {
   saveAndRenderImageRecipe,
   type ImageRecipeState,
 } from "@/lib/social/image-actions";
+import type { PostFormat } from "@/lib/social/schemas";
 import {
   TemplateControls,
   type ControlTemplate,
@@ -138,6 +139,7 @@ export function ImageEditor({
   templates,
   photos,
   initial,
+  format = "feed",
 }: {
   clientSlug: string;
   postId: string;
@@ -150,6 +152,9 @@ export function ImageEditor({
     text: string;
     overrides: Partial<TemplateStyle>;
   };
+  // Which canvas this post renders on. A story is 9:16, a feed post 4:5, and
+  // the preview has to be the one the post will actually be published at.
+  format?: PostFormat;
 }) {
   const [state, formAction, pending] = useActionState<
     ImageRecipeState,
@@ -180,8 +185,72 @@ export function ImageEditor({
 
   // Preview geometry. Everything is a fraction of the canvas, so drawing at any
   // display width is exact rather than a scaled approximation.
-  const W = 340;
-  const H = Math.round((W * CANVAS.height) / CANVAS.width);
+  //
+  // THE CANVAS COMES FROM THE FORMAT. A story is 9:16 and a feed post is 4:5,
+  // and previewing a story on the feed canvas is precisely the bug this fixes:
+  // words that sat inside a 4:5 frame here were cropped away by Instagram.
+  const canvas = canvasFor(format);
+
+  // The source photo's own size, read off the loaded image. Needed to show what
+  // the frame CROPS: the renderer covers the canvas with the photo, so anything
+  // outside the frame is thrown away, and until now the editor simply never drew
+  // it. Null until the image loads, and the preview falls back to the frame
+  // alone, which is what it always used to be.
+  const [photoSize, setPhotoSize] = useState<{ w: number; h: number } | null>(
+    null
+  );
+
+  // MEASURED VIA A REF, NOT ONLY onLoad. A cached image is already complete by
+  // the time React hydrates, so its load event has come and gone and an onLoad
+  // handler never fires -- which left the preview believing every photo fitted
+  // the frame exactly. The ref runs on mount and on every photo change, reads
+  // the size immediately when the image is already decoded, and falls back to
+  // the load event when it is not.
+  const measure = (node: HTMLImageElement | null) => {
+    if (!node) return;
+    const take = () => {
+      if (node.naturalWidth > 0 && node.naturalHeight > 0) {
+        setPhotoSize((current) =>
+          current?.w === node.naturalWidth && current?.h === node.naturalHeight
+            ? current
+            : { w: node.naturalWidth, h: node.naturalHeight }
+        );
+      }
+    };
+    if (node.complete) take();
+    else node.addEventListener("load", take, { once: true });
+  };
+
+  // The frame's display width, and a CEILING ON THE WHOLE PREVIEW.
+  //
+  // Drawing the cropped-away area means the outer box is the size of the whole
+  // photo at cover scale, and for a wide landscape into a 9:16 frame that is
+  // roughly three times the frame's width. Left unbounded it pushed the preview
+  // column past a thousand pixels and squashed the controls beside it.
+  //
+  // So the frame shrinks until the whole picture fits the ceiling, rather than
+  // the overflow being clipped. Clipping would hide exactly the thing this is
+  // here to show.
+  const FRAME_W = 340;
+  // Chosen so a NORMAL photo never shrinks the frame at all: a 4:5 or portrait
+  // source into either canvas fits inside these, so fit stays 1 and the frame is
+  // the full 340. Only a wide landscape into 9:16 -- where the crop is severe
+  // and worth seeing -- trades frame size for showing what is lost.
+  const OUTER_MAX_W = 520;
+  const OUTER_MAX_H = 660;
+  const frameH0 = (FRAME_W * canvas.height) / canvas.width;
+  const fit = (() => {
+    if (!photoSize || photoSize.w <= 0 || photoSize.h <= 0) return 1;
+    const scale = Math.max(FRAME_W / photoSize.w, frameH0 / photoSize.h);
+    return Math.min(
+      1,
+      OUTER_MAX_W / (photoSize.w * scale),
+      OUTER_MAX_H / (photoSize.h * scale)
+    );
+  })();
+  const W = Math.round(FRAME_W * fit);
+  const H = Math.round((W * canvas.height) / canvas.width);
+
   const face = fontOrDefault(style.font);
   const weight = weightOrDefault(face, style.weight);
   const capPx = style.capHeight * W;
@@ -193,6 +262,27 @@ export function ImageEditor({
   const lines = text.split("\n");
 
   const photoUrl = photoPath ? socialMediaPublicUrl(photoPath) : null;
+
+  // The same object-fit: cover arithmetic the renderer does, worked out here so
+  // the crop can be DRAWN rather than described. Scale so the photo covers the
+  // frame; whichever axis overflows is what gets cut.
+  const cover = (() => {
+    if (!photoSize || photoSize.w <= 0 || photoSize.h <= 0) {
+      return { drawnW: W, drawnH: H, frameLeft: 0, frameTop: 0, crops: false };
+    }
+    const scale = Math.max(W / photoSize.w, H / photoSize.h);
+    const drawnW = photoSize.w * scale;
+    const drawnH = photoSize.h * scale;
+    return {
+      drawnW,
+      drawnH,
+      frameLeft: (drawnW - W) / 2,
+      frameTop: (drawnH - H) / 2,
+      // A pixel of slack, so a photo that is already the right shape does not
+      // claim to be cropped because of rounding.
+      crops: drawnW - W > 1 || drawnH - H > 1,
+    };
+  })();
 
   const scrimRgba =
     style.scrim === "none"
@@ -256,67 +346,114 @@ export function ImageEditor({
         value={JSON.stringify(style)}
       />
 
-      {/* --- preview --- */}
+      {/* --- preview ---
+          WHAT YOU SEE IS WHAT GOES OUT, which it previously was not.
+          The outer box is the whole PHOTO at the scale the renderer will use.
+          The inner box is the CANVAS -- the actual output -- and everything
+          between them is what the crop throws away, drawn faded so it reads as
+          outside rather than missing. Words are placed inside the inner box, so
+          a headline that looks safe here is safe in the app. */}
       <div className="space-y-2">
         <div
-          className="relative overflow-hidden rounded-card border bg-muted"
-          style={{ width: W, height: H }}
+          className="relative mx-auto"
+          style={{ width: cover.drawnW, height: cover.drawnH }}
         >
           {photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={photoUrl}
-              alt=""
-              className="absolute inset-0 size-full object-cover"
-            />
-          ) : (
-            <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
-              No photo on this post yet
-            </div>
-          )}
-          {scrimRgba ? (
-            <div
-              className="absolute inset-0"
-              style={{ backgroundColor: scrimRgba }}
-            />
+            <>
+              {/* The cropped-away area. Same photo, same scale, faded. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                key={photoPath}
+                ref={measure}
+                src={photoUrl}
+                alt=""
+                className="absolute top-0 left-0 opacity-25 grayscale"
+                style={{ width: cover.drawnW, height: cover.drawnH }}
+              />
+            </>
           ) : null}
+
+          {/* THE FRAME: exactly the pixels that get published. */}
           <div
-            className="absolute flex flex-col items-start"
+            className="absolute overflow-hidden rounded-card bg-muted ring-2 ring-primary"
             style={{
-              left: style.x * W - padX,
-              top: style.y * H,
-              width: style.width * W + padX * 2,
+              left: cover.frameLeft,
+              top: cover.frameTop,
+              width: W,
+              height: H,
             }}
           >
-            {lines.map((line, index) => (
-              <div
-                key={index}
-                className={PREVIEW_FONTS[face.id].className}
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photoUrl}
+                alt=""
+                className="absolute max-w-none"
                 style={{
-                  fontSize,
-                  fontWeight: weight,
-                  lineHeight: (style.leading * capPx) / fontSize,
-                  color: style.colour,
-                  textTransform: "uppercase",
-                  whiteSpace: "pre",
-                  paddingLeft: padX,
-                  paddingRight: padX,
-                  paddingTop: padY,
-                  paddingBottom: padY,
-                  marginTop: -padY,
-                  marginBottom: -padY,
-                  backgroundColor: style.highlight
-                    ? hexToRgba(style.highlightColour, style.highlightOpacity)
-                    : undefined,
+                  left: -cover.frameLeft,
+                  top: -cover.frameTop,
+                  width: cover.drawnW,
+                  height: cover.drawnH,
+                  // Until the natural size is known, drawnW/drawnH ARE the frame,
+                  // so cover keeps the picture's shape instead of stretching it
+                  // to fill. Once measured the box already matches the image and
+                  // this does nothing.
+                  objectFit: "cover",
                 }}
-              >
-                {line === "" ? " " : line}
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
+                No photo on this post yet
               </div>
-            ))}
+            )}
+            {scrimRgba ? (
+              <div
+                className="absolute inset-0"
+                style={{ backgroundColor: scrimRgba }}
+              />
+            ) : null}
+            <div
+              className="absolute flex flex-col items-start"
+              style={{
+                left: style.x * W - padX,
+                top: style.y * H,
+                width: style.width * W + padX * 2,
+              }}
+            >
+              {lines.map((line, index) => (
+                <div
+                  key={index}
+                  className={PREVIEW_FONTS[face.id].className}
+                  style={{
+                    fontSize,
+                    fontWeight: weight,
+                    lineHeight: (style.leading * capPx) / fontSize,
+                    color: style.colour,
+                    textTransform: "uppercase",
+                    whiteSpace: "pre",
+                    paddingLeft: padX,
+                    paddingRight: padX,
+                    paddingTop: padY,
+                    paddingBottom: padY,
+                    marginTop: -padY,
+                    marginBottom: -padY,
+                    backgroundColor: style.highlight
+                      ? hexToRgba(style.highlightColour, style.highlightOpacity)
+                      : undefined,
+                  }}
+                >
+                  {line === "" ? " " : line}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Preview at {W}px. Output is {CANVAS.width}&times;{CANVAS.height}.
+          Output is {canvas.width}&times;{canvas.height}
+          {format === "story" ? " (9:16)" : " (4:5)"}.{" "}
+          {cover.crops
+            ? "The faded area is cropped off and will not be published."
+            : "This photo fits the frame exactly."}
         </p>
       </div>
 

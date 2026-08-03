@@ -23,7 +23,9 @@ export default async function SocialImagePage({
   const supabase = await createClient();
   const { data: post } = await supabase
     .from("social_posts")
-    .select("id, client_id, status, social_post_media(position, storage_path)")
+    .select(
+      "id, client_id, status, format, social_post_media(position, storage_path)"
+    )
     .eq("id", postId)
     .maybeSingle();
   // RLS already limits to the operator's posts; this also stops one client's URL
@@ -110,6 +112,7 @@ export default async function SocialImagePage({
       ) : null}
 
       <ImageEditor
+        format={post.format === "story" ? "story" : "feed"}
         clientSlug={clientSlug}
         postId={postId}
         templates={templates.map((template) => ({

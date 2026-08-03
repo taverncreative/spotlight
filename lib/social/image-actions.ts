@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cleanStyle, resolveStyle } from "@/lib/social/image-style";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
 import { SOCIAL_MEDIA_BUCKET } from "@/lib/social/schemas";
-import { CANVAS } from "@/lib/social/render-template-style";
+import { canvasFor } from "@/lib/social/render-template-style";
 import { renderPath, renderToPng } from "@/lib/social/render-to-storage";
 
 // Saving an image recipe. RLS scopes every write through owns_social_post, so
@@ -167,7 +167,7 @@ async function renderRecipe(
     text: string;
     overrides: unknown;
     rendered_path: string | null;
-    social_posts: { client_id: string } | null;
+    social_posts: { client_id: string; format: string } | null;
     social_image_templates: { style: unknown } | null;
   };
 
@@ -175,7 +175,7 @@ async function renderRecipe(
     .from("social_post_images")
     .select(
       "id, post_id, position, photo_path, text, overrides, rendered_path, " +
-        "social_posts(client_id), " +
+        "social_posts(client_id, format), " +
         "social_image_templates(style)"
     )
     .eq("id", recipeId)
@@ -195,9 +195,14 @@ async function renderRecipe(
     text: row.text ?? "",
   };
 
+  // THE CANVAS COMES FROM THE POST. A story renders 9:16 and a feed post 4:5,
+  // so Instagram crops neither and the editor preview is describing the picture
+  // that actually goes out.
+  const canvas = canvasFor(post.format);
+
   let png: Buffer;
   try {
-    png = await renderToPng(input);
+    png = await renderToPng(input, canvas);
   } catch {
     // The failure is recorded against the row so a permanently broken recipe is
     // visible rather than silently never rendering.
@@ -230,8 +235,8 @@ async function renderRecipe(
       position: row.position ?? 0,
       storage_path: path,
       media_type: "image",
-      width: CANVAS.width,
-      height: CANVAS.height,
+      width: canvas.width,
+      height: canvas.height,
     },
     { onConflict: "post_id,position" }
   );

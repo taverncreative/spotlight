@@ -2,7 +2,11 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ReactElement } from "react";
-import { CANVAS, type RenderInput } from "@/lib/social/render-template-style";
+import {
+  CANVASES,
+  type Canvas,
+  type RenderInput,
+} from "@/lib/social/render-template-style";
 import {
   fontOrDefault,
   weightOrDefault,
@@ -13,6 +17,9 @@ import {
 // the type and the renderer live in two files.
 export {
   CANVAS,
+  CANVASES,
+  canvasFor,
+  type Canvas,
   DEFAULTS,
   type RenderInput,
   type ScrimColour,
@@ -103,11 +110,20 @@ function rgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${Math.min(Math.max(alpha, 0), 1)})`;
 }
 
-export function templateElement(input: RenderInput): ReactElement {
+// `canvas` decides the shape of the output, and it is a parameter rather than a
+// constant because a story is 9:16 and a feed post is 4:5. Rendering a story on
+// the feed canvas is what made the editor preview lie: Instagram cropped the 4:5
+// picture to 9:16 and took the words with it.
+//
+// Defaulted to the feed canvas so every existing caller is unchanged.
+export function templateElement(
+  input: RenderInput,
+  canvas: Canvas = CANVASES.feed
+): ReactElement {
   // Measured design -> font size. The em is what the renderer wants; the cap
   // height is what the design is expressed in.
   const face = fontOrDefault(input.font);
-  const capPx = input.capHeight * CANVAS.width;
+  const capPx = input.capHeight * canvas.width;
   // The face's own ratio, not a shared constant: they range from 0.686 to
   // 0.859, so the wrong one is a wrong size, not a rounding difference.
   const fontSize = capPx / face.capOverEm;
@@ -129,8 +145,8 @@ export function templateElement(input: RenderInput): ReactElement {
     <div
       style={{
         display: "flex",
-        width: CANVAS.width,
-        height: CANVAS.height,
+        width: canvas.width,
+        height: canvas.height,
         position: "relative",
       }}
     >
@@ -142,14 +158,14 @@ export function templateElement(input: RenderInput): ReactElement {
       {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
       <img
         src={input.photoUrl}
-        width={CANVAS.width}
-        height={CANVAS.height}
+        width={canvas.width}
+        height={canvas.height}
         style={{
           position: "absolute",
           top: 0,
           left: 0,
-          width: CANVAS.width,
-          height: CANVAS.height,
+          width: canvas.width,
+          height: canvas.height,
           objectFit: "cover",
         }}
       />
@@ -162,8 +178,8 @@ export function templateElement(input: RenderInput): ReactElement {
             position: "absolute",
             top: 0,
             left: 0,
-            width: CANVAS.width,
-            height: CANVAS.height,
+            width: canvas.width,
+            height: canvas.height,
             backgroundColor: rgba(scrimColour, input.scrimOpacity),
           }}
         />
@@ -175,9 +191,9 @@ export function templateElement(input: RenderInput): ReactElement {
           // Shifted left by the padding so the TEXT stays put when the highlight
           // is toggled. Without this, turning the highlight on nudges every word
           // to the right, which reads as a bug while you are working.
-          left: input.x * CANVAS.width - padX,
-          top: input.y * CANVAS.height,
-          width: input.width * CANVAS.width + padX * 2,
+          left: input.x * canvas.width - padX,
+          top: input.y * canvas.height,
+          width: input.width * canvas.width + padX * 2,
           display: "flex",
           flexDirection: "column",
           // THE LINE THAT MAKES THE HIGHLIGHT RAGGED. Flex children stretch to

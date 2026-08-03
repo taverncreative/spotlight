@@ -1,9 +1,10 @@
 import "server-only";
 import { ImageResponse } from "next/og";
 import {
-  CANVAS,
+  CANVASES,
   fontsFor,
   templateElement,
+  type Canvas,
 } from "@/lib/social/render-template";
 import { fontOrDefault, weightOrDefault } from "@/lib/social/fonts";
 import type { RenderInput } from "@/lib/social/render-template-style";
@@ -17,11 +18,17 @@ import type { RenderInput } from "@/lib/social/render-template-style";
 // IS the check, and a second entry point into the same renderer was one more
 // thing that could drift from this one.
 
-export async function renderToPng(input: RenderInput): Promise<Buffer> {
+// `canvas` is the shape of the output: 4:5 for a feed post, 9:16 for a story.
+// It is passed rather than assumed, because rendering a story at 4:5 is what let
+// Instagram crop the words off the top and bottom.
+export async function renderToPng(
+  input: RenderInput,
+  canvas: Canvas = CANVASES.feed
+): Promise<Buffer> {
   const face = fontOrDefault(input.font);
-  const image = new ImageResponse(templateElement(input), {
-    width: CANVAS.width,
-    height: CANVAS.height,
+  const image = new ImageResponse(templateElement(input, canvas), {
+    width: canvas.width,
+    height: canvas.height,
     fonts: await fontsFor(face, weightOrDefault(face, input.weight)),
   });
   return Buffer.from(await image.arrayBuffer());

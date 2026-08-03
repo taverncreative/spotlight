@@ -8,8 +8,38 @@
 
 import type { FontId } from "@/lib/social/fonts";
 
-// 4:5, the ratio BSK uses most, and Instagram's tallest feed size.
-export const CANVAS = { width: 1122, height: 1402 };
+export type Canvas = { width: number; height: number };
+
+// THE CANVAS IS A PROPERTY OF THE FORMAT, not a constant, and that was a real
+// bug rather than a tidiness point.
+//
+// Everything rendered at 1122x1402 (4:5). That is right for a feed post and
+// wrong for a story: Instagram shows a story at 9:16 and crops a 4:5 image to
+// fit, so words placed near the top or bottom in the editor were cut off in the
+// app. The preview was honest about the picture it was describing; the picture
+// was the wrong shape.
+//
+// Rendering a story at 9:16 means Instagram crops nothing, which is what makes
+// the preview true again.
+//
+// Style values are all FRACTIONS of the canvas -- x and width of the width, y of
+// the height, cap height of the width -- so one template lays out proportionally
+// on either canvas rather than needing a story-specific copy.
+export const CANVASES = {
+  // 4:5, the ratio BSK uses most, and Instagram's tallest feed size.
+  feed: { width: 1122, height: 1402 },
+  // 9:16. Meta's recommended story size on both platforms.
+  story: { width: 1080, height: 1920 },
+} as const satisfies Record<string, Canvas>;
+
+export function canvasFor(format: string): Canvas {
+  return format === "story" ? CANVASES.story : CANVASES.feed;
+}
+
+// The feed canvas, kept under its old name for the callers that are genuinely
+// about a feed post: the template rows stamp the canvas they were designed
+// against, and that is 4:5 for every template that exists.
+export const CANVAS = CANVASES.feed;
 
 // The per-face cap-height ratio now lives in lib/social/fonts.ts, because it is
 // a property of the font rather than of this template. It was a single constant
