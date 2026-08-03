@@ -214,7 +214,13 @@ export function ImageEditor({
     // the same way everywhere, and no form can contain another because none of
     // them contain anything at all.
     <div className="grid gap-6 lg:grid-cols-[auto_1fr]">
-      <form id={EDITOR_FORM} action={formAction} />
+      {/* hidden is load-bearing, not tidiness. A <form> is display:block, so
+          without it this empty element becomes a GRID ITEM holding the first
+          cell, which pushes the preview and the controls along by one and
+          reorders the layout. The hidden inputs below never did that, because
+          display:none keeps an element out of the grid entirely -- this now
+          behaves the same way they do. */}
+      <form id={EDITOR_FORM} action={formAction} className="hidden" />
       <input type="hidden" form={EDITOR_FORM} name="post_id" value={postId} />
       <input type="hidden" form={EDITOR_FORM} name="client_slug" value={clientSlug} />
       <input type="hidden" form={EDITOR_FORM} name="recipe_id" value={initial.recipeId ?? ""} />
