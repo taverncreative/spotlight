@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { cleanStyle, resolveStyle } from "@/lib/social/image-style";
 import { socialMediaPublicUrl } from "@/lib/social/media-paths";
@@ -23,6 +24,10 @@ export type ImageRecipeState = {
   ok: boolean;
   error?: string;
   id?: string;
+  // True when the recipe was written but the render that follows it failed. The
+  // distinction matters to the operator: their settings are safe and the button
+  // is worth pressing again, which is the opposite of what a bare error implies.
+  saved?: boolean;
 } | null;
 
 function diffAgainstTemplate(
@@ -38,10 +43,12 @@ function diffAgainstTemplate(
   return overrides;
 }
 
-export async function saveImageRecipe(
-  _previous: ImageRecipeState,
+// Step one of the single Save. Internal: the only way in is
+// saveAndRenderImageRecipe below, so a recipe can never be written without the
+// render that makes it visible on the post.
+async function persistRecipe(
   formData: FormData
-): Promise<ImageRecipeState> {
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const postId = String(formData.get("post_id") ?? "");
   const templateId = String(formData.get("template_id") ?? "");
   const photoPath = String(formData.get("photo_path") ?? "");
@@ -111,8 +118,11 @@ export async function saveImageRecipe(
     return { ok: false, error: "Could not save the image." };
   }
 
+  const savedId = data?.id as string | undefined;
+  if (!savedId) return { ok: false, error: "Could not save the image." };
+
   if (clientSlug) revalidatePath(`/c/${clientSlug}/social/${postId}/image`);
-  return { ok: true, id: data?.id as string | undefined };
+  return { ok: true, id: savedId };
 }
 
 // --- rendering, and attaching the result to the post ----------------------
@@ -129,14 +139,13 @@ export async function saveImageRecipe(
 // KNOWN LIMIT, stated rather than discovered later: this handles one image per
 // post. A carousel of several composed images needs a recipe per position and a
 // picker that understands slots, and neither exists yet.
-export async function renderImageRecipe(
-  _previous: ImageRecipeState,
-  formData: FormData
-): Promise<ImageRecipeState> {
-  const recipeId = String(formData.get("recipe_id") ?? "");
-  const clientSlug = String(formData.get("client_slug") ?? "");
-  if (!recipeId) return { ok: false, error: "Save the image first." };
-
+// Step two. Internal, and takes plain arguments rather than a FormData: it is
+// no longer reachable from a form of its own, which is what the separate
+// "Render onto the post" button was.
+async function renderRecipe(
+  recipeId: string,
+  clientSlug: string
+): Promise<{ ok: true; postId: string } | { ok: false; error: string }> {
   const supabase = await createClient();
 
   // RLS scopes this to the operator's own recipes, so a wrong id is simply not
@@ -250,5 +259,45 @@ export async function renderImageRecipe(
     revalidatePath(`/c/${clientSlug}/social/${row.post_id}/image`);
     revalidatePath(`/c/${clientSlug}/social/${row.post_id}/edit`);
   }
-  return { ok: true, id: recipeId };
+  return { ok: true, postId: row.post_id };
+}
+
+// --- the one Save -----------------------------------------------------------
+
+// Save the recipe, render it, attach it to the post, and go back to the post.
+//
+// ONE BUTTON, because the three-step version described a pipeline rather than an
+// intention. Saving without rendering left a recipe that changed nothing the
+// operator could see, and the separate render step existed only to make the
+// saved thing real -- so it was a step you always had to take and could only get
+// wrong by forgetting.
+//
+// The old "Render onto the post" button also never worked: it lived in its own
+// <form> nested inside the editor's form, and React does not dispatch an action
+// for a nested form. The submit event fired on the right element and nothing
+// ran. Folding the two together removes that form rather than repairing it.
+//
+// ORDER IS DELIBERATE. The recipe is saved FIRST, so a render failure costs
+// nothing: the settings are already stored, the action reports what failed, and
+// the operator stays on the page and can press Save again. Rendering first and
+// saving after would risk a picture on the post that no stored recipe explains.
+export async function saveAndRenderImageRecipe(
+  _previous: ImageRecipeState,
+  formData: FormData
+): Promise<ImageRecipeState> {
+  const clientSlug = String(formData.get("client_slug") ?? "");
+
+  const saved = await persistRecipe(formData);
+  if (!saved.ok) return { ok: false, error: saved.error };
+
+  const rendered = await renderRecipe(saved.id, clientSlug);
+  if (!rendered.ok) {
+    // saved: true is the whole point of this branch. The recipe IS stored, so
+    // the operator has lost nothing and should not be told to start again.
+    return { ok: false, error: rendered.error, id: saved.id, saved: true };
+  }
+
+  // Outside every try/catch above: redirect() signals by throwing, so catching
+  // it would turn a successful save into a silent no-op.
+  redirect(`/c/${clientSlug}/social/${rendered.postId}/edit`);
 }

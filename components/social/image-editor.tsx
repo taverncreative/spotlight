@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useState } from "react";
 import localFont from "next/font/local";
 import { Button } from "@/components/ui/button";
 import { fieldInputClass } from "@/components/form-field";
@@ -21,8 +21,7 @@ import {
   type FontId,
 } from "@/lib/social/fonts";
 import {
-  renderImageRecipe,
-  saveImageRecipe,
+  saveAndRenderImageRecipe,
   type ImageRecipeState,
 } from "@/lib/social/image-actions";
 import {
@@ -148,17 +147,9 @@ export function ImageEditor({
   };
 }) {
   const [state, formAction, pending] = useActionState<ImageRecipeState, FormData>(
-    saveImageRecipe,
+    saveAndRenderImageRecipe,
     null
   );
-  const [renderState, renderAction, rendering] = useActionState<
-    ImageRecipeState,
-    FormData
-  >(renderImageRecipe, null);
-
-  // A recipe id exists either because we loaded one or because Save just made
-  // one. Rendering needs something saved to render.
-  const savedId = state?.id ?? initial.recipeId;
 
   const [templateId, setTemplateId] = useState(
     initial.templateId ?? templates[0]?.id ?? ""
@@ -195,32 +186,6 @@ export function ImageEditor({
   const lines = text.split("\n");
 
   const photoUrl = photoPath ? socialMediaPublicUrl(photoPath) : null;
-
-  // The same values the server route takes, so "see the real render" is the
-  // same picture rather than a near miss.
-  const renderHref = useMemo(() => {
-    if (!photoUrl) return null;
-    const p = new URLSearchParams({
-      photo: photoUrl,
-      text,
-      colour: style.colour,
-      x: String(style.x),
-      y: String(style.y),
-      width: String(style.width),
-      capHeight: String(style.capHeight),
-      leading: String(style.leading),
-      font: face.id,
-      weight: String(weight),
-      scrim: style.scrim,
-      scrimOpacity: String(style.scrimOpacity),
-      highlight: style.highlight ? "1" : "0",
-      highlightColour: style.highlightColour,
-      highlightOpacity: String(style.highlightOpacity),
-      highlightPadX: String(style.highlightPadX),
-      highlightPadY: String(style.highlightPadY),
-    });
-    return `/api/render/social?${p.toString()}`;
-  }, [photoUrl, text, style, face.id, weight]);
 
   const scrimRgba =
     style.scrim === "none"
@@ -482,89 +447,39 @@ export function ImageEditor({
           <Hint>Dims the whole photo. The highlight usually beats it.</Hint>
         </Field>
 
+        {/* Success never renders here: it redirects to the post. So the only
+            thing this space has to say is what went wrong, and whether the
+            settings survived it. */}
         {state?.error ? (
           <p role="alert" className="text-sm text-destructive">
             {state.error}
-          </p>
-        ) : null}
-        {state?.ok ? (
-          <p className="text-sm text-counter-ok">Saved.</p>
-        ) : null}
-        {renderState?.error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {renderState.error}
-          </p>
-        ) : null}
-        {renderState?.ok ? (
-          <p className="text-sm text-counter-ok">
-            Rendered and attached to the post.
+            {state.saved ? (
+              <>
+                {" "}
+                Your settings are saved, so nothing is lost - press Save again to
+                retry the picture.
+              </>
+            ) : null}
           </p>
         ) : null}
 
         <div className="flex items-center gap-2">
+          {/* ONE BUTTON. It saves the recipe, renders it, attaches the picture to
+              the post and goes back to the post. The old flow asked for three
+              deliberate acts to achieve one intention, and the middle one -
+              "Render onto the post" - never worked at all: it sat in its own
+              <form> nested inside this one, and React does not dispatch an
+              action for a nested form. */}
           <Button type="submit" size="sm" disabled={pending || !photoPath}>
-            {pending ? "Saving…" : "Save"}
+            {pending ? "Saving and rendering…" : "Save"}
           </Button>
-          {renderHref ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              render={<a href={renderHref} target="_blank" rel="noopener noreferrer" />}
-            >
-              See the real render
-            </Button>
-          ) : null}
-        </div>
-
-        {savedId ? (
-          <div className="space-y-1.5 border-t pt-4">
-            {/* Its own form: rendering acts on what is SAVED, so putting it in
-                the same submit as Save would render whatever was on screen
-                rather than what the post actually holds. */}
-            <p className="text-xs text-muted-foreground">
-              Rendering makes the picture and attaches it to the post, replacing
-              whatever is in that slot. Save any changes first.
-            </p>
-            <RenderButton
-              action={renderAction}
-              pending={rendering}
-              recipeId={savedId}
-              clientSlug={clientSlug}
-            />
-          </div>
-        ) : (
-          <p className="border-t pt-4 text-xs text-muted-foreground">
-            Save first, then you can render it onto the post.
+          <p className="text-xs text-muted-foreground">
+            Renders the picture onto the post, replacing whatever is in that
+            slot.
           </p>
-        )}
+        </div>
       </div>
     </form>
-  );
-}
-
-// Rendering is a separate form, and a form cannot nest inside another, so it
-// lives outside the editor's form element via the `form` attribute.
-function RenderButton({
-  action,
-  pending,
-  recipeId,
-  clientSlug,
-}: {
-  action: (formData: FormData) => void;
-  pending: boolean;
-  recipeId: string;
-  clientSlug: string;
-}) {
-  return (
-    <>
-      <form id="render-image-form" action={action} />
-      <input type="hidden" name="recipe_id" value={recipeId} form="render-image-form" />
-      <input type="hidden" name="client_slug" value={clientSlug} form="render-image-form" />
-      <Button type="submit" size="sm" variant="outline" form="render-image-form" disabled={pending}>
-        {pending ? "Rendering…" : "Render onto the post"}
-      </Button>
-    </>
   );
 }
 
