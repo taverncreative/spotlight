@@ -120,19 +120,71 @@ export function bucketByDay(
   return byDay;
 }
 
+// Monday-first weekday index (0..6) for a YYYY-MM-DD.
+//
+// Monday-first because everything else here is: monthGrid rotates its leading
+// blanks the same way, and the calendar's weekday header row starts at Mon. Any
+// consumer indexing a seven-slot array by weekday uses this rather than
+// getUTCDay, so the rotation is written once.
+export function weekdayIndex(dayKey: string): number {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  return (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7;
+}
+
+// n days after a YYYY-MM-DD, as a YYYY-MM-DD. Date.UTC normalises the overflow,
+// so month and year ends need no special case.
+export function addDays(dayKey: string, n: number): string {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day + n));
+  return shifted.toISOString().slice(0, 10);
+}
+
+// How far forward the agenda invents empty days for. Two weeks: far enough to
+// see next week's gaps while there is still time to fill them, short enough that
+// a themed client's agenda does not become an endless list of days with nothing
+// on them.
+const THEME_HORIZON_DAYS = 14;
+
 // Days with items, in date order, from `fromDate` onwards. The agenda layout for
 // narrow screens: a calendar grid squeezed to 320px is worse than a list, and a
 // list only earns its place if it starts at today rather than making you scroll
 // past the whole month.
+//
+// WITH THEMES, IT ALSO LISTS DAYS THAT HAVE NOTHING ON THEM. That looks like the
+// opposite of what an agenda is for, and it is the point: once a weekday means
+// "real weddings", an empty Tuesday is not absence of data, it is a missing
+// post. A list built only from what exists can never show that, so the themed
+// days inside the horizon are filled in whether or not anything sits on them.
+//
+// Unthemed days are NOT invented. A client with no themes gets exactly the
+// agenda they had before this existed.
 export function agendaDays(
   items: CalendarItem[],
-  fromDate: string
-): { date: string; items: CalendarItem[] }[] {
+  fromDate: string,
+  // Seven Monday-first labels, '' for a day with no theme. Omitted entirely on a
+  // calendar that does not carry themes.
+  themes?: string[]
+): { date: string; items: CalendarItem[]; theme?: string }[] {
   const byDay = bucketByDay(items);
-  return [...byDay.entries()]
-    .filter(([date]) => date >= fromDate)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([date, dayItems]) => ({ date, items: dayItems }));
+  const dates = new Set([...byDay.keys()].filter((date) => date >= fromDate));
+
+  if (themes?.some(Boolean)) {
+    for (let offset = 0; offset < THEME_HORIZON_DAYS; offset++) {
+      const date = addDays(fromDate, offset);
+      if (themes[weekdayIndex(date)]) dates.add(date);
+    }
+  }
+
+  return [...dates]
+    .sort((a, b) => a.localeCompare(b))
+    .map((date) => {
+      const theme = themes?.[weekdayIndex(date)];
+      return {
+        date,
+        items: byDay.get(date) ?? [],
+        ...(theme ? { theme } : {}),
+      };
+    });
 }
 
 // How a day's posts tile inside one cell.

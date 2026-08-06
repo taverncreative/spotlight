@@ -7,8 +7,10 @@ import { encryptToken } from "@/lib/oauth/encryption";
 import {
   clientSettingsSchema,
   fieldErrorsFromZod,
+  weekdayThemesSchema,
   type ClientFormState,
 } from "@/lib/clients/schemas";
+import { normaliseThemes } from "@/lib/calendar/weekday-themes";
 
 // The client's own configuration, written from /c/[clientSlug]/settings.
 //
@@ -118,6 +120,54 @@ export async function setClientLogo(
   if (error) return { ok: false, error: "Could not save the logo." };
 
   revalidatePath("/home");
+  return { ok: true };
+}
+
+// The seven weekday themes, saved from the social calendar rather than the
+// Settings tab.
+//
+// WHY NOT ON THE SETTINGS TAB, which is where every other client setting lives.
+// A theme is decided while looking at the plan -- "Tuesday should be real
+// weddings, and there is nothing on the next three Tuesdays" -- and that thought
+// happens on the calendar, not two pages away in a form you opened to change a
+// deploy hook. The Settings tab is also five sections deep already.
+//
+// Called directly from the client component with plain arguments, like
+// setClientLogo above and for the same reason: it is one small thing saved on
+// its own, not a section of a larger form.
+export async function updateWeekdayThemes(
+  clientId: string,
+  clientSlug: string,
+  themes: string[]
+): Promise<{ ok: boolean; error?: string }> {
+  if (!clientId) return { ok: false, error: "Missing client." };
+
+  const parsed = weekdayThemesSchema.safeParse({
+    // Normalised before validation so a short array from an older client bundle
+    // is padded rather than rejected. The schema then guards the length cap,
+    // which normalising does not enforce -- it truncates.
+    weekday_themes: normaliseThemes(themes),
+  });
+  if (!parsed.success) {
+    return { ok: false, error: "Those themes could not be saved." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Signed out. Sign in again." };
+
+  const { error } = await supabase
+    .from("clients")
+    .update({ weekday_themes: parsed.data.weekday_themes })
+    .eq("id", clientId);
+  if (error) return { ok: false, error: "Could not save the themes." };
+
+  // The social calendar is the only surface that reads them today. Named
+  // explicitly rather than revalidating the client layout, so saving a theme
+  // does not refetch every module page for this client.
+  if (clientSlug) revalidatePath(`/c/${clientSlug}/social`);
   return { ok: true };
 }
 

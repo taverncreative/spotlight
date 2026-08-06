@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireClient } from "@/lib/clients/require-client";
 import { coverImageUrl } from "@/lib/social/media-paths";
 import { londonMonth, parseMonth } from "@/lib/calendar/grid";
+import { normaliseThemes } from "@/lib/calendar/weekday-themes";
 import { StatusPill } from "@/components/ui/status-pill";
 import { SocialCalendar } from "@/components/social/social-calendar";
 import { SocialRunway } from "@/components/social/social-runway";
@@ -99,14 +100,25 @@ export default async function SocialPage({
   const month = parseMonth(monthParam) ?? londonMonth(new Date().toISOString());
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("social_posts")
-    .select(
-      "id, caption, format, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path, media_type, poster_path), social_post_targets(account_id, social_accounts(platform), social_post_insights(likes, comments, shares, fetched_at, last_error))"
-    )
-    .eq("client_id", client.id)
-    .order("created_at", { ascending: false });
+  // The themes ride alongside the posts rather than in requireClient: they are
+  // one module's furniture, and every other per-client page would be paying for
+  // a column it never draws.
+  const [{ data }, themeRow] = await Promise.all([
+    supabase
+      .from("social_posts")
+      .select(
+        "id, caption, format, status, scheduled_at, published_at, created_at, last_error, social_post_media(position, storage_path, media_type, poster_path), social_post_targets(account_id, social_accounts(platform), social_post_insights(likes, comments, shares, fetched_at, last_error))"
+      )
+      .eq("client_id", client.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("clients")
+      .select("weekday_themes")
+      .eq("id", client.id)
+      .maybeSingle(),
+  ]);
   const posts = (data ?? []) as unknown as PostRow[];
+  const weekdayThemes = normaliseThemes(themeRow.data?.weekday_themes);
 
   // Upcoming scheduled posts first (soonest scheduled_at on top), then drafts and
   // published by recency (created_at descending).
@@ -231,7 +243,13 @@ export default async function SocialPage({
       </div>
 
       {isCalendar ? (
-        <SocialCalendar posts={posts} clientSlug={clientSlug} month={month} />
+        <SocialCalendar
+          posts={posts}
+          clientSlug={clientSlug}
+          clientId={client.id}
+          month={month}
+          weekdayThemes={weekdayThemes}
+        />
       ) : posts.length === 0 ? (
         <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
           No posts yet. Create your first post.

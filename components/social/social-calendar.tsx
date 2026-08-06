@@ -12,6 +12,7 @@ import {
   UndatedDrafts,
   type UndatedDraft,
 } from "@/components/calendar/undated-drafts";
+import { WeekdayThemesDialog } from "@/components/social/weekday-themes-dialog";
 import { SocialCancelButton } from "@/components/social/social-cancel-button";
 import { SocialDeleteButton } from "@/components/social/social-delete-button";
 
@@ -151,11 +152,17 @@ function undatedDrafts(
 export function SocialCalendar({
   posts,
   clientSlug,
+  clientId,
   month,
+  weekdayThemes,
 }: {
   posts: CalendarPost[];
   clientSlug: string;
+  // Only needed to save the themes; every other query on this page goes through
+  // the slug.
+  clientId: string;
   month: string;
+  weekdayThemes: string[];
 }) {
   const entries = socialEntries(posts, clientSlug);
   // monthGrid is the single place that knows how a month rolls over a year
@@ -173,6 +180,14 @@ export function SocialCalendar({
         monthHref={{ prev: `${base}${prevMonth}`, next: `${base}${nextMonth}` }}
         emptyMessage="Nothing scheduled from today onwards. Undated drafts are listed above."
         newPostHrefBase={`/c/${clientSlug}/social/new?date=`}
+        weekdayThemes={weekdayThemes}
+        headerAction={
+          <WeekdayThemesDialog
+            clientId={clientId}
+            clientSlug={clientSlug}
+            themes={weekdayThemes}
+          />
+        }
       />
     </div>
   );

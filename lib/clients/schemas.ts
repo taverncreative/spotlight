@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SERVICES } from "@/lib/clients/health";
+import { MAX_THEME_LENGTH, THEME_SLOTS } from "@/lib/calendar/weekday-themes";
 
 // The client status set, shared by the Zod schema, the management UI and the DB
 // check constraint. KEEP IN SYNC with migration 0008_clients_status_paused.sql.
@@ -130,6 +131,29 @@ export const clientSettingsSchema = z.object({
   // account is a capability, not a commitment, and the neglect score has to know
   // the difference (see migration 0061).
   services: z.array(z.enum(SERVICES)),
+});
+
+// The seven weekday themes, written from the social calendar rather than the
+// Settings tab. Its own schema for the same reason the two above are separate:
+// it is posted by its own form, and neither form should be able to submit the
+// other's fields.
+//
+// Exactly seven, Monday first, '' for a day with no theme -- the shape the
+// column's check constraint enforces (0091). The length cap is here because a
+// check constraint cannot express "every element is at most 24 characters"
+// without a subquery.
+export const weekdayThemesSchema = z.object({
+  weekday_themes: z
+    .array(
+      z
+        .string()
+        .trim()
+        .max(
+          MAX_THEME_LENGTH,
+          `Keep a theme under ${MAX_THEME_LENGTH} characters.`
+        )
+    )
+    .length(THEME_SLOTS),
 });
 
 export type ClientRosterValues = z.infer<typeof clientRosterSchema>;

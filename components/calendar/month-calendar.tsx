@@ -13,6 +13,7 @@ import {
   type CalendarItem,
   type MosaicSpan,
 } from "@/lib/calendar/grid";
+import { hasAnyTheme, themeForDay } from "@/lib/calendar/weekday-themes";
 
 // The shared calendar, module-agnostic.
 //
@@ -419,6 +420,39 @@ function DayList({ entries }: { entries: CalendarEntry[] }) {
   );
 }
 
+// A THEMED DAY WITH NOTHING ON IT, which is the whole reason themes exist.
+//
+// An unthemed empty cell means "nothing scheduled" and is drawn as empty space,
+// exactly as it always was. A themed empty cell means something narrower and
+// more useful: this day is supposed to carry a real wedding, and it has not got
+// one. Empty space cannot say that, so the slot is drawn -- a dashed outline
+// where a tile would go, holding the theme it is waiting for.
+//
+// PAST DAYS KEEP THE OUTLINE AND LOSE THE WORDS. A gap last Tuesday cannot be
+// filled, so it is history rather than a task, and repeating the theme down
+// every past week turns the month into a wall of the same four words. The faint
+// outline still reads as "this slot went empty" when you scan back, which is the
+// only question history has to answer here. Same grammar as a published post
+// receding: quiet, not absent.
+function ThemeGhost({ theme, past }: { theme: string; past: boolean }) {
+  return (
+    <div className="absolute inset-0 p-px">
+      <div
+        className={cn(
+          "flex size-full items-end rounded-sm border border-dashed px-1 pb-1",
+          past ? "border-border/50" : "border-muted-foreground/35"
+        )}
+      >
+        {past ? null : (
+          <span className="line-clamp-2 text-[11px] leading-tight text-muted-foreground/70">
+            {theme}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Shown only on a calendar that actually mixes modules, so a single-module
 // calendar is not carrying a legend explaining one thing.
 function Legend({ entries }: { entries: CalendarEntry[] }) {
@@ -453,12 +487,28 @@ export function MonthCalendar({
   monthHref,
   emptyMessage,
   newPostHrefBase,
+  weekdayThemes,
+  headerAction,
 }: {
   entries: CalendarEntry[];
   month: string;
   today: string; // London YYYY-MM-DD
   monthHref: { prev: string; next: string };
   emptyMessage: string;
+  // Seven Monday-first labels, '' for a day with no theme, matching the column
+  // order of the grid. OPTIONAL, and deliberately so: only the social calendar
+  // passes them today.
+  //
+  // The blog calendar does not, because a theme names a social rhythm -- Monday
+  // reviews is a post type, not a publishing day for a blog. The combined client
+  // calendar does not either: its columns carry both modules, so a social-only
+  // label above one would read as describing the whole day. Both are one prop
+  // away if that judgement turns out wrong.
+  weekdayThemes?: string[];
+  // Calendar furniture belonging to the module: the theme editor, today. Sits
+  // beside the month label, because it edits what is drawn on this grid rather
+  // than anything about the page around it.
+  headerAction?: ReactNode;
   // A URL with the day appended, e.g. "/c/acme/blog/new?date=". A base rather
   // than a function because a function cannot cross into the client cell, and
   // each module owns its own URL shape - the same reason monthHref is built by
@@ -473,7 +523,12 @@ export function MonthCalendar({
     newPostHrefBase ? `${newPostHrefBase}${day}` : undefined;
   const grid = monthGrid(month);
   const byDay = bucketByDay(entries);
-  const agenda = agendaDays(entries, today);
+  // A client who has set no themes must get exactly the calendar they had
+  // before this feature existed: no header line, no ghost slots, and an agenda
+  // built only from posts that exist.
+  const themes =
+    weekdayThemes && hasAnyTheme(weekdayThemes) ? weekdayThemes : null;
+  const agenda = agendaDays(entries, today, themes ?? undefined);
 
   return (
     <div className="space-y-3">
@@ -485,6 +540,7 @@ export function MonthCalendar({
         <div className="flex items-center gap-4">
           <p className="text-sm font-medium">{grid.label}</p>
           <Legend entries={entries} />
+          {headerAction}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -510,7 +566,10 @@ export function MonthCalendar({
 
       {/* Agenda: phones only. Upcoming days from today, no horizontal scroll. */}
       <div className="space-y-4 lg:hidden">
-        <Legend entries={entries} />
+        <div className="flex items-center justify-between gap-2">
+          <Legend entries={entries} />
+          {headerAction}
+        </div>
         {agenda.length === 0 ? (
           <p className="rounded-card border bg-card p-6 text-sm text-muted-foreground">
             {emptyMessage}
@@ -528,6 +587,9 @@ export function MonthCalendar({
               >
                 {formatDayLabel(day.date)}
                 {day.date === today ? " · today" : ""}
+                {day.theme ? (
+                  <span className="text-foreground/70"> · {day.theme}</span>
+                ) : null}
               </h3>
               {/* Below lg there is no grid, so there is no cell to click. The
                   day heading is the only thing standing in for a day, so the
@@ -538,8 +600,20 @@ export function MonthCalendar({
                   className="flex items-center gap-1.5 rounded-md border border-dashed p-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <Plus className="size-3.5" />
-                  New post on this day
+                  {/* The unfilled slot, named. A themed day that is empty is
+                      here BECAUSE it is empty -- the agenda invented it -- so
+                      "New post on this day" would bury the one thing it is
+                      trying to say. */}
+                  {day.theme && day.items.length === 0
+                    ? `No ${day.theme.toLowerCase()} this week`
+                    : "New post on this day"}
                 </Link>
+              ) : /* No composer to send anyone to (the combined calendar), so the
+                   gap has to state itself rather than hang off a link. */
+              day.theme && day.items.length === 0 ? (
+                <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+                  Nothing planned for {day.theme.toLowerCase()}.
+                </p>
               ) : null}
               <DayList entries={day.items} />
             </section>
@@ -551,12 +625,22 @@ export function MonthCalendar({
           forcing the page to scroll sideways. */}
       <div className="hidden overflow-hidden rounded-card border lg:block">
         <div className="grid grid-cols-7 gap-px bg-border">
-          {WEEKDAYS.map((day) => (
+          {WEEKDAYS.map((day, index) => (
             <div
               key={day}
               className="bg-card px-2 py-1.5 text-xs font-medium text-muted-foreground"
             >
               {day}
+              {/* The theme under the weekday name rather than beside it: seven
+                  columns divided by the viewport leave no room for "Mon ·
+                  Reviews" on one line, and truncating the theme is worse than
+                  giving it its own. The row grows by one line for a themed
+                  client and is unchanged for everyone else. */}
+              {themes?.[index] ? (
+                <span className="mt-0.5 block truncate text-[11px] font-normal text-foreground/70">
+                  {themes[index]}
+                </span>
+              ) : null}
             </div>
           ))}
           {grid.cells.map((cell, index) => {
@@ -568,6 +652,13 @@ export function MonthCalendar({
             const dayEntries = byDay.get(cell.dayKey) ?? [];
             const mosaic = mosaicLayout(dayEntries.length);
             const dayLabel = formatDayLabel(cell.dayKey);
+            // Only an EMPTY themed day gets the ghost. A day with posts on it
+            // has already had its theme honoured, and the header column says
+            // what the theme is; repeating it under a tile would be noise.
+            const ghost =
+              themes && dayEntries.length === 0
+                ? themeForDay(themes, cell.dayKey)
+                : null;
 
             return (
               <DayCell
@@ -586,7 +677,13 @@ export function MonthCalendar({
                   // The +N tile is now a plain marker rather than its own
                   // dialog trigger: the whole cell opens the day, so a second
                   // trigger inside it would be a button inside a button.
-                  mosaic.spans.length > 0 ? (
+                  ghost ? (
+                    // Rides in the mosaic slot, which the cell renders with
+                    // pointer events off, so the whole cell still opens the day
+                    // and "New post on this day" is one click on the gap the
+                    // ghost is pointing at.
+                    <ThemeGhost theme={ghost} past={cell.dayKey < today} />
+                  ) : mosaic.spans.length > 0 ? (
                     <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px p-px">
                       {dayEntries.slice(0, mosaic.shown).map((entry, slot) => (
                         <Tile

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  addDays,
   agendaDays,
   bucketByDay,
   firstWords,
@@ -10,6 +11,7 @@ import {
   mosaicLayout,
   parseDay,
   parseMonth,
+  weekdayIndex,
   type CalendarItem,
 } from "@/lib/calendar/grid";
 
@@ -207,6 +209,82 @@ test("nothing upcoming gives an empty agenda, not a crash", () => {
     agendaDays([item({ id: "old", date: "2020-01-01" })], "2026-07-27"),
     []
   );
+});
+
+// --- weekday themes -------------------------------------------------------
+
+// Monday-first, so the index matches the grid's column order. 2026-07-27 is a
+// Monday, which is what the fixtures above lean on.
+const MON_TUE = ["Reviews", "Real weddings", "", "", "", "", ""];
+
+test("weekdayIndex is Monday-first", () => {
+  assert.equal(weekdayIndex("2026-07-27"), 0); // Monday
+  assert.equal(weekdayIndex("2026-08-01"), 5); // Saturday
+  assert.equal(weekdayIndex("2026-08-02"), 6); // Sunday
+});
+
+test("addDays crosses month and year ends", () => {
+  assert.equal(addDays("2026-07-27", 5), "2026-08-01");
+  assert.equal(addDays("2026-12-31", 1), "2027-01-01");
+  assert.equal(addDays("2026-03-01", -1), "2026-02-28");
+});
+
+test("themed days with nothing on them still reach the agenda", () => {
+  const days = agendaDays([], "2026-07-27", MON_TUE);
+  // Two weeks from Monday the 27th: two Mondays, two Tuesdays, nothing else.
+  assert.deepEqual(
+    days.map((d) => `${d.date} ${d.theme}`),
+    [
+      "2026-07-27 Reviews",
+      "2026-07-28 Real weddings",
+      "2026-08-03 Reviews",
+      "2026-08-04 Real weddings",
+    ]
+  );
+  assert.deepEqual(days[0].items, []);
+});
+
+test("a themed day merges its theme with its posts rather than duplicating", () => {
+  const days = agendaDays(
+    [item({ id: "a", date: "2026-07-28" })],
+    "2026-07-27",
+    MON_TUE
+  );
+  const tuesdays = days.filter((d) => d.date === "2026-07-28");
+  assert.equal(tuesdays.length, 1);
+  assert.equal(tuesdays[0].theme, "Real weddings");
+  assert.equal(tuesdays[0].items.length, 1);
+});
+
+test("an unthemed weekday is never invented, even alongside themed ones", () => {
+  const days = agendaDays([], "2026-07-27", MON_TUE);
+  assert.equal(
+    days.some((d) => weekdayIndex(d.date) > 1),
+    false
+  );
+});
+
+test("no themes at all leaves the agenda exactly as it was", () => {
+  const items = [item({ id: "a", date: "2026-07-28" })];
+  const blank = ["", "", "", "", "", "", ""];
+  assert.deepEqual(
+    agendaDays(items, "2026-07-27", blank),
+    agendaDays(items, "2026-07-27")
+  );
+  assert.deepEqual(agendaDays([], "2026-07-27", blank), []);
+});
+
+test("a themed day outside the horizon only appears if it has posts", () => {
+  const days = agendaDays(
+    [item({ id: "far", date: "2026-09-07" })], // a Monday, well past 14 days
+    "2026-07-27",
+    MON_TUE
+  );
+  assert.equal(days.at(-1)?.date, "2026-09-07");
+  // It still carries its theme, because the theme is a fact about the weekday.
+  assert.equal(days.at(-1)?.theme, "Reviews");
+  // And nothing empty crept in between the horizon and it.
+  assert.equal(days.filter((d) => d.date > "2026-08-09").length, 1);
 });
 
 // --- mosaic ---------------------------------------------------------------
