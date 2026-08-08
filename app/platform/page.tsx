@@ -4,9 +4,12 @@ import { isBehindSchema, readPlatformMetrics } from "@/lib/platform/client";
 import { readAge, shortDate, snapshotIsStale } from "@/lib/platform/format";
 import { PLATFORM_SCHEMA_VERSION } from "@/lib/platform/types";
 import { ConnectionState } from "@/components/platform/connection-state";
-import { AttentionList } from "@/components/platform/attention-list";
+import { VerdictBanner } from "@/components/platform/verdict-banner";
+import { PlatformLine } from "@/components/platform/platform-line";
 import { Aggregates } from "@/components/platform/aggregates";
 import { ModuleAdoption } from "@/components/platform/module-adoption";
+import { RequestsQueue } from "@/components/platform/requests-queue";
+import { WorkspaceRoster } from "@/components/platform/workspace-roster";
 
 // Never prerendered and never cached: the endpoint is no-store, every
 // successful call is audited to a platform_reads ledger on BSK View, and a
@@ -85,11 +88,41 @@ export default async function PlatformPage() {
           read, unlike the ones a failed read would have invented. */}
       {empty ? <ConnectionState state="empty" /> : null}
 
-      {!empty ? <AttentionList workspaces={metrics.workspaces} /> : null}
+      {/* ZONE 1. The answer, before anything that needs reading. */}
+      {!empty ? (
+        <VerdictBanner workspaces={metrics.workspaces} platform={platform} />
+      ) : null}
 
-      <Aggregates platform={platform} />
+      {/* The three figures that earn the default view. One line, under the
+          answer, above the detail. */}
+      {!empty ? (
+        <PlatformLine platform={platform} workspaces={metrics.workspaces} />
+      ) : null}
 
-      <ModuleAdoption platform={platform} />
+      {!empty ? (
+        <RequestsQueue platform={platform} workspaces={metrics.workspaces} />
+      ) : null}
+
+      {/* ZONE 2, with ZONE 3 inside each line. */}
+      {!empty ? (
+        <WorkspaceRoster workspaces={metrics.workspaces} platform={platform} />
+      ) : null}
+
+      {/* EVERYTHING ELSE, FOLDED. Platform totals and module adoption are the
+          answer to a question nobody opens this page holding. MRR and churn are
+          a monthly thought, not a Tuesday-morning one, and a platform-wide
+          adoption bar at two workspaces is a two-point average of two figures
+          already on the lines above. They stay one click away rather than
+          taking the top of the screen from the one line that matters. */}
+      <details>
+        <summary className="cursor-pointer text-sm text-muted-foreground transition-colors hover:text-foreground">
+          Platform totals
+        </summary>
+        <div className="mt-4 space-y-6">
+          <Aggregates platform={platform} />
+          <ModuleAdoption platform={platform} />
+        </div>
+      </details>
     </div>
   );
 }
@@ -106,14 +139,12 @@ function Header() {
         <ArrowLeft className="size-3.5" aria-hidden />
         Clients
       </Link>
-      <div className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight">
-          BSK View platform
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Who needs chasing, read live from BSK View.
-        </p>
-      </div>
+      {/* No subtitle. The line below the title used to explain what the page is
+          for; the verdict now says what the page is FOR TODAY, and two sentences
+          competing for the same spot means neither is read. */}
+      <h1 className="text-xl font-semibold tracking-tight">
+        BSK View platform
+      </h1>
     </div>
   );
 }

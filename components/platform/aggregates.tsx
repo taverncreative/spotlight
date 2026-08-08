@@ -1,15 +1,23 @@
 import { pounds, shortDate } from "@/lib/platform/format";
 import type { PlatformAggregates } from "@/lib/platform/types";
 
-// The totals. Deliberately below the attention list and deliberately plainer:
-// they are context for the chase, not the point of the screen.
+// What is left once the workspace-shaped counts have become names.
 //
-// The field_notes prose that used to sit under each section is gone: John knows
-// what these numbers mean and does not need it restated every time he opens the
-// page. What survives is carried by the labels themselves, which is where it
-// belonged anyway. "MRR (estimated)" says estimated in the label. Conversions
-// and churn are titled with the period they actually cover, so they cannot
-// imply all time. Those are names, not commentary.
+// "1 trialing", "2 workspaces", "1 new in 30 days" and "0 without a
+// subscription" all used to live here as tiles. Every one of them is now a line
+// in the roster with the workspace named beside it, and keeping both would have
+// meant showing the same fact twice in two shapes, the weaker one first.
+//
+// What survives is what a name cannot carry: money summed across the platform,
+// and movement over a period, which is about workspaces that may no longer be
+// in the list at all. The suspended and archived line renders only when there
+// is one, because "0 suspended" is not news.
+//
+// MRR IS READ LIVE, every page load, straight from BSK View's current plan
+// prices. Spotlight stores no history of it and draws no trend, so the annual-
+// price bug that made snapshots before 6 August report a twelfth of the truth
+// cannot reach this page: there is no stored series here to be wrong. If a
+// trend line is ever added, it wants the correction annotated at that date.
 
 function Stat({
   label,
@@ -32,48 +40,37 @@ function Stat({
 }
 
 export function Aggregates({ platform }: { platform: PlatformAggregates }) {
-  const requestStatuses = Object.entries(platform.requests_by_status);
+  const offRoster =
+    platform.workspaces_suspended > 0 || platform.workspaces_archived > 0;
 
   return (
     <div className="space-y-6">
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Platform</h2>
+        <h2 className="text-sm font-semibold">Money</h2>
 
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="Workspaces"
-            value={platform.workspaces_total}
-            note={`${platform.workspaces_active} active · ${platform.workspaces_suspended} suspended · ${platform.workspaces_archived} archived`}
-          />
-          <Stat
-            label="MRR (estimated)"
-            value={pounds(platform.mrr_pence_estimated_from_plan_prices)}
-          />
+        {/* MRR itself is not repeated here: it is on the line at the top of the
+            page, where it belongs, and a second copy inside the fold would be
+            the same figure twice in two shapes. */}
+        <div className="grid gap-2 sm:grid-cols-2">
           <Stat
             label="At-risk MRR"
             value={pounds(platform.at_risk_mrr_pence)}
             note={`${platform.subscriptions_past_due} past due`}
           />
           <Stat
-            label="New in 30 days"
-            value={platform.workspaces_created_last_30d}
+            label="Cancelled"
+            value={platform.subscriptions_canceled}
+            note="subscriptions"
           />
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat
-            label="Trialing"
-            value={platform.subscriptions_trialing}
-            note={`${platform.trials_expiring_within_7d} lapse within 7 days`}
-          />
-          <Stat label="Trials overrun" value={platform.trials_overdue} />
-          <Stat label="No subscription" value={platform.subscriptions_none} />
-          <Stat
-            label="Subscribed"
-            value={platform.subscriptions_active}
-            note={`${platform.subscriptions_canceled} cancelled`}
-          />
-        </div>
+        {offRoster ? (
+          <p className="text-xs text-muted-foreground">
+            {platform.workspaces_suspended} suspended ·{" "}
+            {platform.workspaces_archived} archived, excluded from the cohorts
+            above.
+          </p>
+        ) : null}
       </section>
 
       <section className="space-y-3">
@@ -109,33 +106,6 @@ export function Aggregates({ platform }: { platform: PlatformAggregates }) {
             <Stat label="Churn, 90 days" value={platform.churn_last_90d} />
           </div>
         )}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Requests</h2>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <Stat
-            label="Awaiting agency"
-            value={platform.requests_awaiting_agency}
-            note="our queue"
-          />
-          <Stat
-            label="Awaiting client"
-            value={platform.requests_awaiting_client}
-            note="their queue"
-          />
-          <Stat
-            label="By status"
-            value={requestStatuses.reduce((sum, [, n]) => sum + n, 0)}
-            note={
-              requestStatuses.length
-                ? requestStatuses
-                    .map(([status, n]) => `${status.replace(/_/g, " ")} ${n}`)
-                    .join(" · ")
-                : "none raised yet"
-            }
-          />
-        </div>
       </section>
     </div>
   );

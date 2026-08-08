@@ -95,6 +95,26 @@ export type WorkspaceModule = {
   enabled_but_idle: boolean;
 };
 
+// One open request, as far as the feed is allowed to describe it.
+//
+// SUBJECT AND DATE ONLY, AND THIS IS A PRIVACY LINE, NOT AN OVERSIGHT. A
+// subject is a label the client chose for a message they are deliberately
+// sending us. A body is free text that may name their own customer, carry a
+// phone number, or complain about a third party: data we never collected and
+// have no business holding in a second system. There is no `body` field here
+// and there must never be one, whatever a future payload happens to include.
+//
+// `url` is BSK View's own deep link. It is sent rather than assembled here,
+// because BSK View owns its routing and a URL this console builds from a slug
+// would break silently the day that routing changes.
+export type PlatformRequest = {
+  id: string;
+  subject: string;
+  created_at: string;
+  awaiting: "agency" | "client";
+  url: string;
+};
+
 export type PlatformWorkspace = {
   organisation_id: string;
   name: string;
@@ -143,6 +163,12 @@ export type PlatformWorkspace = {
 
   open_requests: number;
   requests_awaiting_client: number;
+  // The requests themselves, subject and date only. OPTIONAL BY DEPLOYMENT,
+  // not by convenience: v4 and earlier carry counts alone, so `undefined` means
+  // "this BSK View cannot report subjects" and an empty array means "it can,
+  // and there are none". The UI has to tell those apart, because the first is a
+  // reason to say so and the second is good news.
+  open_request_list?: PlatformRequest[];
 
   modules: WorkspaceModule[];
 };

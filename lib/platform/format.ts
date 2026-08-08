@@ -22,11 +22,16 @@ export function shortDate(iso: string): string {
   });
 }
 
+// Whole days between a timestamp and now. The number behind daysAgo, exported
+// separately because the cohort rules compare it rather than print it.
+export function daysSince(iso: string, now: Date = new Date()): number {
+  return Math.floor((now.getTime() - new Date(iso).getTime()) / 86_400_000);
+}
+
 // "3 days ago", "today". Used for evidence timestamps, where the gap matters
 // more than the date itself.
 export function daysAgo(iso: string, now: Date = new Date()): string {
-  const then = new Date(iso);
-  const days = Math.floor((now.getTime() - then.getTime()) / 86_400_000);
+  const days = daysSince(iso, now);
   if (days <= 0) return "today";
   if (days === 1) return "yesterday";
   return `${days} days ago`;
